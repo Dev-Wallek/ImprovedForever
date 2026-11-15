@@ -8,14 +8,18 @@
 -- X uses or equips an item (at the bank moves it, at a merchant sells it).
 -- Both run through a secure button of ours, bound to PAD1 (left click) and
 -- PAD3 (right click) by priority override bindings (the game's own stay on
--- top without them), its attributes set out of combat. The right stick
+-- top without them), its attributes set out of combat. Select (PADBACK)
+-- puts the keyboard in the window's search box and takes it out again, B
+-- takes it out of any edit box of the window, as in the game's bag window
+-- (ContainerFrame.lua: SetUpSearchGamepad). The right stick
 -- scrolls the window's scroll box, as the game's windows scroll. A legend of
 -- the game's look, one prompt a line beside the window on the side toward the
 -- screen's centre, names them.
 --   IF.Navigator.New(win, root?) -> nav: root, when given, holds the elements
 --     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
---   nav:Press(button, down) -> true when it took the press (the D-pad)
+--   nav:Press(button, down) -> true when it took the press (the D-pad,
+--     Select, B while typing)
 --   nav:Passes(button) -> true for A and X while on, an element chosen and
 --     our bindings in place: the window's catcher lets those through
 --     (SetPropagateKeyboardInput) and nothing else reaches the game's
@@ -207,26 +211,30 @@ end
 -- The legend's entries for what is chosen (one table each: the legend lays out each once)
 local MOVE = { glyph = "DPAD", text = "Move" }
 local SCROLL = { "PADRSTICK", "RS", "Scroll" }
+local SEARCH = { "PADBACK", "BACK", "Search" }
 local LEGENDS = {}
-local function Entries(scroll, a, x, b)
-    local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b
+local function Entries(scroll, a, x, b, search)
+    local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b .. "|" .. tostring(search)
     if not LEGENDS[key] then
         local defs = { MOVE }
         if scroll then defs[#defs + 1] = SCROLL end
         defs[#defs + 1] = { "PAD1", "A", a }
         if x then defs[#defs + 1] = { "PAD3", "X", x } end
+        if search then defs[#defs + 1] = SEARCH end
         defs[#defs + 1] = { "PAD2", "B", b }
         LEGENDS[key] = defs
     end
     return LEGENDS[key]
 end
 
-local function Legend(f, scroll)
-    local b = CursorHasItem() and "Put back" or "Close"
-    if not f then return Entries(scroll, "Select", nil, b) end
-    if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b) end
-    if not Slot(f) then return Entries(scroll, "Select", nil, b) end
-    return Entries(scroll, CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b)
+-- (typing: an edit box of the window has the keyboard, B leaves it)
+local function Legend(f, scroll, search, typing)
+    local b = typing and "Back" or CursorHasItem() and "Put back" or "Close"
+    search = search and not typing
+    if not f then return Entries(scroll, "Select", nil, b, search) end
+    if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b, search) end
+    if not Slot(f) then return Entries(scroll, "Select", nil, b, search) end
+    return Entries(scroll, CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b, search)
 end
 
 -- The scroll boxes under f (the game's ScrollBox, Baganator's lists and views)
@@ -290,9 +298,22 @@ function Nav:Scroll(elapsed)
     box:SetScrollPercentage(Clamp((box:GetDerivedScrollOffset() - speed * elapsed) / range, 0, 1))
 end
 
+-- The window's search box, shown (Baganator's SearchWidget, the game's SearchBox), or nil
+function Nav:SearchBox()
+    local widget = self.win.SearchWidget
+    local box = self.win.SearchBox or (widget and widget.SearchBox)
+    return box and box:IsVisible() and box or nil
+end
+
+-- The edit box of the window that has the keyboard, or nil
+function Nav:Typing()
+    local focus = GetCurrentKeyBoardFocus()
+    return focus and Holds(self.win, focus) and focus or nil
+end
+
 -- Beside the window, on the side toward the screen's centre, bottoms level
 function Nav:ShowLegend()
-    local defs = self.on and Legend(self.sel, self:Box() ~= nil) or nil
+    local defs = self.on and Legend(self.sel, self:Box() ~= nil, self:SearchBox() ~= nil, self:Typing() ~= nil) or nil
     if defs == self.legend.defs then return end
     self.legend:Set(defs)
     if not defs then return end
@@ -359,8 +380,18 @@ function Nav:Move(button)
     if to then self:Select(to) end
 end
 
+-- Select (PADBACK) and B as in the game's bag window: Select puts the
+-- keyboard in the search box and takes it out again, B takes it out
 function Nav:Press(button, down)
-    if not (self.on and DIRS[button]) then return false end
+    if not self.on then return false end
+    local typing = self:Typing()
+    if button == "PADBACK" or (button == "PAD2" and typing) then
+        if down then return true end
+        if typing then typing:ClearFocus()
+        elseif button == "PADBACK" and self:SearchBox() then self:SearchBox():SetFocus() end
+        return true
+    end
+    if not DIRS[button] then return false end
     if down then
         self.held, self.next = button, GetTime() + REPEAT_DELAY
         self:Move(button)

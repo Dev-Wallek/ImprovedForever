@@ -3,7 +3,8 @@
 -- character list, its search help and the bag slots bar above the bags or bank, each one its
 -- own place in the row by where it sits on screen, its focus glow on while it
 -- has the pad (the bar has none: the cursor alone shows it), the game's focus
--- dimmed meanwhile, the core's cursor in it (Navigator.lua: D-pad, A, X),
+-- dimmed meanwhile, the core's cursor in it (Navigator.lua: D-pad, A, X,
+-- Select for the search box),
 -- Circle closes it (the bar by Baganator's own toggle). The game's frame
 -- manager never lists them, so the pad is taken by a catcher frame of ours
 -- on each. Never in combat: combat lets the pad go.
