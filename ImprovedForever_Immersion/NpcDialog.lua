@@ -264,7 +264,7 @@ local function SetProgress(share)
     spark:SetShown(share > 0 and share < 1)
 end
 
--- Rewards (round, in a row) and the quests and options (a line each), then
+-- Rewards (round, two a row) and the quests and options (a line each), then
 -- the answers
 local itemLabel = Shadowed(panel:CreateFontString(nil, "OVERLAY", "GameFontNormal"), GOLD)
 local items = CreateFrame("Frame", nil, panel)
@@ -1373,7 +1373,22 @@ local function Build(d)
     itemLabel:SetShown(hasItems and d.itemLabel ~= nil)
     if itemLabel:IsShown() then Place(itemLabel, itemLabel:GetStringHeight(), 6) end
     extra:SetText(table.concat(extras, "    "))
-    local wide = #list * ITEM + math.max(0, #list - 1) * GAP
+    -- (in the game's grid, so each D-pad press lands where it looks: its
+    -- rewards to choose, then the fixed ones from a new row, two a row
+    -- (QuestInfo_ShowRewards; QuestFrame.xml's QuestProgressItem<n> for the
+    -- items needed). The game hard-codes the two, so it can't be read.)
+    local COLUMNS = 2
+    local cells, kind, first, n, rowCount, colCount = {}, nil, 0, 0, 0, 1
+    for i, it in ipairs(list) do
+        if it.kind ~= kind then kind, first, n = it.kind, rowCount, 0 end
+        local row, col = first + math.floor(n / COLUMNS), n % COLUMNS
+        cells[i] = { row, col }
+        n = n + 1
+        rowCount = math.max(rowCount, row + 1)
+        colCount = math.max(colCount, col + 1)
+    end
+    local wide = colCount * ITEM + (colCount - 1) * GAP
+    local tall = math.max(1, rowCount) * (ITEM + GAP) - GAP
     for i, it in ipairs(list) do
         local b = ItemButton(i)
         b.kind, b.index, b.choice = it.kind, it.index, it.choice
@@ -1388,13 +1403,14 @@ local function Build(d)
             ND.Refresh()
         end or nil
         b:ClearAllPoints()
-        b:SetPoint("LEFT", items, "CENTER", -wide / 2 + (i - 1) * (ITEM + GAP), 0)
+        b:SetPoint("TOPLEFT", items, "TOP", -wide / 2 + cells[i][2] * (ITEM + GAP), -cells[i][1] * (ITEM + GAP))
         b:Show()
         byKey[it.kind .. ":" .. it.index] = b
     end
     for i = #list + 1, #itemPool do itemPool[i]:Hide() end
     items:SetShown(#list > 0)
-    if #list > 0 then Place(items, ITEM, #extras > 0 and 8 or 12) end
+    items:SetHeight(tall)
+    if #list > 0 then Place(items, tall, #extras > 0 and 8 or 12) end
     extra:SetShown(#extras > 0)
     if #extras > 0 then Place(extra, extra:GetStringHeight(), 12) end
 
