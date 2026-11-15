@@ -1,19 +1,23 @@
 -- A cursor for another addon's window (Baganator's bags, ...): the D-pad
 -- moves it between what can be pressed there (item slots, buttons, check
--- boxes, edit boxes) by where each sits on screen, A presses it. Drawn as
--- ours (IF.Focus.Cursor, only while the window's glow is on); the element
--- is hovered as by the mouse (its OnEnter: an item's tooltip at it).
--- A runs through a secure button of ours, bound to PAD1 by a priority
--- override binding (the game's own stays on top without it), its
--- attributes set out of combat: an item slot used (type "item": use or
--- equip, at the bank moved, as a right click; at a merchant sold), a button
--- clicked (type "click"), an edit box given the focus.
---   IF.Navigator.New(win) -> nav
+-- boxes, edit boxes) by where each sits on screen. Drawn as ours
+-- (IF.Focus.Cursor, only while the window's glow is on); the element is
+-- hovered as by the mouse (its OnEnter: an item's tooltip at it).
+-- The buttons as in the game's own bag windows: A picks an item up, or puts
+-- the one held down there (swapping), presses a button, focuses an edit box;
+-- X uses or equips an item (at the bank moves it, at a merchant sells it).
+-- Both run through a secure button of ours, bound to PAD1 (left click) and
+-- PAD3 (right click) by priority override bindings (the game's own stay on
+-- top without them), its attributes set out of combat. A legend of the game's
+-- look beside the window, on the side toward the screen's centre, names them.
+--   IF.Navigator.New(win, root?) -> nav: root, when given, holds the elements
+--     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
 --   nav:Press(button, down) -> true when it took the press (the D-pad)
---   nav:Passes(button) -> true for PAD1 while on: the window's catcher lets
---     it through to the binding (SetPropagateKeyboardInput)
--- Combat start frees PAD1 at once (PLAYER_REGEN_DISABLED).
+--   nav:Passes(button) -> true for A and X while on, an element chosen and
+--     our bindings in place: the window's catcher lets those through
+--     (SetPropagateKeyboardInput) and nothing else reaches the game's
+-- Combat start frees PAD1 and PAD3 at once (PLAYER_REGEN_DISABLED).
 local _, IF = ...
 
 local N = {}
@@ -21,6 +25,7 @@ IF.Navigator = N
 
 local DIRS = { PADDUP = { 0, 1 }, PADDDOWN = { 0, -1 }, PADDLEFT = { -1, 0 }, PADDRIGHT = { 1, 0 } }
 local REPEAT_DELAY, REPEAT_EVERY = 0.35, 0.1
+local LEGEND_GAP = 8
 
 local binder = CreateFrame("Frame")
 local active   -- (the nav holding PAD1)
@@ -32,7 +37,10 @@ use:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -20, 20)
 -- binding sends the game's key-down setting's side, else nothing runs)
 use:RegisterForClicks("AnyDown", "AnyUp")
 use:SetAttribute("useOnKeyDown", false)
-local USE_BINDING = "CLICK " .. use:GetName() .. ":LeftButton"
+local BINDS = { PAD1 = "LeftButton", PAD3 = "RightButton" }
+local function Action(key)
+    return "CLICK " .. use:GetName() .. ":" .. BINDS[key]
+end
 
 local function Merchant()
     return _G.MerchantFrame and MerchantFrame:IsShown() or false
@@ -46,44 +54,63 @@ local function Slot(f)
     return bag, f:GetID()
 end
 
--- Where A goes for f: its type and the attribute it reads
-local function Want(f)
+-- The secure attributes for f: A (suffix 1) clicks a button; X (suffix 2)
+-- uses an item, as a right click. An item picked up, sold or an edit box
+-- focused is our hook's.
+local function Wanted(f)
+    if not f then return {} end
     local bag, slot = Slot(f)
     if bag then
-        if Merchant() then return nil end
-        return "item", "item", bag .. " " .. slot
+        if Merchant() then return {} end
+        return { type2 = "item", item2 = bag .. " " .. slot }
     end
-    if f:GetObjectType() == "EditBox" then return nil end
-    return "click", "clickbutton", f
+    if f:GetObjectType() == "EditBox" then return {} end
+    return { type1 = "click", clickbutton1 = f }
 end
 
 -- (what the secure button is set to: changed out of combat only)
 local set = {}
 local function Aim(f)
     if InCombatLockdown() then return end
-    local kind, key, value
-    if f then kind, key, value = Want(f) end
-    if set.kind == kind and set.key == key and set.value == value then return end
-    if set.key and set.key ~= key then use:SetAttribute(set.key, nil) end
-    use:SetAttribute("type", kind)
-    if key then use:SetAttribute(key, value) end
-    set.kind, set.key, set.value = kind, key, value
+    local want = Wanted(f)
+    for key, value in pairs(set) do
+        if want[key] ~= value then use:SetAttribute(key, nil) end
+    end
+    for key, value in pairs(want) do
+        if set[key] ~= value then use:SetAttribute(key, value) end
+    end
+    set = want
 end
 
--- What A does besides the secure action: an edit box focused, an item sold
-use:HookScript("OnClick", function(_, _, down)
+-- What A and X do besides the secure action: an edit box focused, an item
+-- picked up or put down, an item sold
+use:HookScript("OnClick", function(_, button, down)
     if down then return end
     local f = active and active.sel
     if not (f and f:IsVisible()) then return end
-    if f:GetObjectType() == "EditBox" then return f:SetFocus() end
+    if f:GetObjectType() == "EditBox" then
+        if button == "LeftButton" then f:SetFocus() end
+        return
+    end
     local bag, slot = Slot(f)
-    if bag and Merchant() then C_Container.UseContainerItem(bag, slot) end
+    if not bag then return end
+    if button == "LeftButton" then C_Container.PickupContainerItem(bag, slot)
+    elseif Merchant() then C_Container.UseContainerItem(bag, slot) end
 end)
 
 local function Bind(on)
     if InCombatLockdown() then return end
     ClearOverrideBindings(binder)
-    if on then SetOverrideBindingClick(binder, true, "PAD1", use:GetName()) end
+    if not on then return end
+    for key, mouse in pairs(BINDS) do SetOverrideBindingClick(binder, true, key, use:GetName(), mouse) end
+end
+
+local function Bound()
+    for key in pairs(BINDS) do
+        local ok, now = pcall(GetBindingAction, key, true)
+        if not (ok and now == Action(key)) then return false end
+    end
+    return true
 end
 
 local function Center(f)
@@ -101,19 +128,22 @@ local function Pressable(f)
     return f:IsEnabled() and f:IsMouseEnabled()
 end
 
--- What can be pressed in win: shown, inside it on screen
-local function Elements(win)
+-- What can be pressed: shown, under root (anywhere), or under win and inside it on screen
+local function Elements(win, root)
     local list = {}
     local l, b, w, h = win:GetRect()
     if not l then return list end
     local s = win:GetEffectiveScale()
     l, b, w, h = l * s, b * s, w * s, h * s
+    local function Inside(x, y)
+        return root or (x >= l and x <= l + w and y >= b and y <= b + h)
+    end
     local function Walk(f)
         for _, child in ipairs({ f:GetChildren() }) do
             if child:IsShown() and not child.navigatorSkip then
                 if Pressable(child) then
                     local x, y = Center(child)
-                    if x and child:GetWidth() > 0 and x >= l and x <= l + w and y >= b and y <= b + h then
+                    if x and child:GetWidth() > 0 and Inside(x, y) then
                         list[#list + 1] = child
                     end
                 else
@@ -122,7 +152,7 @@ local function Elements(win)
             end
         end
     end
-    Walk(win)
+    Walk(root or win)
     return list
 end
 
@@ -168,12 +198,50 @@ local function Step(list, from, dx, dy)
     return best
 end
 
+-- The legend's entries for what is chosen (one table each: the legend lays out each once)
+local MOVE = { glyph = "DPAD", text = "Move" }
+local LEGENDS = {}
+local function Entries(a, x, b)
+    local key = a .. "|" .. (x or "") .. "|" .. b
+    if not LEGENDS[key] then
+        local defs = { MOVE, { "PAD1", "A", a } }
+        if x then defs[#defs + 1] = { "PAD3", "X", x } end
+        defs[#defs + 1] = { "PAD2", "B", b }
+        LEGENDS[key] = defs
+    end
+    return LEGENDS[key]
+end
+
+local function Legend(f)
+    local b = CursorHasItem() and "Put back" or "Close"
+    if not f then return Entries("Select", nil, b) end
+    if f:GetObjectType() == "EditBox" then return Entries("Edit", nil, b) end
+    if not Slot(f) then return Entries("Select", nil, b) end
+    return Entries(CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b)
+end
+
 local Nav = {}
 Nav.__index = Nav
 
 local function Hover(f, on)
     local script = f and f:GetScript(on and "OnEnter" or "OnLeave")
     if script then pcall(script, f) end
+end
+
+-- Beside the window, on the side toward the screen's centre, bottoms level
+function Nav:ShowLegend()
+    local defs = self.on and Legend(self.sel) or nil
+    if defs == self.legend.defs then return end
+    self.legend:Set(defs)
+    if not defs then return end
+    self.legend:ClearAllPoints()
+    local x = Center(self.win)
+    local mid = UIParent:GetCenter() * UIParent:GetEffectiveScale()
+    if x and x > mid then
+        self.legend:SetPoint("BOTTOMRIGHT", self.win, "BOTTOMLEFT", -LEGEND_GAP, 0)
+    else
+        self.legend:SetPoint("BOTTOMLEFT", self.win, "BOTTOMRIGHT", LEGEND_GAP, 0)
+    end
 end
 
 function Nav:Select(f)
@@ -183,13 +251,14 @@ function Nav:Select(f)
     if not f then
         self.cursor:Hide()
         Aim(nil)
-        return
+        return self:ShowLegend()
     end
     self.x, self.y = Center(f)
     self.slotKey = table.concat({ Slot(f) }, " ")
     self.cursor:Point(f)
     Hover(f, true)
     Aim(f)
+    self:ShowLegend()
 end
 
 function Nav:Set(on)
@@ -201,13 +270,15 @@ function Nav:Set(on)
         if active and active ~= self then active:Set(false) end
         active = self
         local keep = self.last
-        self:Select((keep and keep:IsVisible() and Pressable(keep) and keep) or First(Elements(self.win)))
+        self:Select((keep and keep:IsVisible() and Pressable(keep) and keep) or First(Elements(self.win, self.root)))
         Bind(true)
+        self:ShowLegend()
         self.driver:Show()
     else
         -- (the one to come back to)
         self.last = self.sel
         self:Select(nil)
+        self:ShowLegend()
         self.driver:Hide()
         if active == self then
             active = nil
@@ -218,7 +289,7 @@ end
 
 function Nav:Move(button)
     local d = DIRS[button]
-    local list = Elements(self.win)
+    local list = Elements(self.win, self.root)
     if not (self.sel and self.sel:IsVisible()) then return self:Select(First(list)) end
     local to = Step(list, self.sel, d[1], d[2])
     if to then self:Select(to) end
@@ -235,22 +306,24 @@ function Nav:Press(button, down)
     return true
 end
 
+-- (with nothing chosen, or the game's bindings over ours, A would reach the game's: kept)
 function Nav:Passes(button)
-    return self.on and button == "PAD1" or false
+    return self.on and BINDS[button] ~= nil and self.sel ~= nil and self.sel:IsVisible() and Bound() or false
 end
 
--- Each frame while on: the held direction repeated, the chosen one kept
--- (lost when the window lays itself out again: the nearest instead; the
--- same button showing another item: hovered again), PAD1 bound again when
--- the game's windows bound theirs over it
+-- Each frame while on: our bindings put back when the game's windows bound
+-- theirs over them, the held direction repeated, the chosen one kept (lost
+-- when the window lays itself out again: the nearest instead; the same
+-- button showing another item: hovered again), the legend kept to it
 local function Tick(self)
+    if not Bound() then Bind(true) end
     if self.held and GetTime() >= self.next then
         self.next = GetTime() + REPEAT_EVERY
         self:Move(self.held)
     end
     local f = self.sel
     if not (f and f:IsVisible() and Pressable(f)) then
-        local list = Elements(self.win)
+        local list = Elements(self.win, self.root)
         self.sel = nil
         return self:Select((self.x and Nearest(list, self.x, self.y)) or First(list))
     end
@@ -261,16 +334,19 @@ local function Tick(self)
     end
     self.x, self.y = Center(f)
     Aim(f)
-    local ok, now = pcall(GetBindingAction, "PAD1", true)
-    if not (ok and now == USE_BINDING) then Bind(true) end
+    self:ShowLegend()
 end
 
-function N.New(win)
-    local nav = setmetatable({ win = win, on = false }, Nav)
+function N.New(win, root)
+    local nav = setmetatable({ win = win, root = root, on = false }, Nav)
     nav.cursor = IF.Focus.Cursor(win)
     nav.cursor.navigatorSkip = true
+    nav.cursor.window = win
     -- (over the window's own buttons, whatever their levels)
     nav.cursor:SetFrameStrata("FULLSCREEN_DIALOG")
+    nav.legend = IF.InputLegend(win)
+    nav.legend.navigatorSkip = true
+    nav.legend.row.navigatorSkip = true
     nav.driver = CreateFrame("Frame")
     nav.driver:Hide()
     nav.driver:SetScript("OnUpdate", function() Tick(nav) end)

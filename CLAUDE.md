@@ -66,7 +66,8 @@ focus the way Forever's native windows do. The shared code is
 - Another addon's window (Baganator's) gets `IF.Navigator.New(win)`
   (`ImprovedForever/Navigator.lua`): `nav:Set(on)` with the window's focus,
   its catcher passing `nav:Press(button, down)` and propagating what
-  `nav:Passes(button)` says (A reaches a secure button by a PAD1 binding).
+  `nav:Passes(button)` says (A and X reach a secure button by PAD1 / PAD3
+  bindings; nothing else may reach the game's bindings).
 
 ### Placement
 - Every side window of ours sits where the game would put a panel. Use

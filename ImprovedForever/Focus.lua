@@ -684,9 +684,10 @@ function F.Cursor(parent)
         arrow.cursorAnim:Stop()
     end)
     -- (only where the pad is: its window glowing, when it has a glow; and
-    -- only with the pad in hand)
+    -- only with the pad in hand. cur.window: the window it's in, when that
+    -- isn't its top frame)
     cur:SetScript("OnUpdate", function(self)
-        local win = TopWindow(self)
+        local win = self.window or TopWindow(self)
         local glow = win and win.FrameGlow
         self:SetAlpha(((glow and not glow:IsShown()) or not IF.Input.Pad()) and 0 or 1)
     end)
