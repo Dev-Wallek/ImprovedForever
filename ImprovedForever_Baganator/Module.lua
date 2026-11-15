@@ -1,5 +1,5 @@
--- Improved Forever: Baganator. Baganator's windows with the controller: the
--- gamepad radial's Bags opens them (Bags.lua), L2 / R2 reach them
+-- Improved Forever: Baganator. Baganator's windows with the controller: it
+-- opens wherever the game's bags would (Bags.lua), L2 / R2 reach them
 -- (Windows.lua), set up in its tab (BaganatorEditor.lua). Loaded only with
 -- Baganator (its TOC's dependency).
 local IF = ImprovedForever

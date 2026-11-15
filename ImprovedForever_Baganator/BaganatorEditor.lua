@@ -1,5 +1,5 @@
 -- The Baganator tab, a tab of settings (IF.SettingsPage, SettingsPage.lua):
--- the radial's Bags (Bags.lua) and the windows in L2 / R2 (Windows.lua), each on / off.
+-- Baganator for the game's bags (Bags.lua) and the windows in L2 / R2 (Windows.lua), each on / off.
 local IF = ImprovedForever
 
 local BG = IF.Baganator
@@ -7,12 +7,13 @@ local Item, OnOff = IF.SettingsItem, IF.SettingsOnOff
 
 local ITEMS = {
     Item({
-        key = "radial", group = "bags", label = "Bags from the radial",
-        tip = "Bags in the gamepad radial opens and closes Baganator's bags. Off: it opens the game's bags,"
-            .. " which Baganator keeps hidden.",
+        key = "radial", group = "bags", label = "Baganator for the game's bags",
+        tip = "Whatever opens the game's bags (Bags in the gamepad radial, a key, the mailbox, a merchant, the bank)"
+            .. " opens Baganator's instead; a toggle opens or closes it with one press, and one the mailbox or"
+            .. " a merchant opened closes with it. Off: they open the game's bags, which Baganator keeps hidden.",
     }, OnOff(function() return BG.Settings().radial end, function(on)
         BG.Settings().radial = on
-    end, "Bags from the radial")),
+    end, "Baganator for the game's bags")),
     Item({
         key = "switch", group = "windows", label = "Windows in L2 / R2",
         tip = "Baganator's bags, bank, guild bank, customise and character windows and its bag slots bar join"
