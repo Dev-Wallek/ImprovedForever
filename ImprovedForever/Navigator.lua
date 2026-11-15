@@ -413,7 +413,8 @@ end
 
 -- Y: the chosen item's menu, with nothing on the mouse, out of combat
 function Nav:More()
-    local bag, slot = self.sel and Slot(self.sel)
+    if not self.sel then return end
+    local bag, slot = Slot(self.sel)
     if not bag or CursorHasItem() or InCombatLockdown() or self:Typing() then return end
     self:OpenMenu(function() return self:ItemEntries(bag, slot) end)
 end

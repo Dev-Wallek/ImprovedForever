@@ -426,6 +426,33 @@ local CHECKS = {
         assert(ran[2] == "hold" and not menu:IsShown(), "a full hold runs and closes the menu")
         GetTime = getTime
     end },
+    -- (the navigator's Y on an item: the menu shown on the press, with the
+    -- item's entries; the game errors on a nil bag or slot)
+    { name = "navigator item menu", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Navigator and IF.Dropdown) then return end
+        local getInfo = C_Container.GetContainerItemInfo
+        -- (level 0: a message without a place, which the report would drop)
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        C_Container.GetContainerItemInfo = function(bag, slot)
+            check(type(bag) == "number" and type(slot) == "number", "the item's bag and slot reach the game")
+            return { itemID = 25, stackCount = 5, hyperlink = "[Sword]", quality = 1 }
+        end
+        local nav = IF.Navigator.New(CreateFrame("Frame"))
+        local item = CreateFrame("Button")
+        item.GetBagID = function() return 0 end
+        item.GetID = function() return 3 end
+        nav.on, nav.sel = true, item
+        local ok, err = pcall(nav.Press, nav, "PAD4", true)
+        C_Container.GetContainerItemInfo = getInfo
+        check(ok, err)
+        check(nav:MenuShown(), "Y opens the menu on the press")
+        local kinds = {}
+        for _, e in ipairs(nav.menu.entries) do kinds[#kinds + 1] = e.kind end
+        check(nav.menu.entries[1].text == "[Sword]" and #kinds >= 3,
+            "the menu has the item's title and entries: " .. table.concat(kinds, ","))
+        nav.menu:Close()
+    end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
         local IF = rawget(_G, "ImprovedForever")

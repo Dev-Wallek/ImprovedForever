@@ -291,8 +291,9 @@ function IF.Dropdown(parent, opts)
         self.build, self.how = build, how or {}
         self.focus = nil
         Hold(nil)
-        f:Show()
+        -- (built first: a build that errors leaves no empty menu taking the pad)
         Rebuild()
+        f:Show()
         Sound()
         self:Render()
     end
