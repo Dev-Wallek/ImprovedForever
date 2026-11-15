@@ -63,6 +63,10 @@ focus the way Forever's native windows do. The shared code is
   is lit at full strength. A dimmed row (alpha or tint under 1, meaning "picked
   but not where the pad is") gets no cursor. Pass the dim through
   `SetVertexColor(r, g, b, a)`, `SetAlpha` or `Light(on, dim)`.
+- Another addon's window (Baganator's) gets `IF.Navigator.New(win)`
+  (`ImprovedForever/Navigator.lua`): `nav:Set(on)` with the window's focus,
+  its catcher passing `nav:Press(button, down)` and propagating what
+  `nav:Passes(button)` says (A reaches a secure button by a PAD1 binding).
 
 ### Placement
 - Every side window of ours sits where the game would put a panel. Use
