@@ -77,9 +77,29 @@ local function Apply(win)
     TakePad(v, ours)
 end
 
+-- Select while away with no window of the game's shown: the game's
+-- TOGGLEUIFOCUS would only say it has none to focus. A button of ours that
+-- does nothing takes PADBACK meanwhile (WhileAway sees the press by
+-- IsKeyDown), out of combat, unless another click of an addon is on it
+-- (the touchpad's, Touchpad.lua).
+local SELECT = "PADBACK"
+local hush = CreateFrame("Button", "ImprovedForeverBaganatorSelect")
+local HUSH = "CLICK " .. hush:GetName() .. ":LeftButton"
+
+local function Hush(v, on)
+    if on == (v.hush or false) or InCombatLockdown() then return end
+    v.hush = on
+    if on then
+        SetOverrideBindingClick(v.catcher, true, SELECT, hush:GetName())
+    else
+        ClearOverrideBindings(v.catcher)
+    end
+end
+
 -- Lets the pad go (to the game's or, by the switch, the next of ours)
 local function Release(win)
     places[win].sw.focus = "game"
+    Hush(places[win], false)
     Apply(win)
 end
 
@@ -105,6 +125,9 @@ local function WhileAway(win, v)
     local fresh = down and not v.selectHeld and not v.gameFocus
     v.selectHeld = down
     v.gameFocus = m and m.isUIFocused or false
+    local now = GetBindingAction(SELECT, true)
+    local taken = now and now:find("^CLICK ") and now ~= HUSH
+    Hush(v, m ~= nil and not m.isUIFocused and #(m.shownFrames or {}) == 0 and not taken)
     if fresh then return v.sw:Set("ours") end
     if BG.Settings().switch and F.GameWindow(win) then v.sw:Update() end
 end
@@ -159,8 +182,12 @@ local function Watch(win, close, root)
     catcher:EnableGamePadStick(false)
     v.stick = false
     catcher:SetScript("OnUpdate", function()
-        if v.away then WhileAway(win, v)
-        elseif BG.Settings().switch then v.sw:Update() end
+        if v.away then
+            WhileAway(win, v)
+        else
+            Hush(v, false)
+            if BG.Settings().switch then v.sw:Update() end
+        end
         local binding = IF.BindPanel.Shown()
         if binding ~= v.binding then
             v.binding = binding
