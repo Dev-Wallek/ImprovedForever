@@ -1814,10 +1814,13 @@ end)
 
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "GOSSIP_SHOW", "QUEST_GREETING", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE",
-    "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE" }) do
+    "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE", "LEARNED_SPELL_IN_SKILL_LINE" }) do
     events:RegisterEvent(event)
 end
 events:SetScript("OnEvent", function(_, event)
+    -- (the game lays the rewards out again on these and scrolls its text back to the top)
+    if event == "QUEST_ITEM_UPDATE" or event == "LEARNED_SPELL_IN_SKILL_LINE" then revealed = nil end
+    if event == "LEARNED_SPELL_IN_SKILL_LINE" then return end
     -- (the quest log changing: only a list of quests to read again)
     if event == "QUEST_LOG_UPDATE" and not (current and (current.kind == "gossip" or current.kind == "greeting")) then
         return
