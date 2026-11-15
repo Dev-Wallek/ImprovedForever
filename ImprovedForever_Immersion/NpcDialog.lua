@@ -1487,7 +1487,9 @@ local function KeyOf(button)
     if button.isActive ~= nil and button.GetID then
         return (button.isActive == 1 and "qactive:" or "qavail:") .. button:GetID()
     end
-    if (button.type == "choice" or button.type == "reward") and button.GetID then
+    -- (a currency's button shares its index with an item's: ours shows items only)
+    if (button.type == "choice" or button.type == "reward" or button.type == "required")
+        and button.objectType ~= "currency" and button.GetID then
         return button.type .. ":" .. button:GetID()
     end
 end
