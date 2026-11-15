@@ -42,7 +42,9 @@ function menu.AddTab(def)
     -- now; an old Gather beside Minimap: its tab is Minimap's, Core.lua)
     if def.key == "controller" or (IF.oldGather and def.key == "gather") then return def end
     def.order = def.order or 50
-    if not def.icon and def.module and IF.Module(def.module) then def.icon = IF.Module(def.module).icon end
+    if not def.icon and def.module and IF.Module(def.module) then
+        def.icon, def.badge = IF.Module(def.module).icon, IF.Module(def.module).badge
+    end
     for i, other in ipairs(menu.TABS) do
         if other.key == def.key then
             menu.TABS[i] = def

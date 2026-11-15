@@ -4,7 +4,7 @@
 ## Version: 0.1.0
 ## X-Website: https://github.com/markgravity/ImprovedForever
 ## X-License: MIT
-## IconTexture: Interface\Icons\INV_Misc_Bag_08
+## IconTexture: Interface\AddOns\ImprovedForever\textures\ic_mod_baganator
 ## Group: ImprovedForever
 ## Dependencies: ImprovedForever, Baganator
 ## OptionalDeps: KeepOrSell

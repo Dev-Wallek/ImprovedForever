@@ -5,7 +5,9 @@
 -- Baganator (its TOC's dependency).
 local IF = ImprovedForever
 
-IF.AddModule({ key = "baganator", label = "Baganator", icon = "Interface\\Icons\\INV_Misc_Bag_08", addon = ... })
+-- (badge: Baganator's own logo, read from its folder at runtime; its license doesn't let us ship a copy)
+IF.AddModule({ key = "baganator", label = "Baganator", icon = IF.TEX .. "ic_mod_baganator",
+    badge = "Interface\\AddOns\\Baganator\\Assets\\logo", addon = ... })
 
 local BG = {}
 IF.Baganator = BG
