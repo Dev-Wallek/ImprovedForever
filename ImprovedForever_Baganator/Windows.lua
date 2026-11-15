@@ -1,6 +1,6 @@
 -- Baganator's windows in L2 / R2, beside the game's windows, as ours (the
 -- core's Focus.lua): its bags, bank and guild bank, its customise dialog, its
--- character list and the bag slots bar above the bags or bank, each one its
+-- character list, its search help and the bag slots bar above the bags or bank, each one its
 -- own place in the row by where it sits on screen, its focus glow on while it
 -- has the pad (the bar has none: the cursor alone shows it), the game's focus
 -- dimmed meanwhile, the core's cursor in it (Navigator.lua: D-pad, A, X),
@@ -15,6 +15,8 @@ local BG = IF.Baganator
 -- (Baganator's skin tags for its windows)
 local KINDS = { backpack = true, bank = true, guild = true, customise = true }
 local CHARACTERS = "^Baganator_CharacterSelectFrame"
+-- (its skin sees the search help with no tag)
+local HELP = "Baganator_SearchHelpFrame"
 
 local places = {}   -- win -> { sw, catcher, nav }
 
@@ -46,18 +48,29 @@ local function Neighbour(win)
     return best
 end
 
-local function TakePad(catcher, on)
-    if not IF.InCombat() then catcher:EnableGamePadButton(on) end
+-- (the sticks too while the window can scroll: the right one scrolls, the
+-- character and camera stay still)
+local function TakeSticks(v, on)
+    local stick = on and v.nav:Scrolls()
+    if stick == v.stick or IF.InCombat() then return end
+    v.stick = stick
+    v.catcher:EnableGamePadStick(stick)
+end
+
+local function TakePad(v, on)
+    if IF.InCombat() then return end
+    v.catcher:EnableGamePadButton(on)
+    TakeSticks(v, on)
 end
 
 -- The place's look and pad as its switch has it
 local function Apply(win)
     local v = places[win]
     local ours = v.sw.focus == "ours" and win:IsShown()
-    TakePad(v.catcher, ours)
     F.Glow(win, ours)
     F.DimNative(win, ours)
     v.nav:Set(ours)
+    TakePad(v, ours)
 end
 
 -- Lets the pad go (to the game's or, by the switch, the next of ours)
@@ -108,10 +121,15 @@ local function Watch(win, close, root)
             if CursorHasItem() then ClearCursor() else close() end
         end
     end)
+    catcher:SetScript("OnGamePadStick", function(_, stick, _, y) v.nav:Stick(stick, y) end)
     -- (setting a gamepad handler switches the frame's input on by itself)
     catcher:EnableGamePadButton(false)
+    catcher:EnableGamePadStick(false)
+    v.stick = false
     catcher:SetScript("OnUpdate", function()
         if BG.Settings().switch then v.sw:Update() end
+        -- (a list that only now has more than fits)
+        TakeSticks(v, v.sw.focus == "ours")
     end)
     win:HookScript("OnShow", function()
         if not BG.Settings().switch then return end
@@ -156,7 +174,7 @@ local function Seen(details)
     if details.regionType ~= "ButtonFrame" then return end
     local win = details.region
     local name = win.GetName and win:GetName()
-    if name and name:find(CHARACTERS) then return WatchWindow(win) end
+    if name and (name == HELP or name:find(CHARACTERS)) then return WatchWindow(win) end
     for _, tag in ipairs(details.tags or {}) do
         if KINDS[tag] then return WatchWindow(win, tag == "backpack" or tag == "bank") end
     end

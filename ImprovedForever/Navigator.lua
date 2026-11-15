@@ -8,8 +8,10 @@
 -- X uses or equips an item (at the bank moves it, at a merchant sells it).
 -- Both run through a secure button of ours, bound to PAD1 (left click) and
 -- PAD3 (right click) by priority override bindings (the game's own stay on
--- top without them), its attributes set out of combat. A legend of the game's
--- look beside the window, on the side toward the screen's centre, names them.
+-- top without them), its attributes set out of combat. The right stick
+-- scrolls the window's scroll box, as the game's windows scroll. A legend of
+-- the game's look, one prompt a line beside the window on the side toward the
+-- screen's centre, names them.
 --   IF.Navigator.New(win, root?) -> nav: root, when given, holds the elements
 --     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
@@ -17,6 +19,8 @@
 --   nav:Passes(button) -> true for A and X while on, an element chosen and
 --     our bindings in place: the window's catcher lets those through
 --     (SetPropagateKeyboardInput) and nothing else reaches the game's
+--   nav:Scrolls() -> true while a scroll box in win can scroll: the catcher
+--     takes the sticks then (EnableGamePadStick), passing nav:Stick(stick, y)
 -- Combat start frees PAD1 and PAD3 at once (PLAYER_REGEN_DISABLED).
 local _, IF = ...
 
@@ -128,22 +132,24 @@ local function Pressable(f)
     return f:IsEnabled() and f:IsMouseEnabled()
 end
 
--- What can be pressed: shown, under root (anywhere), or under win and inside it on screen
+-- (x, y inside win on screen)
+local function Inside(win, x, y)
+    local l, b, w, h = win:GetRect()
+    if not (l and x) then return false end
+    local s = win:GetEffectiveScale()
+    return x >= l * s and x <= (l + w) * s and y >= b * s and y <= (b + h) * s
+end
+
+-- What can be pressed: shown, under root (anywhere), or under win and inside
+-- it on screen; not what the game's navigation skips (scroll bars)
 local function Elements(win, root)
     local list = {}
-    local l, b, w, h = win:GetRect()
-    if not l then return list end
-    local s = win:GetEffectiveScale()
-    l, b, w, h = l * s, b * s, w * s, h * s
-    local function Inside(x, y)
-        return root or (x >= l and x <= l + w and y >= b and y <= b + h)
-    end
     local function Walk(f)
         for _, child in ipairs({ f:GetChildren() }) do
-            if child:IsShown() and not child.navigatorSkip then
+            if child:IsShown() and not child.navigatorSkip and not child.smartNavigationIgnored then
                 if Pressable(child) then
                     local x, y = Center(child)
-                    if x and child:GetWidth() > 0 and Inside(x, y) then
+                    if x and child:GetWidth() > 0 and (root or Inside(win, x, y)) then
                         list[#list + 1] = child
                     end
                 else
@@ -200,11 +206,14 @@ end
 
 -- The legend's entries for what is chosen (one table each: the legend lays out each once)
 local MOVE = { glyph = "DPAD", text = "Move" }
+local SCROLL = { "PADRSTICK", "RS", "Scroll" }
 local LEGENDS = {}
-local function Entries(a, x, b)
-    local key = a .. "|" .. (x or "") .. "|" .. b
+local function Entries(scroll, a, x, b)
+    local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b
     if not LEGENDS[key] then
-        local defs = { MOVE, { "PAD1", "A", a } }
+        local defs = { MOVE }
+        if scroll then defs[#defs + 1] = SCROLL end
+        defs[#defs + 1] = { "PAD1", "A", a }
         if x then defs[#defs + 1] = { "PAD3", "X", x } end
         defs[#defs + 1] = { "PAD2", "B", b }
         LEGENDS[key] = defs
@@ -212,12 +221,33 @@ local function Entries(a, x, b)
     return LEGENDS[key]
 end
 
-local function Legend(f)
+local function Legend(f, scroll)
     local b = CursorHasItem() and "Put back" or "Close"
-    if not f then return Entries("Select", nil, b) end
-    if f:GetObjectType() == "EditBox" then return Entries("Edit", nil, b) end
-    if not Slot(f) then return Entries("Select", nil, b) end
-    return Entries(CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b)
+    if not f then return Entries(scroll, "Select", nil, b) end
+    if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b) end
+    if not Slot(f) then return Entries(scroll, "Select", nil, b) end
+    return Entries(scroll, CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b)
+end
+
+-- The scroll boxes under f (the game's ScrollBox, Baganator's lists and views)
+local function Scrollers(f, list)
+    list = list or {}
+    for _, child in ipairs({ f:GetChildren() }) do
+        if child.GetDerivedScrollRange and child.SetScrollPercentage then
+            list[#list + 1] = child
+        elseif not child.navigatorSkip then
+            Scrollers(child, list)
+        end
+    end
+    return list
+end
+
+local function Holds(box, f)
+    while f do
+        if f == box then return true end
+        f = f:GetParent()
+    end
+    return false
 end
 
 local Nav = {}
@@ -228,9 +258,41 @@ local function Hover(f, on)
     if script then pcall(script, f) end
 end
 
+-- The box the right stick scrolls: the chosen element's, else the first that can
+function Nav:Box()
+    local first
+    for _, box in ipairs(self.boxes or {}) do
+        if box:IsVisible() and box:HasScrollableExtent() then
+            if Holds(box, self.sel) then return box end
+            first = first or box
+        end
+    end
+    return first
+end
+
+function Nav:Scrolls()
+    return self.on and self:Box() ~= nil
+end
+
+function Nav:Stick(stick, y)
+    if stick == "Right" or stick == "Camera" then self.stickY = y or 0 end
+end
+
+-- As the game's right stick scrolls (SmartNavigation: its speed CVar, per second)
+function Nav:Scroll(elapsed)
+    local y = self.stickY or 0
+    if math.abs(y) < 0.2 then return end
+    local box = self:Box()
+    if not box then return end
+    local range = box:GetDerivedScrollRange()
+    if range <= 0.01 then return end
+    local speed = y * GetCVarNumberOrDefault("SmartNavigationScrollSpeed")
+    box:SetScrollPercentage(Clamp((box:GetDerivedScrollOffset() - speed * elapsed) / range, 0, 1))
+end
+
 -- Beside the window, on the side toward the screen's centre, bottoms level
 function Nav:ShowLegend()
-    local defs = self.on and Legend(self.sel) or nil
+    local defs = self.on and Legend(self.sel, self:Box() ~= nil) or nil
     if defs == self.legend.defs then return end
     self.legend:Set(defs)
     if not defs then return end
@@ -269,6 +331,7 @@ function Nav:Set(on)
     if on then
         if active and active ~= self then active:Set(false) end
         active = self
+        self.boxes = Scrollers(self.root or self.win)
         local keep = self.last
         self:Select((keep and keep:IsVisible() and Pressable(keep) and keep) or First(Elements(self.win, self.root)))
         Bind(true)
@@ -277,6 +340,7 @@ function Nav:Set(on)
     else
         -- (the one to come back to)
         self.last = self.sel
+        self.stickY = nil
         self:Select(nil)
         self:ShowLegend()
         self.driver:Hide()
@@ -312,17 +376,19 @@ function Nav:Passes(button)
 end
 
 -- Each frame while on: our bindings put back when the game's windows bound
--- theirs over them, the held direction repeated, the chosen one kept (lost
--- when the window lays itself out again: the nearest instead; the same
--- button showing another item: hovered again), the legend kept to it
-local function Tick(self)
+-- theirs over them, the held direction repeated, the stick's scroll, the
+-- chosen one kept (lost when the window lays itself out again or scrolls it
+-- out: the nearest instead; the same button showing another item: hovered
+-- again), the legend kept to it
+local function Tick(self, elapsed)
     if not Bound() then Bind(true) end
     if self.held and GetTime() >= self.next then
         self.next = GetTime() + REPEAT_EVERY
         self:Move(self.held)
     end
+    self:Scroll(elapsed)
     local f = self.sel
-    if not (f and f:IsVisible() and Pressable(f)) then
+    if not (f and f:IsVisible() and Pressable(f) and (self.root or Inside(self.win, Center(f)))) then
         local list = Elements(self.win, self.root)
         self.sel = nil
         return self:Select((self.x and Nearest(list, self.x, self.y)) or First(list))
@@ -349,7 +415,8 @@ function N.New(win, root)
     nav.legend.row.navigatorSkip = true
     nav.driver = CreateFrame("Frame")
     nav.driver:Hide()
-    nav.driver:SetScript("OnUpdate", function() Tick(nav) end)
+    nav.legend.vertical = true
+    nav.driver:SetScript("OnUpdate", function(_, elapsed) Tick(nav, elapsed) end)
     return nav
 end
 
