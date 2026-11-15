@@ -1,4 +1,5 @@
--- "Bind to Action Bar" for a wheel's slot (Square on the ring): the game's
+-- "Bind to Action Bar" for a wheel's slot (Square on the ring) or a bag item
+-- (the navigator's Triangle menu, Navigator.lua): the game's
 -- own bind panel (GamepadActionBarEditFrame:BindItem...) can't be opened
 -- from here: it suspends the focused window and stacks binding groups,
 -- and doing that from addon code taints the binding stack
@@ -13,7 +14,7 @@
 local IF = ImprovedForever
 
 local P = {}
-IF.WheelBindPanel = P
+IF.BindPanel = P
 
 local MODIFIERS = { "", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-", "CTRL-ALT-SHIFT-" }
 local BACK_KEY = "PAD2"
@@ -84,6 +85,20 @@ end
 
 function P.Close()
     if panel and panel:IsShown() and not IF.InCombat() then panel:Hide() end
+end
+
+function P.Shown()
+    return panel ~= nil and panel:IsShown()
+end
+
+-- An item's action for it ("item:<id>"), or nil: it does nothing when used
+-- (the game offers "Bind to Action Bar" for those only, PaperDollFrame's check)
+function P.ItemAction(itemID)
+    local getSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+    local equippable = (C_Item and C_Item.IsEquippableItem) or IsEquippableItem
+    if itemID and ((getSpell and getSpell(itemID)) or (equippable and equippable(itemID))) then
+        return "item:" .. itemID
+    end
 end
 
 -- Opens it for an action ("item:<id>", "spell:<id>", "macro:<name>"); false

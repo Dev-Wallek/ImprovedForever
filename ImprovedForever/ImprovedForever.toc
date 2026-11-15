@@ -21,6 +21,7 @@ WandShoot.lua
 Probe.lua
 Binds.lua
 Native.lua
+BindPanel.lua
 ConfigKit.lua
 Window.lua
 Focus.lua

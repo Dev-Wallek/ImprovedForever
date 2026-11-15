@@ -17,7 +17,6 @@ WheelKinds.lua
 Group.lua
 MyWheels.lua
 Ring.lua
-BindPanel.lua
 UnitFrames.lua
 RecentSlot.lua
 WheelEditor.lua
