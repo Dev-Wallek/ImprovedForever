@@ -22,7 +22,8 @@
 --
 -- With Spoken installed, its voice plays the NPC's words as it does for
 -- the game's windows; ours shows whether it speaks, how far, and its button
--- to stop or hear it again. Its own subtitles are faded while ours show.
+-- to stop or hear it again. Its own subtitles, and Spoken_Quests' buttons at
+-- the game's window, are faded while ours show (FadeSubtitle).
 local IF = ImprovedForever
 local IN = IF.Interface
 local UF = IN.UnitFrames
@@ -1202,11 +1203,33 @@ local showAll = false    -- (Square / the mouse: the voice stopped, all the word
 local LINE_WAIT, WORDS_IN = 0.8, 0.28
 local waitUntil, wordsInFrom
 local subtitleFaded = false
+local buttonsFaded = {}
+local giverIgnored
 local function FadeSubtitle(on)
     local f = _G.SpokenSubtitleFrame
     if f and on ~= subtitleFaded then
         subtitleFaded = on
         IF.Focus.Fade(f, on)
+    end
+    -- (Spoken_Quests' buttons at the game's window: Listen and Contribute, on
+    -- UIParent beside it, faded with it; its Compendium button, a child of the
+    -- quest window above the items, so where the game's first D-pad press went,
+    -- marked for the game's D-pad to skip, through the game's own mark (set by
+    -- its secure helper, refused in combat))
+    local vo = rawget(_G, "VoiceOver")
+    if type(vo) ~= "table" then return end
+    for _, owner in ipairs({ rawget(vo, "DialogPlayButton"), rawget(vo, "ContributeButton") }) do
+        local b = type(owner) == "table" and owner.button
+        if b and (buttonsFaded[b] or false) ~= on then
+            buttonsFaded[b] = on
+            IF.Focus.Fade(b, on)
+        end
+    end
+    local tab = rawget(vo, "QuestsTab")
+    local giver = type(tab) == "table" and tab.giverButton
+    if giver and (giverIgnored == giver) ~= on and not IF.InCombat() then
+        if on then _G.SmartNavigation_MarkFrameIgnored(giver) else _G.SmartNavigation_ClearIgnoreStatus(giver) end
+        giverIgnored = on and giver or nil
     end
 end
 
