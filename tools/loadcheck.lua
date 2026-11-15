@@ -396,6 +396,36 @@ local CHECKS = {
         end
         M.Close()
     end },
+    -- (the core's dropdown: an action closes it and runs; a hold entry runs
+    -- only when Cross is let go after its hold, whatever else is let go)
+    { name = "dropdown actions", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Dropdown) then return end
+        local now, ran, getTime = 1000, {}, GetTime
+        GetTime = function() return now end
+        local menu = IF.Dropdown(CreateFrame("Frame"))
+        local function build()
+            return {
+                { kind = "action", text = "go", run = function() ran[#ran + 1] = "go" end },
+                { kind = "action", text = "hold", hold = 1, run = function() ran[#ran + 1] = "hold" end },
+            }
+        end
+        menu:Open(build)
+        menu:Press("A", true)
+        assert(ran[1] == "go" and not menu:IsShown(), "an action runs and closes the menu")
+        menu:Open(build)
+        menu:Press("DOWN", true)
+        menu:Press("A", true)
+        now = now + 0.5
+        menu:Press("A", false)
+        assert(#ran == 1 and menu:IsShown(), "a hold let go early runs nothing")
+        menu:Press("A", true)
+        now = now + 2
+        menu:Press("DOWN", false)
+        menu:Press("A", false)
+        assert(ran[2] == "hold" and not menu:IsShown(), "a full hold runs and closes the menu")
+        GetTime = getTime
+    end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
         local IF = rawget(_G, "ImprovedForever")

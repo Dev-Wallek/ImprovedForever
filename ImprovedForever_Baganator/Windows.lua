@@ -4,7 +4,7 @@
 -- own place in the row by where it sits on screen, its focus glow on while it
 -- has the pad (the bar has none: the cursor alone shows it), the game's focus
 -- dimmed meanwhile, the core's cursor in it (Navigator.lua: D-pad, A, X,
--- Select for the search box),
+-- Y for an item's menu, Select for the search box),
 -- Circle closes it (the bar by Baganator's own toggle). The game's frame
 -- manager never lists them, so the pad is taken by a catcher frame of ours
 -- on each. Never in combat: combat lets the pad go.
@@ -64,10 +64,12 @@ local function TakePad(v, on)
     TakeSticks(v, on)
 end
 
--- The place's look and pad as its switch has it
+-- The place's look and pad as its switch has it; the bind panel's while
+-- that is up (opened from the navigator's menu: its override bindings
+-- would be behind our catcher)
 local function Apply(win)
     local v = places[win]
-    local ours = v.sw.focus == "ours" and win:IsShown()
+    local ours = v.sw.focus == "ours" and win:IsShown() and not IF.BindPanel.Shown()
     F.Glow(win, ours)
     F.DimNative(win, ours)
     v.nav:Set(ours)
@@ -129,6 +131,11 @@ local function Watch(win, close, root)
     v.stick = false
     catcher:SetScript("OnUpdate", function()
         if BG.Settings().switch then v.sw:Update() end
+        local binding = IF.BindPanel.Shown()
+        if binding ~= v.binding then
+            v.binding = binding
+            if v.sw.focus == "ours" then Apply(win) end
+        end
         -- (a list that only now has more than fits)
         TakeSticks(v, v.sw.focus == "ours")
     end)

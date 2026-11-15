@@ -11,7 +11,11 @@
 -- top without them), its attributes set out of combat. Select (PADBACK)
 -- puts the keyboard in the window's search box and takes it out again, B
 -- takes it out of any edit box of the window, as in the game's bag window
--- (ContainerFrame.lua: SetUpSearchGamepad). The right stick
+-- (ContainerFrame.lua: SetUpSearchGamepad). Y on an item opens a menu of
+-- more (the game's More Actions): split the stack, mark it junk or not
+-- (ItemValue.lua), keep it in KeepOrSell (when loaded), bind it to the
+-- crossbar (BindPanel.lua), destroy it (Cross held, longer for rare and
+-- better); while it's up every press is the menu's. The right stick
 -- scrolls the window's scroll box, as the game's windows scroll. A legend of
 -- the game's look, one prompt a line beside the window on the side toward the
 -- screen's centre, names them.
@@ -19,7 +23,8 @@
 --     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
 --   nav:Press(button, down) -> true when it took the press (the D-pad,
---     Select, B while typing)
+--     Select, Y, B while typing, any while the menu is up, the release of
+--     one held as the navigator came on or the menu took it)
 --   nav:Passes(button) -> true for A and X while on, an element chosen and
 --     our bindings in place: the window's catcher lets those through
 --     (SetPropagateKeyboardInput) and nothing else reaches the game's
@@ -34,6 +39,12 @@ IF.Navigator = N
 local DIRS = { PADDUP = { 0, 1 }, PADDDOWN = { 0, -1 }, PADDLEFT = { -1, 0 }, PADDRIGHT = { 1, 0 } }
 local REPEAT_DELAY, REPEAT_EVERY = 0.35, 0.1
 local LEGEND_GAP = 8
+-- (the menu's names for the pad's buttons: Dropdown.lua)
+local MENU_KEYS = { PADDUP = "UP", PADDDOWN = "DOWN", PADDLEFT = "LEFT", PADDRIGHT = "RIGHT",
+    PAD1 = "A", PAD2 = "B", PAD4 = "B" }
+local PRESSES = { "PAD1", "PAD2", "PAD3", "PAD4", "PADBACK", "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT" }
+-- (destroying: Cross held this long, rare and better longer)
+local HOLD, HOLD_RARE, RARE = 0.6, 1.5, 3
 
 local binder = CreateFrame("Frame")
 local active   -- (the nav holding PAD1)
@@ -212,14 +223,16 @@ end
 local MOVE = { glyph = "DPAD", text = "Move" }
 local SCROLL = { "PADRSTICK", "RS", "Scroll" }
 local SEARCH = { "PADBACK", "BACK", "Search" }
+local MORE = { "PAD4", "Y", "More" }
 local LEGENDS = {}
-local function Entries(scroll, a, x, b, search)
-    local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b .. "|" .. tostring(search)
+local function Entries(scroll, a, x, b, search, more)
+    local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b .. "|" .. tostring(search) .. "|" .. tostring(more)
     if not LEGENDS[key] then
         local defs = { MOVE }
         if scroll then defs[#defs + 1] = SCROLL end
         defs[#defs + 1] = { "PAD1", "A", a }
         if x then defs[#defs + 1] = { "PAD3", "X", x } end
+        if more then defs[#defs + 1] = MORE end
         if search then defs[#defs + 1] = SEARCH end
         defs[#defs + 1] = { "PAD2", "B", b }
         LEGENDS[key] = defs
@@ -234,7 +247,8 @@ local function Legend(f, scroll, search, typing)
     if not f then return Entries(scroll, "Select", nil, b, search) end
     if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b, search) end
     if not Slot(f) then return Entries(scroll, "Select", nil, b, search) end
-    return Entries(scroll, CursorHasItem() and "Place" or "Pick up", Merchant() and "Sell" or "Use", b, search)
+    local held = CursorHasItem()
+    return Entries(scroll, held and "Place" or "Pick up", Merchant() and "Sell" or "Use", b, search, not (held or typing))
 end
 
 -- The scroll boxes under f (the game's ScrollBox, Baganator's lists and views)
@@ -311,9 +325,99 @@ function Nav:Typing()
     return focus and Holds(self.win, focus) and focus or nil
 end
 
+function Nav:MenuShown()
+    return self.menu ~= nil and self.menu:IsShown()
+end
+
+-- The menu (IF.Dropdown) beside the chosen item, its own cursor and hint
+-- meanwhile: ours and the item's tooltip hidden till it closes
+function Nav:OpenMenu(build)
+    if not self.menu then
+        self.menu = IF.Dropdown(self.win)
+        self.menu.frame.navigatorSkip = true
+        self.menu.frame:SetFrameStrata("FULLSCREEN_DIALOG")
+        self.menu.frame:SetClampedToScreen(true)
+    end
+    local f = self.sel
+    Hover(f, false)
+    self.cursor:Hide()
+    self.held = nil
+    self.menu.frame:ClearAllPoints()
+    self.menu.frame:SetPoint("TOPLEFT", f, "TOPRIGHT", 4, 0)
+    self.menu:Open(build, { onClose = function()
+        if self.on and self.sel then
+            self.cursor:Point(self.sel)
+            Hover(self.sel, true)
+        end
+    end })
+    self:ShowLegend()
+end
+
+-- Split off: 1, 5, 10, half, all but one, those under the stack's count
+local function SplitEntries(bag, slot, count)
+    local amounts, seen = {}, {}
+    for _, n in ipairs({ 1, 5, 10, math.floor(count / 2), count - 1 }) do
+        if n >= 1 and n < count and not seen[n] then
+            seen[n] = true
+            amounts[#amounts + 1] = n
+        end
+    end
+    table.sort(amounts)
+    local list = { { kind = "title", text = "Split off" } }
+    for _, n in ipairs(amounts) do
+        -- (the part on the mouse: Cross puts it down, Circle back)
+        list[#list + 1] = { kind = "action", text = tostring(n),
+            run = function() C_Container.SplitContainerItem(bag, slot, n) end }
+    end
+    return list
+end
+
+-- The item's menu: its name; split (a stack, not locked); junk or not
+-- (not a quest's item); KeepOrSell's keep mark (its /kos keep | unkeep,
+-- KeepOrSellDB.keep: it has no Lua API); bind (an item that does something
+-- when used); destroy (not locked)
+function Nav:ItemEntries(bag, slot)
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not info then return {} end
+    local id, count = info.itemID, info.stackCount or 1
+    local list = { { kind = "title", text = info.hyperlink or "" } }
+    local function Add(text, run, hold)
+        list[#list + 1] = { kind = "action", text = text, run = run, hold = hold }
+    end
+    if count > 1 and not info.isLocked then
+        Add("Split stack", function() self:OpenMenu(function() return SplitEntries(bag, slot, count) end) end)
+    end
+    local judged = IF.ItemValue.Judge(bag, slot)
+    if judged and judged.tag ~= "Quest" then
+        -- (the Junk module's toggle says it in the chat)
+        local toggle = IF.Junk and IF.Junk.Toggle or IF.ItemValue.Toggle
+        Add(judged.verdict == "junk" and "Not junk" or "Mark as junk", function() toggle(bag, slot) end)
+    end
+    local db, kos = _G.KeepOrSellDB, SlashCmdList.KEEPORSELL
+    if db and kos then
+        local kept = db.keep and db.keep[id]
+        Add(kept and "KeepOrSell: don't keep" or "KeepOrSell: keep", function() kos((kept and "unkeep " or "keep ") .. id) end)
+    end
+    local action = IF.Native.Available() and IF.BindPanel.ItemAction(id)
+    if action then Add("Bind to action bar", function() IF.BindPanel.Open(action) end) end
+    if not info.isLocked then
+        list[#list + 1] = { kind = "divider" }
+        Add("Destroy (hold " .. IF.GlyphText("A", 16) .. ")", function() IF.DestroyItem(bag, slot, id, true) end,
+            (info.quality or 0) >= RARE and HOLD_RARE or HOLD)
+    end
+    return list
+end
+
+-- Y: the chosen item's menu, with nothing on the mouse, out of combat
+function Nav:More()
+    local bag, slot = self.sel and Slot(self.sel)
+    if not bag or CursorHasItem() or InCombatLockdown() or self:Typing() then return end
+    self:OpenMenu(function() return self:ItemEntries(bag, slot) end)
+end
+
 -- Beside the window, on the side toward the screen's centre, bottoms level
 function Nav:ShowLegend()
-    local defs = self.on and Legend(self.sel, self:Box() ~= nil, self:SearchBox() ~= nil, self:Typing() ~= nil) or nil
+    local defs = self.on and not self:MenuShown() and Legend(self.sel, self:Box() ~= nil, self:SearchBox() ~= nil, self:Typing() ~= nil) or nil
     if defs == self.legend.defs then return end
     self.legend:Set(defs)
     if not defs then return end
@@ -352,6 +456,11 @@ function Nav:Set(on)
     if on then
         if active and active ~= self then active:Set(false) end
         active = self
+        -- (a press still held from before, the bind panel's: its release kept from the window and the game)
+        self.swallow = {}
+        for _, key in ipairs(PRESSES) do
+            if IsKeyDown(key) then self.swallow[key] = true end
+        end
         self.boxes = Scrollers(self.root or self.win)
         local keep = self.last
         self:Select((keep and keep:IsVisible() and Pressable(keep) and keep) or First(Elements(self.win, self.root)))
@@ -359,6 +468,7 @@ function Nav:Set(on)
         self:ShowLegend()
         self.driver:Show()
     else
+        if self.menu then self.menu:Close() end
         -- (the one to come back to)
         self.last = self.sel
         self.stickY = nil
@@ -384,6 +494,16 @@ end
 -- keyboard in the search box and takes it out again, B takes it out
 function Nav:Press(button, down)
     if not self.on then return false end
+    -- (the menu's, and a release whose press was taken: nothing reaches the window or the game)
+    if self:MenuShown() or (not down and self.swallow[button]) then
+        self.swallow[button] = down or nil
+        if MENU_KEYS[button] and self:MenuShown() then self.menu:Press(MENU_KEYS[button], down) end
+        return true
+    end
+    if button == "PAD4" then
+        if down then self:More() end
+        return true
+    end
     local typing = self:Typing()
     if button == "PADBACK" or (button == "PAD2" and typing) then
         if down then return true end
@@ -403,7 +523,8 @@ end
 
 -- (with nothing chosen, or the game's bindings over ours, A would reach the game's: kept)
 function Nav:Passes(button)
-    return self.on and BINDS[button] ~= nil and self.sel ~= nil and self.sel:IsVisible() and Bound() or false
+    return self.on and BINDS[button] ~= nil and self.sel ~= nil and self.sel:IsVisible() and Bound()
+        and not self:MenuShown() and not self.swallow[button] or false
 end
 
 -- Each frame while on: our bindings put back when the game's windows bound
@@ -422,11 +543,14 @@ local function Tick(self, elapsed)
     if not (f and f:IsVisible() and Pressable(f) and (self.root or Inside(self.win, Center(f)))) then
         local list = Elements(self.win, self.root)
         self.sel = nil
+        -- (the menu was for that one)
+        if self.menu then self.menu:Close() end
         return self:Select((self.x and Nearest(list, self.x, self.y)) or First(list))
     end
     local key = table.concat({ Slot(f) }, " ")
     if key ~= self.slotKey then
         self.slotKey = key
+        if self.menu then self.menu:Close() end
         Hover(f, true)
     end
     self.x, self.y = Center(f)
@@ -435,7 +559,7 @@ local function Tick(self, elapsed)
 end
 
 function N.New(win, root)
-    local nav = setmetatable({ win = win, root = root, on = false }, Nav)
+    local nav = setmetatable({ win = win, root = root, on = false, swallow = {} }, Nav)
     nav.cursor = IF.Focus.Cursor(win)
     nav.cursor.navigatorSkip = true
     nav.cursor.window = win
