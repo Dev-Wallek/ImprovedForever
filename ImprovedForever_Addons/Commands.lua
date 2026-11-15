@@ -1,7 +1,8 @@
--- The command list's entries, gathered per addon (its TOC title) from four
+-- The command list's entries, gathered per addon family (its TOC title
+-- without [parts] and version) from four
 -- sources: slash commands, settings pages, the TOC's AddonCompartmentFunc
 -- and LibDataBroker launchers. The game's own commands and pages stay out,
--- so do the commands of a library nobody owns.
+-- so do libraries' commands.
 --   IF.Addons.Commands() -> groups ({ title, entries }, by title), skipped
 --     ({ kind, text, reason }: every entry left out or not matched to an
 --     addon); an entry: { kind = "slash" (text, key, aliases), "settings"
@@ -82,28 +83,51 @@ local function SlashKeys()
     return keys
 end
 
+-- A LibStub library the key stands for (LibQTip for LibQTip-1.0): its
+-- command is the library's, whichever addon's copy set it
+local function LibraryKey(key)
+    local want = Norm(key)
+    for major in pairs(LibStub and LibStub.libs or {}) do
+        if Norm(major):sub(1, #want) == want then return major end
+    end
+end
+
 -- SlashCmdList key -> the addon it belongs to. The entries themselves were
--- moved by the game's secure code, so the owner is the addon that set the
--- SLASH_<key>1 global. AceConsole sets every command from its own code, so
--- the addon whose copy of the library loaded gets them all: those are
--- matched by AceConfig app name, then by command name, then by sharing a
--- handler with a matched one.
+-- moved by the game's secure code, so the owner is the addon the key names
+-- (its name or title: TitanPanel is Titan's), else the one that set the
+-- SLASH_<key>1 global. (That taint can name another addon: Titan sets its
+-- globals in its main chunk, yet the game named Auctionator for them.)
+-- A library's command is left out. AceConsole sets every command from its
+-- own code, so the addon whose copy of the library loaded gets them all:
+-- those are matched by AceConfig app name, then by command name, then by
+-- sharing a handler with a matched one.
 local function SlashOwners(loaded, Skip)
     local owners, ace, game = {}, {}, {}
     for key in pairs(SlashKeys()) do
         local alias = _G["SLASH_" .. key .. "1"]
+        local library = alias and LibraryKey(key)
         if not alias then
             Skip("slash", key, "no SLASH_" .. key .. "1")
+        elseif library then
+            Skip("slash", alias, "library command (" .. library .. ")")
         else
             local secure, addon = issecurevariable("SLASH_" .. key .. "1")
-            if secure then game[#game + 1] = alias else owners[key] = addon end
+            local named = AddonTitled(loaded, key)
+            if secure then
+                game[#game + 1] = alias
+            else
+                if named and addon ~= named then
+                    Skip("slash", alias, "taint names " .. tostring(addon) .. ", listed under " .. named)
+                end
+                owners[key] = named or addon
+            end
         end
     end
     local console = LibStub and LibStub("AceConsole-3.0", true)
     local config = LibStub and LibStub("AceConfigCmd-3.0", true)
     for command, key in pairs(console and console.commands or {}) do
         local app = config and config:GetChatCommandOptions(command)
-        owners[key] = (app and AddonNamed(loaded, app)) or AddonNamed(loaded, command)
+        owners[key] = (app and (AddonTitled(loaded, app) or AddonNamed(loaded, app))) or AddonNamed(loaded, command)
         ace[key] = true
     end
     for key in pairs(ace) do
@@ -173,10 +197,23 @@ function AD.Commands()
         end
     end
 
-    local groups = {}
+    -- (one group per addon family: its title without [parts] and version,
+    -- "Titan Panel [_Core_] 9.3.5" and "Titan Panel [UI] 9.3.5" both "Titan Panel")
+    local groups, byTitle = {}, {}
     for addon, entries in pairs(byAddon) do
-        table.sort(entries, function(a, b) return a.kind .. tostring(a.text) < b.kind .. tostring(b.text) end)
-        groups[#groups + 1] = { title = loaded[addon:lower()] and Title(addon) or addon, entries = entries }
+        local title = loaded[addon:lower()] and Title(addon) or addon
+        local family = strtrim((title:gsub("%b[]", ""):gsub("%s+v?%d[%d%.]*%s*$", ""):gsub("%s+", " ")))
+        if family ~= "" then title = family end
+        local group = byTitle[title]
+        if not group then
+            group = { title = title, entries = {} }
+            byTitle[title] = group
+            groups[#groups + 1] = group
+        end
+        for _, entry in ipairs(entries) do table.insert(group.entries, entry) end
+    end
+    for _, group in ipairs(groups) do
+        table.sort(group.entries, function(a, b) return a.kind .. tostring(a.text) < b.kind .. tostring(b.text) end)
     end
     table.sort(groups, function(a, b) return a.title:lower() < b.title:lower() end)
     return groups, skipped
