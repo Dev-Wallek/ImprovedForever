@@ -50,6 +50,17 @@ local function Neighbour(win)
     return best
 end
 
+-- The nearest of ours still shown, other than win, or nil
+local function Nearest(win)
+    local x = win:GetCenter() and X(win) or 0
+    local best, dist
+    for _, other in ipairs(ShownPlaces()) do
+        local d = math.abs(X(other) - x)
+        if other ~= win and (not dist or d < dist) then best, dist = other, d end
+    end
+    return best
+end
+
 -- (the sticks too while the window can scroll: the right one scrolls, the
 -- character and camera stay still)
 local function TakeSticks(v, on)
@@ -160,9 +171,11 @@ local function Watch(win, close, root)
     v.sw.focus = "game"
     v.nav.onAway = function() Away(win) end
     -- (A and X go on to the navigator's bindings: a use is protected)
+    -- (the press first: it forgets a stale release to swallow, which Passes reads)
     catcher:SetScript("OnGamePadButtonDown", function(self, button)
+        local taken = v.nav:Press(button, true)
         self:SetPropagateKeyboardInput(v.nav:Passes(button))
-        if v.nav:Press(button, true) then return end
+        if taken then return end
         if button == "PADLTRIGGER" then v.sw:Press("LT")
         elseif button == "PADRTRIGGER" then v.sw:Press("RT")
         end
@@ -206,7 +219,11 @@ local function Watch(win, close, root)
     end)
     win:HookScript("OnHide", function()
         v.away = false
+        local held = v.sw.focus == "ours"
         Release(win)
+        -- (straight to the nearest of ours left open: its switch would wait for L2 / R2 from the game's window)
+        local to = held and places[Nearest(win)]
+        if to then to.sw:Set("ours") end
     end)
 end
 

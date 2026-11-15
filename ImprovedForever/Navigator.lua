@@ -476,6 +476,8 @@ end
 -- (onAway), B takes it out only
 function Nav:Press(button, down)
     if not self.on then return false end
+    -- (a new press: the release of the one held went elsewhere, never here)
+    if down then self.swallow[button] = nil end
     -- (the menu's, and a release whose press was taken: nothing reaches the window or the game)
     if self:MenuShown() or (not down and self.swallow[button]) then
         self.swallow[button] = down or nil

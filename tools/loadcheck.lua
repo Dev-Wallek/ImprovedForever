@@ -212,6 +212,11 @@ C_GamePad = { IsEnabled = function() return true end, GetActiveDeviceID = functi
     GetDeviceMappedState = function() return nil end, GetDeviceRawState = function() return nil end,
     GetCombinedDeviceID = function() return 1 end, GetPowerLevel = function() return nil end,
     SetVibration = function() end, StopVibration = function() end, ButtonIndexToBinding = function() return nil end }
+-- (Baganator's skins: the listeners kept, for the checks to hand them windows)
+local skinListeners = {}
+Baganator = Frame("Baganator")
+Baganator.API.Skins = { GetAllFrames = function() return {} end,
+    RegisterListener = function(fn) skinListeners[#skinListeners + 1] = fn end }
 
 -- Lua helpers the game adds
 function strsplit(sep, s, n)
@@ -452,6 +457,53 @@ local CHECKS = {
         check(nav.menu.entries[1].text == "[Sword]" and #kinds >= 3,
             "the menu has the item's title and entries: " .. table.concat(kinds, ","))
         nav.menu:Close()
+    end },
+    -- (Baganator's backpack and bank open beside an unseen game window (the
+    -- game's bank, Baganator hides it): closing the backpack with B hands
+    -- the pad straight to the bank, and one B then closes that)
+    { name = "baganator close hands the pad on", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode, isKeyDown = GamepadMode, IsKeyDown
+        local manager = { shownFrames = {}, isUIFocused = false }
+        GamepadMode = { FrameControlsManager = manager }
+        local function Window(tag)
+            local w = CreateFrame("Frame")
+            w.BagSlots, w.Character = false, false
+            function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+            function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+            w.__shown = false
+            for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
+            return w
+        end
+        local function Catcher(w)
+            for _, f in ipairs(frames) do
+                if f.__parent == w and f.__scripts.OnGamePadButtonDown then return f end
+            end
+        end
+        local function B(w)
+            local c = Catcher(w)
+            c.__scripts.OnGamePadButtonDown(c, "PAD2")
+            c.__scripts.OnGamePadButtonUp(c, "PAD2")
+        end
+        local backpack, bank = Window("backpack"), Window("bank")
+        backpack:Show()
+        bank:Show()
+        check(F.Holding() == backpack, "the backpack opened first holds the pad")
+        local game = CreateFrame("Frame")
+        manager.shownFrames, manager.focusedFrame, manager.isUIFocused = { game }, game, true
+        -- (B still down as the backpack hides on its release)
+        IsKeyDown = function(key) return key == "PAD2" end
+        B(backpack)
+        IsKeyDown = isKeyDown
+        local c = Catcher(bank)
+        c.__scripts.OnUpdate(c)
+        check(not backpack:IsShown() and F.Holding() == bank, "closing the backpack hands the pad to the bank")
+        B(bank)
+        GamepadMode = gamepadMode
+        check(not bank:IsShown(), "one B then closes the bank")
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
