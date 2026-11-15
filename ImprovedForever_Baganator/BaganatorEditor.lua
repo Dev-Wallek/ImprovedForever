@@ -15,9 +15,9 @@ local ITEMS = {
     end, "Bags from the radial")),
     Item({
         key = "switch", group = "windows", label = "Windows in L2 / R2",
-        tip = "Baganator's bags, bank and guild bank windows join L2 / R2 beside the game's windows, each by where"
-            .. " it sits on screen. The one with the controller glows; Circle closes it. A window opened while"
-            .. " another has the controller waits for L2 / R2.",
+        tip = "Baganator's bags, bank, guild bank, customise and character windows and its bag slots bar join"
+            .. " L2 / R2 beside the game's windows, each by where it sits on screen. The one with the controller"
+            .. " glows; Circle closes it. A window opened while another has the controller waits for L2 / R2.",
     }, OnOff(function() return BG.Settings().switch end, function(on)
         BG.Settings().switch = on
         if not on then BG.SwitchOff() end
