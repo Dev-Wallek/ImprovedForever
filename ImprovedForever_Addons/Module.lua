@@ -2,7 +2,7 @@
 -- commands, settings pages and launchers gathered per addon (Commands.lua).
 local IF = ImprovedForever
 
-IF.AddModule({ key = "addons", label = "Addons", icon = IF.TEX .. "ic_addon", addon = ... })
+IF.AddModule({ key = "addons", label = "Addons", icon = IF.TEX .. "ic_mod_addons", addon = ... })
 
 IF.Addons = {}
 
