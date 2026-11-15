@@ -14,7 +14,7 @@
 -- window without a search box) leaves the box and calls nav.onAway, where
 -- the window lets the pad go as the game's TOGGLEUIFOCUS does. B takes the
 -- keyboard out of any edit box of the window. Y on an item opens a menu of
--- more (the game's More Actions): split the stack, mark it junk or not
+-- more (the game's More Actions): mark it junk or not
 -- (ItemValue.lua), keep it in KeepOrSell (when loaded), bind it to the
 -- crossbar (BindPanel.lua), destroy it (Cross held, longer for rare and
 -- better); while it's up every press is the menu's. The right stick
@@ -356,39 +356,16 @@ function Nav:OpenMenu(build)
     self:ShowLegend()
 end
 
--- Split off: 1, 5, 10, half, all but one, those under the stack's count
-local function SplitEntries(bag, slot, count)
-    local amounts, seen = {}, {}
-    for _, n in ipairs({ 1, 5, 10, math.floor(count / 2), count - 1 }) do
-        if n >= 1 and n < count and not seen[n] then
-            seen[n] = true
-            amounts[#amounts + 1] = n
-        end
-    end
-    table.sort(amounts)
-    local list = { { kind = "title", text = "Split off" } }
-    for _, n in ipairs(amounts) do
-        -- (the part on the mouse: Cross puts it down, Circle back)
-        list[#list + 1] = { kind = "action", text = tostring(n),
-            run = function() C_Container.SplitContainerItem(bag, slot, n) end }
-    end
-    return list
-end
-
--- The item's menu: its name; split (a stack, not locked); junk or not
--- (not a quest's item); KeepOrSell's keep mark (its /kos keep | unkeep,
+-- The item's menu: its name; junk or not (not a quest's item); KeepOrSell's keep mark (its /kos keep | unkeep,
 -- KeepOrSellDB.keep: it has no Lua API); bind (an item that does something
 -- when used); destroy (not locked)
 function Nav:ItemEntries(bag, slot)
     local info = C_Container.GetContainerItemInfo(bag, slot)
     if not info then return {} end
-    local id, count = info.itemID, info.stackCount or 1
+    local id = info.itemID
     local list = { { kind = "title", text = info.hyperlink or "" } }
     local function Add(text, run, hold)
         list[#list + 1] = { kind = "action", text = text, run = run, hold = hold }
-    end
-    if count > 1 and not info.isLocked then
-        Add("Split stack", function() self:OpenMenu(function() return SplitEntries(bag, slot, count) end) end)
     end
     local judged = IF.ItemValue.Judge(bag, slot)
     if judged and judged.tag ~= "Quest" then
