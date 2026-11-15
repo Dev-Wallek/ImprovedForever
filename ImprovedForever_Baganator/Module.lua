@@ -1,6 +1,7 @@
 -- Improved Forever: Baganator. Baganator's windows with the controller: the
--- gamepad radial's Bags opens them (Bags.lua), set up in its tab
--- (BaganatorEditor.lua). Loaded only with Baganator (its TOC's dependency).
+-- gamepad radial's Bags opens them (Bags.lua), L2 / R2 reach them
+-- (Windows.lua), set up in its tab (BaganatorEditor.lua). Loaded only with
+-- Baganator (its TOC's dependency).
 local IF = ImprovedForever
 
 IF.AddModule({ key = "baganator", label = "Baganator", icon = "Interface\\Icons\\INV_Misc_Bag_08", addon = ... })
@@ -8,7 +9,7 @@ IF.AddModule({ key = "baganator", label = "Baganator", icon = "Interface\\Icons\
 local BG = {}
 IF.Baganator = BG
 
-local DEFAULTS = { radial = true }
+local DEFAULTS = { radial = true, switch = true }
 
 function BG.Settings()
     local db = IF.db

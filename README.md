@@ -34,7 +34,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
 | `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
-| `ImprovedForever_Baganator` | Baganator's bags with the controller: the gamepad radial's Bags opens them. Needs Baganator. |
+| `ImprovedForever_Baganator` | Baganator's bags with the controller: the gamepad radial's Bags opens them, L2 / R2 reach its bags, bank and guild bank windows beside the game's. Needs Baganator. |
 | `ImprovedForever_Wiki` | Everything about an item. |
 | `ImprovedForever_Journal` | A diary of your days, read as a book. |
 | `ImprovedForever_Fishing` | Fishing from the controller: fishing mode, a cast bar of its own, the session's stringer, the Fish Collection. |

@@ -241,24 +241,52 @@ end)
 -- sw.focus: "ours" or "game"; sw:Behind() -> label, key ("LT" / "RT");
 -- sw:Press(key): a trigger pressed on ours (true: handled);
 -- sw:Update(): from ours' OnUpdate; sw:Set(focus)
+-- With several of ours up (an addon's windows: ImprovedForever_Baganator), one holds
+-- the pad at a time; a switch whose other is another of ours watches only
+-- while that one holds it. F.Holding(except): the one holding it;
+-- F.GameWindow(except): the game's window the pad goes to.
 ---------------------------------------------------------------------------
 local Switch = {}
 Switch.__index = Switch
+-- (every switch, to tell which of ours holds the pad)
+local switches = setmetatable({}, { __mode = "k" })
 
 function F.Switch(win, opts)
-    return setmetatable({ win = win, opts = opts or {}, focus = "ours",
+    local sw = setmetatable({ win = win, opts = opts or {}, focus = "ours",
         held = { LT = true, RT = true } }, Switch)
+    switches[sw] = true
+    return sw
+end
+
+-- The window of ours holding the pad (shown, its switch on "ours"), other than except, or nil
+function F.Holding(except)
+    for sw in pairs(switches) do
+        if sw.win ~= except and sw.focus == "ours" and Shown(sw.win) then return sw.win end
+    end
+    return nil
+end
+
+local function Switched(f)
+    for sw in pairs(switches) do
+        if sw.win == f then return true end
+    end
+    return false
+end
+
+-- The game's window the pad goes to from ours: its focused one, else the last in its row (never except)
+function F.GameWindow(except)
+    local m = F.Manager()
+    local focused = m and Shown(m.focusedFrame)
+    if focused and focused ~= except and InRow(focused) then return focused end
+    local frames = m and m.shownFrames
+    local last = frames and Shown(frames[#frames])
+    return last ~= except and last or nil
 end
 
 function Switch:Other()
     local mine = self.opts.other and Shown(self.opts.other())
     if mine then return mine end
-    local m = F.Manager()
-    local focused = m and Shown(m.focusedFrame)
-    if focused and focused ~= self.win and InRow(focused) then return focused end
-    local frames = m and m.shownFrames
-    local last = frames and Shown(frames[#frames])
-    return last ~= self.win and last or nil
+    return F.GameWindow(self.win)
 end
 
 function Switch:LeftOfUs(f)
@@ -324,6 +352,10 @@ function Switch:Update()
     local other = self:Other()
     if not other then return self:Set("ours") end
     local mine = not InRow(other)
+    -- (several of ours with a switch: the pad is on the one holding it, or on the
+    -- game's when none does; only a trigger pressed there counts)
+    local holder = F.Holding(self.win)
+    local idle = (holder or (mine and Switched(other))) and other ~= holder
     local m = F.Manager()
     -- (the window that had the pad when the trigger went down: the game
     -- moves its focus on the same press)
@@ -331,7 +363,7 @@ function Switch:Update()
     self.before = m and m.isUIFocused and Shown(m.focusedFrame) or nil
     for key, button in pairs(TRIGGERS) do
         local down = IsKeyDown and IsKeyDown(button) or false
-        local fresh = down and not self.held[key] and not IF.InCombat()
+        local fresh = down and not self.held[key] and not IF.InCombat() and not idle
         self.held[key] = down
         if fresh then
             local from = mine and other or was

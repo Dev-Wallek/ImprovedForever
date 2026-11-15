@@ -1,6 +1,6 @@
 ## Interface: 16001, 16002, 16003, 16100, 16101, 16200
 ## Title: Improved Forever: Baganator
-## Notes: Baganator's bags with the controller: the gamepad radial's Bags opens them.
+## Notes: Baganator's bags with the controller: the gamepad radial's Bags opens them, L2 / R2 reach its windows.
 ## Version: 0.1.0
 ## X-Website: https://github.com/markgravity/ImprovedForever
 ## X-License: MIT
@@ -11,4 +11,5 @@
 
 Module.lua
 Bags.lua
+Windows.lua
 BaganatorEditor.lua
