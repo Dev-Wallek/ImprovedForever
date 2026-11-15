@@ -63,6 +63,12 @@ end
 
 local function Watch(view)
     if views[view] then return end
+    -- Its FrameGlow laid itself out for the template's portrait border; every
+    -- view hides the portrait, so lay the glow out again for that border.
+    if view.FrameGlow then
+        view.FrameGlow.layoutType = "ButtonFrameTemplateNoPortrait"
+        view.FrameGlow:OnLoad()
+    end
     local catcher = CreateFrame("Frame", nil, view)
     catcher:SetAllPoints(view)
     local v = { catcher = catcher }
