@@ -4,7 +4,8 @@
 -- own place in the row by where it sits on screen, its focus glow on while it
 -- has the pad (the bar has none: the cursor alone shows it), the game's focus
 -- dimmed meanwhile, the core's cursor in it (Navigator.lua: D-pad, A, X,
--- Y for an item's menu, Select for the search box),
+-- Y for an item's menu, Select for the search box, Select again lets the
+-- pad go with the window left open: Away below),
 -- Circle closes it (the bar by Baganator's own toggle). The game's frame
 -- manager never lists them, so the pad is taken by a catcher frame of ours
 -- on each. Never in combat: combat lets the pad go.
@@ -82,6 +83,32 @@ local function Release(win)
     Apply(win)
 end
 
+-- Away, as the game's TOGGLEUIFOCUS (Select, no window's own) unfocuses its
+-- windows: the window stays open behind, the pad is the game's (the
+-- character's, or its focused window's) and none of ours takes it. It comes
+-- back with Select while the game's windows don't have the pad (the game's
+-- TOGGLEUIFOCUS on the same press), the radial's Bags (BG.Back), or L2 / R2
+-- from a game window beside it.
+local function Away(win)
+    local v = places[win]
+    v.away = true
+    -- (not by sw:Set: that hands the pad on to the next of ours)
+    v.sw.focus = "game"
+    v.sw.held.LT, v.sw.held.RT = true, true
+    v.selectHeld, v.gameFocus = nil, nil
+    Apply(win)
+end
+
+local function WhileAway(win, v)
+    local m = F.Manager()
+    local down = IsKeyDown("PADBACK")
+    local fresh = down and not v.selectHeld and not v.gameFocus
+    v.selectHeld = down
+    v.gameFocus = m and m.isUIFocused or false
+    if fresh then return v.sw:Set("ours") end
+    if BG.Settings().switch and F.GameWindow(win) then v.sw:Update() end
+end
+
 -- win joins the row: close() is its B, root (optional) where its elements are
 local function Watch(win, close, root)
     if places[win] then return end
@@ -93,6 +120,7 @@ local function Watch(win, close, root)
         other = function() return Neighbour(win) end,
         onChange = function(focus)
             if focus == "ours" then
+                v.away = false
                 -- (one of ours at a time; the one letting go first, so its dim is put back before ours)
                 for other, o in pairs(places) do
                     if other ~= win and o.sw.focus == "ours" then Release(other) end
@@ -107,6 +135,7 @@ local function Watch(win, close, root)
     })
     -- (holding nothing till it shows)
     v.sw.focus = "game"
+    v.nav.onAway = function() Away(win) end
     -- (A and X go on to the navigator's bindings: a use is protected)
     catcher:SetScript("OnGamePadButtonDown", function(self, button)
         self:SetPropagateKeyboardInput(v.nav:Passes(button))
@@ -130,7 +159,8 @@ local function Watch(win, close, root)
     catcher:EnableGamePadStick(false)
     v.stick = false
     catcher:SetScript("OnUpdate", function()
-        if BG.Settings().switch then v.sw:Update() end
+        if v.away then WhileAway(win, v)
+        elseif BG.Settings().switch then v.sw:Update() end
         local binding = IF.BindPanel.Shown()
         if binding ~= v.binding then
             v.binding = binding
@@ -143,10 +173,14 @@ local function Watch(win, close, root)
         if not BG.Settings().switch then return end
         -- (the pad stays where it is when a window has it: the game's or another of ours)
         local free = not (IF.InCombat() or F.GameWindow(win) or F.Holding(win))
+        v.away = false
         v.sw.focus = free and "ours" or "game"
         Apply(win)
     end)
-    win:HookScript("OnHide", function() Release(win) end)
+    win:HookScript("OnHide", function()
+        v.away = false
+        Release(win)
+    end)
 end
 
 -- The bag slots bar above a bags or bank view: Baganator keeps its frame
@@ -189,6 +223,17 @@ local function Seen(details)
 end
 for _, details in ipairs(Baganator.API.Skins.GetAllFrames() or {}) do Seen(details) end
 Baganator.API.Skins.RegisterListener(Seen)
+
+-- The radial's Bags while one of ours is away: its pad back, true (false in combat)
+function BG.Back()
+    for win, v in pairs(places) do
+        if v.away and F.Shown(win) then
+            v.sw:Set("ours")
+            return v.sw.focus == "ours"
+        end
+    end
+    return false
+end
 
 function BG.SwitchOff()
     for win in pairs(places) do Release(win) end

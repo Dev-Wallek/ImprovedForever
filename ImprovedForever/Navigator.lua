@@ -9,9 +9,11 @@
 -- Both run through a secure button of ours, bound to PAD1 (left click) and
 -- PAD3 (right click) by priority override bindings (the game's own stay on
 -- top without them), its attributes set out of combat. Select (PADBACK)
--- puts the keyboard in the window's search box and takes it out again, B
--- takes it out of any edit box of the window, as in the game's bag window
--- (ContainerFrame.lua: SetUpSearchGamepad). Y on an item opens a menu of
+-- puts the keyboard in the window's search box, as in the game's bag window
+-- (ContainerFrame.lua: SetUpSearchGamepad); Select again (or Select in a
+-- window without a search box) leaves the box and calls nav.onAway, where
+-- the window lets the pad go as the game's TOGGLEUIFOCUS does. B takes the
+-- keyboard out of any edit box of the window. Y on an item opens a menu of
 -- more (the game's More Actions): split the stack, mark it junk or not
 -- (ItemValue.lua), keep it in KeepOrSell (when loaded), bind it to the
 -- crossbar (BindPanel.lua), destroy it (Cross held, longer for rare and
@@ -22,6 +24,7 @@
 --   IF.Navigator.New(win, root?) -> nav: root, when given, holds the elements
 --     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
+--   nav.onAway: set by the caller, run on the Select that lets the pad go
 --   nav:Press(button, down) -> true when it took the press (the D-pad,
 --     Select, Y, B while typing, any while the menu is up, the release of
 --     one held as the navigator came on or the menu took it)
@@ -491,7 +494,8 @@ function Nav:Move(button)
 end
 
 -- Select (PADBACK) and B as in the game's bag window: Select puts the
--- keyboard in the search box and takes it out again, B takes it out
+-- keyboard in the search box, Select again takes it out and the pad away
+-- (onAway), B takes it out only
 function Nav:Press(button, down)
     if not self.on then return false end
     -- (the menu's, and a release whose press was taken: nothing reaches the window or the game)
@@ -507,8 +511,11 @@ function Nav:Press(button, down)
     local typing = self:Typing()
     if button == "PADBACK" or (button == "PAD2" and typing) then
         if down then return true end
-        if typing then typing:ClearFocus()
-        elseif button == "PADBACK" and self:SearchBox() then self:SearchBox():SetFocus() end
+        if typing then typing:ClearFocus() end
+        if button == "PADBACK" then
+            if not typing and self:SearchBox() then self:SearchBox():SetFocus()
+            elseif self.onAway then self.onAway() end
+        end
         return true
     end
     if not DIRS[button] then return false end
