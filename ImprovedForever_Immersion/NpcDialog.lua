@@ -17,8 +17,8 @@
 -- answer through the quest and gossip API (AcceptQuest,
 -- C_GossipInfo.SelectOptionByIndex...); the game's window then closes or
 -- changes from its own events. Nothing here shows, hides or clicks a frame
--- of the game's; with the pad, its quest text is scrolled to the rewards to
--- pick once a page (RevealRewards), so its D-pad reaches them.
+-- of the game's; with the pad, its quest text is scrolled to the rewards
+-- once a page (RevealRewards), so its D-pad and tooltips reach them.
 --
 -- With Spoken installed, its voice plays the NPC's words as it does for
 -- the game's windows; ours shows whether it speaks, how far, and its button
@@ -364,13 +364,21 @@ local function ItemTip(b)
     if GameTooltip_ShowCompareItem then pcall(GameTooltip_ShowCompareItem, GameTooltip) end
 end
 
--- (the game's cursor on a reward: the game shows its tooltip at its own
--- window's button (faded, elsewhere); shown over ours instead, once each
--- time the game shows it)
+-- (the game's cursor on a reward: its tooltip shown by ours as the cursor
+-- gets there, whether the game shows one or not; the game's own, at its
+-- window's button (faded, elsewhere), taken over each time it shows it)
+local tipped
 local function FollowTip(button, target)
-    if not (button and target and target.kind and target.index and GameTooltip:IsShown()) then return end
+    local item = target and target.kind and target.index and target or nil
+    if item ~= tipped then
+        if tipped and not item and GameTooltip:GetOwner() == tipAnchor then GameTooltip:Hide() end
+        tipped = item
+        if item then ItemTip(item) end
+        return
+    end
+    if not (item and button and GameTooltip:IsShown()) then return end
     local ok, owner = pcall(GameTooltip.GetOwner, GameTooltip)
-    if ok and owner == button then ItemTip(target) end
+    if ok and owner == button then ItemTip(item) end
 end
 
 local function ItemButton(i)
@@ -1493,21 +1501,22 @@ local function Fallback()
 end
 
 -- The game's window opens a quest page scrolled to its top, and SmartNavigation
--- reaches only the rewards in its view: with the pad, a page with rewards to pick
+-- reaches only the rewards in its view (and the game shows a reward's tooltip, which
+-- FollowTip copies, only for the one it is on): with the pad, a page with reward items
 -- has the game's text scrolled to them once. The right stick still scrolls it.
 local revealed
 local function RevealRewards()
     local d = current
     local key = d.kind .. ":" .. (d.title or "")
     if revealed == key or IF.InCombat() then return end
-    if not (d.kind == "detail" or d.kind == "reward") or (GetNumQuestChoices() or 0) < 2 then return end
+    if not (d.kind == "detail" or d.kind == "reward") or #(d.items or {}) == 0 then return end
     local sf, rewards = d.scrollFrame, _G.QuestInfoRewardsFrame
     if not (sf and rewards and rewards:IsVisible()) then return end
     -- (not laid out yet: tried again next frame)
     local range, top, at = sf:GetVerticalScrollRange(), sf:GetTop(), rewards:GetTop()
     if not (top and at) or range <= 0 then return end
     revealed = key
-    -- ponytail: the rewards' top at the view's top; choices past its bottom still need the stick
+    -- ponytail: the rewards' top at the view's top; rewards past its bottom still need the stick
     sf:SetVerticalScroll(math.max(0, math.min(range, sf:GetVerticalScroll() + top - at)))
 end
 
@@ -1705,7 +1714,7 @@ local function Off()
     end
     if current then Fade(current.native, false) end
     Fade(nil)
-    current, signature, revealed = nil, nil, nil
+    current, signature, revealed, tipped = nil, nil, nil, nil
     Point(nil)
     HidePointer(false)
     FadeSubtitle(false)
@@ -1761,7 +1770,7 @@ local function Tick()
     if square and not squareDown and current and NativeFocused() then ND.ShowAll("square") end
     squareDown = square
     if dirty or panelName ~= signature then
-        if panelName ~= signature then choice, showAll = 0, false end
+        if panelName ~= signature then choice, showAll, tipped = 0, false, nil end
         dirty = false
         signature = panelName
         local d = Read()
