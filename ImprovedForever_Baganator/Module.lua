@@ -13,6 +13,8 @@ local DEFAULTS = { radial = true, switch = true }
 
 function BG.Settings()
     local db = IF.db
+    -- (a test's log, left in saved variables)
+    db.bagsLog = nil
     db.baganator = db.baganator or {}
     local settings = db.baganator
     for key, value in pairs(DEFAULTS) do
