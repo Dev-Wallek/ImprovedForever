@@ -119,3 +119,37 @@ owner:SetScript("OnEvent", function()
         UpdateBinding()
     end
 end)
+
+---------------------------------------------------------------------------
+-- Destroying a bag item (the Destroy panel, the navigator's menu): picked
+-- up and deleted with no game popup, so the caller asks for a hold first.
+-- From a button press only, never in combat.
+---------------------------------------------------------------------------
+local blocked = false
+local watch = CreateFrame("Frame")
+watch:RegisterEvent("ADDON_ACTION_BLOCKED")
+watch:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+watch:SetScript("OnEvent", function(_, _, addon, fn)
+    if type(addon) == "string" and addon:find("^ImprovedForever") and tostring(fn):find("DeleteCursorItem") then
+        blocked = true
+    end
+end)
+
+-- itemID: the item that must still be there; say: the outcome in the chat
+-- -> true when destroyed; else false, whether the game blocked it
+function IF.DestroyItem(bag, slot, itemID, say)
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not info or info.itemID ~= itemID or info.isLocked or IF.InCombat() then return false, false end
+    ClearCursor()
+    C_Container.PickupContainerItem(bag, slot)
+    if not CursorHasItem() then return false, false end
+    blocked = false
+    DeleteCursorItem()
+    if CursorHasItem() then ClearCursor() end
+    if say then
+        local count = info.stackCount or 1
+        IF.Print(blocked and "the game doesn't let addons destroy items here."
+            or "destroyed " .. (info.hyperlink or "item") .. (count > 1 and (" x" .. count) or ""))
+    end
+    return not blocked, blocked
+end
