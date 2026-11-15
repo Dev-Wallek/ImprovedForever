@@ -8,9 +8,10 @@ local Item, OnOff = IF.SettingsItem, IF.SettingsOnOff
 local ITEMS = {
     Item({
         key = "radial", group = "bags", label = "Baganator for the game's bags",
-        tip = "Whatever opens the game's bags (Bags in the gamepad radial, a key, the mailbox, a merchant, the bank)"
-            .. " opens Baganator's instead; a toggle opens or closes it with one press, and one the mailbox or"
-            .. " a merchant opened closes with it. Off: they open the game's bags, which Baganator keeps hidden.",
+        tip = "Bags in the gamepad radial opens or closes Baganator with one press, and the game's own bags,"
+            .. " which the game still opens unseen (the mailbox, a merchant, the bank), close again at once, so"
+            .. " no press or Escape goes to them. Where Baganator opens by itself is its own Auto Open setting."
+            .. " Off: the radial opens the game's bags, which Baganator keeps hidden.",
     }, OnOff(function() return BG.Settings().radial end, function(on)
         BG.Settings().radial = on
     end, "Baganator for the game's bags")),
