@@ -11,9 +11,9 @@ local BG = IF.Baganator
 local BAG_FRAMES = { "ContainerFrameCombinedBags" }
 for i = 1, 6 do BAG_FRAMES[#BAG_FRAMES + 1] = "ContainerFrame" .. i end
 
--- ponytail: Hide on the game's frames can taint them; measured harmless for
--- these (Escape and combat after it unblocked), since they are never
--- visible here and none of their OnHide code runs.
+-- Hide sets a property of the game's frames, which CLAUDE.md forbids. These
+-- are an exception: with Baganator the game's own bags are never used, and
+-- Escape and combat after it stay unblocked (measured).
 local function CloseHiddenBags()
     for _, name in ipairs(BAG_FRAMES) do
         local frame = _G[name]
