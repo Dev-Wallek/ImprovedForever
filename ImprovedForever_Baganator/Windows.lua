@@ -1,9 +1,10 @@
 -- Baganator's bags, bank and guild bank windows in L2 / R2, beside the
 -- game's windows, as ours (the core's Focus.lua): each one its own place in
 -- the row by where it sits on screen, its focus glow on while it has the
--- pad, the game's focus dimmed meanwhile, Circle closes it. The game's frame
--- manager never lists them, so the pad is taken by a catcher frame of ours
--- on each. Never in combat: combat lets the pad go.
+-- pad, the game's focus dimmed meanwhile, the core's cursor in it
+-- (Navigator.lua: D-pad, A), Circle closes it. The game's frame manager
+-- never lists them, so the pad is taken by a catcher frame of ours on each.
+-- Never in combat: combat lets the pad go.
 local IF = ImprovedForever
 
 local F = IF.Focus
@@ -53,6 +54,7 @@ local function Apply(view)
     TakePad(v.catcher, ours)
     F.Glow(view, ours)
     F.DimNative(view, ours)
+    v.nav:Set(ours)
 end
 
 -- Lets the pad go (to the game's or, by the switch, the next of ours)
@@ -71,7 +73,7 @@ local function Watch(view)
     end
     local catcher = CreateFrame("Frame", nil, view)
     catcher:SetAllPoints(view)
-    local v = { catcher = catcher }
+    local v = { catcher = catcher, nav = IF.Navigator.New(view) }
     views[view] = v
     v.sw = F.Switch(view, {
         other = function() return Neighbour(view) end,
@@ -91,14 +93,22 @@ local function Watch(view)
     })
     -- (holding nothing till it shows)
     v.sw.focus = "game"
-    catcher:SetScript("OnGamePadButtonDown", function(_, button)
+    -- (A goes on to the navigator's binding: a use is protected)
+    catcher:SetScript("OnGamePadButtonDown", function(self, button)
+        self:SetPropagateKeyboardInput(v.nav:Passes(button))
+        if v.nav:Press(button, true) then return end
         if button == "PADLTRIGGER" then v.sw:Press("LT")
         elseif button == "PADRTRIGGER" then v.sw:Press("RT")
         end
     end)
-    -- (Circle on its release, as the game's windows close)
-    catcher:SetScript("OnGamePadButtonUp", function(_, button)
-        if button == "PAD2" then view:Hide() end
+    -- (Circle on its release, as the game's windows close; an item on the
+    -- mouse put back first)
+    catcher:SetScript("OnGamePadButtonUp", function(self, button)
+        self:SetPropagateKeyboardInput(v.nav:Passes(button))
+        if v.nav:Press(button, false) then return end
+        if button == "PAD2" then
+            if CursorHasItem() then ClearCursor() else view:Hide() end
+        end
     end)
     -- (setting a gamepad handler switches the frame's input on by itself)
     catcher:EnableGamePadButton(false)
