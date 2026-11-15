@@ -18,8 +18,8 @@
 -- spell, item or macro dropped on ours with the mouse goes into the slot
 -- it shows, and one dragged off is picked up (out of combat). Its two
 -- class action buttons (L1 + L2, R1 + R2) too, beside the diamonds, their two-glyph
--- prompt over them. The game's pet command flyout (L1 + L2 with a pet) is
--- drawn at 0 and ours draws it above the class tile.
+-- prompt over them. The game's pet flyouts (L1 + L2 with a pet: its commands;
+-- R1 + R2: its spells) are drawn at 0 and ours draws each above its class tile.
 -- A cooldown can be a secret (Forever restricts them at times): its ring
 -- and countdown then aren't shown.
 local IF = ImprovedForever
@@ -1379,22 +1379,32 @@ local function MirrorClass(b, native)
 end
 
 ---------------------------------------------------------------------------
--- The game's pet command flyout (GamepadPetActionFlyout, L1 + L2 / R1 + R2
--- with a pet) opens round the game's class button, which lies under ours
--- at the screen's bottom. It is drawn at 0 (IF.Focus.Fade) and ours draws
--- its open state above the class tile it opened from: its ring, each
--- command's slot and icon where the game has them, the one the right stick
--- points at lit, the game's arrow at it. The presses stay the game's.
+-- The game's pet flyouts open round the game's class buttons, which lie
+-- under ours at the screen's bottom: the pet commands (GamepadPetActionFlyout,
+-- L1 + L2 with a pet) and the pet's spells (GamepadPetSpellFlyout, R1 + R2
+-- for a hunter or warlock, Camelot/PetSpellFlyout.lua). Each is drawn at 0
+-- (IF.Focus.Fade, from the moment it shows) and ours draws its open state
+-- above the class tile it opened from: its ring, each slot and icon where
+-- the game has them, the one the right stick points at lit, the game's
+-- arrow at it. The presses stay the game's.
 ---------------------------------------------------------------------------
 local shown, padShown
 
 -- (a block of its own: the file's main chunk is at Lua's 200 locals)
 do
-    local petRing = CreateFrame("Frame", nil, holder)
-    petRing:SetFrameStrata("DIALOG")
-    petRing:SetClampedToScreen(true)
-    petRing:Hide()
-    local petTextures = {}
+    local rings = {}   -- (ours, by the game's flyout)
+
+    local function Ring(flyout)
+        local ring = rings[flyout]
+        if ring then return ring end
+        ring = CreateFrame("Frame", nil, holder)
+        ring:SetFrameStrata("DIALOG")
+        ring:SetClampedToScreen(true)
+        ring:Hide()
+        ring.textures = {}
+        rings[flyout] = ring
+        return ring
+    end
 
     -- (a texture's own scale, where the client has one; else its frame's)
     local function RegionScale(r)
@@ -1404,10 +1414,11 @@ do
     -- One of the flyout's textures drawn on ours: its picture, size, turn and
     -- place from the flyout's centre (hidden with it, or with `shown` false)
     local function CopyTexture(key, layer, sub, tex, flyout, shown)
-        local t = petTextures[key]
+        local petRing = Ring(flyout)
+        local t = petRing.textures[key]
         if not t then
             t = petRing:CreateTexture(nil, layer, nil, sub)
-            petTextures[key] = t
+            petRing.textures[key] = t
         end
         local x, y
         if tex then x, y = tex:GetCenter() end
@@ -1435,6 +1446,7 @@ do
     end
 
     local function DrawPetRing(flyout)
+        local petRing = Ring(flyout)
         local fs, rs = flyout:GetEffectiveScale(), petRing:GetEffectiveScale()
         petRing:SetSize(flyout:GetWidth() * fs / rs, flyout:GetHeight() * fs / rs)
         CopyTexture("bg", "BACKGROUND", 0, flyout.Background, flyout)
@@ -1461,16 +1473,11 @@ do
         CopyTexture("arrow", "OVERLAY", 2, arrow and arrow.Texture, flyout, arrow ~= nil and arrow:IsShown())
     end
 
-    petRing:SetScript("OnUpdate", function()
-        local flyout = _G.GamepadPetActionFlyout
-        if flyout and flyout:IsShown() then DrawPetRing(flyout) end
-    end)
-
     -- Ours shown while the game's is open and the pad's bar is up, above
     -- the class tile it opened from
-    IN.Watcher("pet command flyout", 0.05, function()
-        local flyout = _G.GamepadPetActionFlyout
-        local open = padShown and flyout ~= nil and flyout:IsShown()
+    local function Sync(flyout)
+        local petRing = Ring(flyout)
+        local open = padShown and flyout:IsShown()
         IF.Focus.Fade(flyout, open)
         if not open then
             petRing:Hide()
@@ -1480,7 +1487,28 @@ do
         local tile = (pu and flyout.flyoutButton == pu.RightClassAction) and classRight or classLeft
         petRing:ClearAllPoints()
         petRing:SetPoint("BOTTOM", tile, "TOP", 0, CLASS.glyph + 4)
-        petRing:Show()
+        if not petRing:IsShown() then
+            petRing:Show()
+            DrawPetRing(flyout)
+        end
+    end
+
+    local hooked = {}
+    IN.Watcher("pet flyouts", 0.05, function()
+        for _, name in ipairs({ "GamepadPetActionFlyout", "GamepadPetSpellFlyout" }) do
+            local flyout = _G[name]
+            if flyout then
+                if not hooked[flyout] then
+                    hooked[flyout] = true
+                    -- (faded as it shows, before it is drawn once at the game's spot)
+                    flyout:HookScript("OnShow", function(self) pcall(Sync, self) end)
+                    Ring(flyout):SetScript("OnUpdate", function()
+                        if flyout:IsShown() then DrawPetRing(flyout) end
+                    end)
+                end
+                Sync(flyout)
+            end
+        end
     end)
 end
 
