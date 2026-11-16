@@ -5,8 +5,8 @@
 --   party's row: the game's aura container (Blizzard_AuraContainer's
 --   CustomAuraContainerTemplate), filled by the game itself, in a fight
 --   too, when it hides auras from addons: which auras, their icons,
---   stacks, time left and tooltips, sorted by time left (the soonest gone
---   nearest the middle, debuffs nearest). Ours only styles each button and
+--   stacks, time left and tooltips, your own first, then by time left (the
+--   soonest gone nearest the middle, debuffs nearest). Ours only styles each button and
 --   places the row; it never sees an aura.
 -- * right: the cooldowns of what's on your gamepad bar (every slot of the
 --   crossbar's page shown) and your on-use trinkets, from the party
@@ -439,9 +439,19 @@ local function BuffLane()
     return start, math.max(start + 1, stop)
 end
 
+-- How many buffs and debuffs fit in the lane. The debuffs keep a third of the row at most: a short row
+-- (a small screen, a low UI scale) left the buffs only what DEBUFF_MAX did not take, two icons.
+local function Caps()
+    local size = Size()
+    local start, stop = BuffLane()
+    local fits = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
+    local debuffs = math.max(1, math.min(DEBUFF_MAX, math.floor(fits / 3)))
+    return math.max(1, fits - debuffs), debuffs
+end
+
 -- The container, made the first time it's shown (nil: this client has
--- none); its row's start, kept
-local container, placedAt
+-- none); its row's start and caps, kept
+local container, placedAt, buffCap, debuffCap
 local function Container()
     if container ~= nil then return container or nil end
     container = false
@@ -452,32 +462,31 @@ local function Container()
     -- lying over the row took it first)
     c:SetFrameStrata("HIGH")
     local size = Size()
-    local start, stop = BuffLane()
-    local fits = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
+    buffCap, debuffCap = Caps()
     pcall(c.SetUnit, c, "player")
-    -- (the buffs, then the debuffs nearest the middle; each sorted by time
-    -- left, the soonest gone last: nearest the middle)
+    -- (the game's order: your own first, then the soonest gone, the permanent last, so a full row
+    -- drops others' and permanent ones; laid out right to left, so the soonest gone sit nearest the middle)
+    pcall(c.SetFlowLayoutAnchorPoint, c, "TOPRIGHT")
+    pcall(c.SetFlowLayoutGrowthDirection, c, AnchorUtil.FlowDirection.Left, AnchorUtil.FlowDirection.Down)
     local function Group(key, filter, harmful, max)
         pcall(c.AddAuraGroup, c, key, filter, {
             maxFrameCount = max,
             sortMethod = AuraContainerSortMethod.Expiration,
-            sortDirection = AuraContainerSortDirection.Reverse,
+            sortDirection = AuraContainerSortDirection.Normal,
             layout = { elementSpacing = SPACING, groupSpacing = GROUP_GAP, elementWidth = size, elementHeight = size },
             initializeFrame = function(b) StyleButton(b, harmful, size) end,
         })
     end
-    -- (the debuffs keep a third of the row at most: a short row (a small screen, a low UI scale) left the
-    -- buffs only what DEBUFF_MAX did not take, two icons)
-    local debuffs = math.max(1, math.min(DEBUFF_MAX, math.floor(fits / 3)))
-    Group("buffs", "HELPFUL", false, math.max(1, fits - debuffs))
-    Group("debuffs", "HARMFUL", true, debuffs)
+    -- (the debuffs first: right to left, nearest the middle)
+    Group("debuffs", "HARMFUL", true, debuffCap)
+    Group("buffs", "HELPFUL", false, buffCap)
     c:Hide()
     container = c
     return c
 end
 
 -- (shown or not; its row placed: its top left, the row's foot on
--- IN.BOTTOM)
+-- IN.BOTTOM; its caps following the lane)
 local function ShowBuffs(on)
     local c = (on or container) and Container()
     if not c then return end
@@ -488,6 +497,12 @@ local function ShowBuffs(on)
             placedAt = at
             c:ClearAllPoints()
             c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM + Size())
+        end
+        local buffs, debuffs = Caps()
+        if buffs ~= buffCap or debuffs ~= debuffCap then
+            buffCap, debuffCap = buffs, debuffs
+            pcall(c.SetAuraGroupMaxFrameCount, c, "buffs", buffs)
+            pcall(c.SetAuraGroupMaxFrameCount, c, "debuffs", debuffs)
         end
     end
     if c:IsShown() ~= on then
