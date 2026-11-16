@@ -50,12 +50,20 @@ end
 -- Shoot off. The second: what each layer with L2 / R2 held runs, the game's
 -- button of that bar (R2 is no modifier, the key comes the same).
 function W.Macro()
-    if IF.db.wandShoot ~= true or not Wielding() then return nil end
+    if not GameButton("") then return nil end
+    local line
     local name = ShootName()
-    if not (name and GameButton("")) then return nil end
+    if IF.db.wandShoot == true and Wielding() and name then
+        line = "/cast [@target,harm,nodead] !" .. name
+    elseif IF.db.squareAttack == true then
+        -- /startattack only starts the swing: a second press never stops it
+        line = "/startattack [@target,harm,nodead]"
+    else
+        return nil
+    end
     local layers = {}
     for _, layer in ipairs({ "LT", "RT", "LTRT" }) do layers[layer] = Click(layer) end
-    return "/cast [@target,harm,nodead] !" .. name .. "", layers
+    return line, layers
 end
 
 -- Shoot's icon and name while Square would shoot (on, a wand wielded, Shoot
@@ -102,3 +110,9 @@ IF.AddCommand("wandshoot", function()
     IF.Override.Apply()
     IF.Print("Square shoots the wand: " .. (IF.db.wandShoot == true and "on" or "off"))
 end, ": Square shoots your wand instead of a melee swing")
+
+IF.AddCommand("squareattack", function()
+    IF.db.squareAttack = IF.db.squareAttack ~= true
+    IF.Override.Apply()
+    IF.Print("Square always attacks: " .. (IF.db.squareAttack == true and "on" or "off"))
+end, ": Square on an enemy always attacks (never switches auto attack off)")

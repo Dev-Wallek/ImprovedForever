@@ -184,15 +184,16 @@ IF.OnLogin(function()
 end)
 
 ---------------------------------------------------------------------------
--- While peeking: L1 / R1 shrink / grow the map (kept in the settings), L2 /
+-- While peeking: L1 / R1 zoom the map out / in (sub-zone <-> zone <-> continent
+-- <-> world), L2 /
 -- R2 move the focus (the super-tracked quest) to the previous / next
 -- tracked quest. Override bindings on a
 -- button of ours, only while the game has the pad (not when the map took it
 -- as a window: a window keeps its buttons), out of combat.
 ---------------------------------------------------------------------------
-local STEP, MIN_SIZE, MAX_SIZE = 0.05, 0.3, 0.95
+
 local MODIFIERS = { "", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-", "CTRL-ALT-SHIFT-" }
-local KEYS = { PADLTRIGGER = "prev", PADRTRIGGER = "next", PADLSHOULDER = "smaller", PADRSHOULDER = "bigger" }
+local KEYS = { PADLTRIGGER = "prev", PADRTRIGGER = "next", PADLSHOULDER = "out", PADRSHOULDER = "in" }
 
 -- (on a frame above the map's strata, else the map's window covers them)
 local labelFrame = CreateFrame("Frame", nil, UIParent)
@@ -240,11 +241,38 @@ local function MoveFocus(step)
     C_SuperTrack.SetSuperTrackedQuestID(ids[target])
 end
 
-local function Resize(step)
-    local settings = PeekMap.Settings()
-    local size = math.floor((settings.size + step) * 100 + 0.5) / 100
-    settings.size = math.max(MIN_SIZE, math.min(MAX_SIZE, size))
-    if peeking and saved then Layout() end
+-- The map's own level, out (parent map) / in (the child map the player is
+-- in, else the one we came out of). Native SetMapID, as its nav bar does.
+local cameFrom = {}   -- map left going out -> the map to go back in to
+
+local function ZoomMap(out)
+    local map = WorldMapFrame
+    if not (map and map.GetMapID and map.SetMapID) then return end
+    local id = map:GetMapID()
+    if not id then return end
+    local target
+    if out then
+        local info = C_Map.GetMapInfo(id)
+        local parent = info and info.parentMapID
+        if parent and parent > 0 then
+            cameFrom[parent] = id
+            target = parent
+        end
+    else
+        local back = cameFrom[id]
+        if back then
+            target = back
+        else
+            for _, child in ipairs(C_Map.GetMapChildrenInfo(id) or {}) do
+                local pos = C_Map.GetPlayerMapPosition(child.mapID, "player")
+                if pos and pos.GetXY and pos:GetXY() then
+                    target = child.mapID
+                    break
+                end
+            end
+        end
+    end
+    if target then map:SetMapID(target) end
 end
 
 local catch = CreateFrame("Button", "ImprovedForeverPeekMapCatch", UIParent)
@@ -252,8 +280,8 @@ catch:RegisterForClicks("AnyDown")
 catch:SetScript("OnClick", function(_, key)
     local action = KEYS[key]
     if not (peeking and action) then return end
-    if action == "smaller" then Resize(-STEP)
-    elseif action == "bigger" then Resize(STEP)
+    if action == "out" then ZoomMap(true)
+    elseif action == "in" then ZoomMap(false)
     elseif action == "prev" then MoveFocus(-1)
     else MoveFocus(1) end
 end)
@@ -460,7 +488,7 @@ end
 legend = IF.InputLegend(labelFrame)
 local LEGEND = {
     { { "PADLTRIGGER", "PADRTRIGGER" }, { "PADLTRIGGER", "PADRTRIGGER" }, "Change quest" },
-    { { "PADLSHOULDER", "PADRSHOULDER" }, { "PADLSHOULDER", "PADRSHOULDER" }, "Resize map" },
+    { { "PADLSHOULDER", "PADRSHOULDER" }, { "PADLSHOULDER", "PADRSHOULDER" }, "Zoom map out / in" },
 }
 
 function PeekMap.ShowLegend()

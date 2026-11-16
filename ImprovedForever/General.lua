@@ -25,6 +25,16 @@ local ITEMS = {
         IF.Override.Apply()
     end, "Square shoots the wand")),
     Item({
+        key = "squareAttack", group = "gamepad", label = "Square always attacks",
+        tip = "Square on a living enemy starts the melee attack and never switches it off: pressing it again "
+            .. "keeps attacking. With a wand and \"Square shoots the wand\" on, the wand wins. L2 / R2 + Square "
+            .. "stay the crossbar's; on a corpse, an NPC or an object Square is the game's own Interact. A "
+            .. "Square override set in the Bindings tab wins over it. Off by default.",
+    }, OnOff(function() return IF.db.squareAttack == true end, function(on)
+        IF.db.squareAttack = on
+        IF.Override.Apply()
+    end, "Square always attacks")),
+    Item({
         key = "resetBindings", group = "gamepad", label = "Reset all bindings",
         tip = "Puts every binding back to its default: the buttons and keys of the Bindings tab, the actions "
             .. "put on presses and keys, and the touchpad's corners. The crossbar's own slots stay as they are.",
