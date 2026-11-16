@@ -396,6 +396,15 @@ local CHECKS = {
         end
         M.Close()
     end },
+    -- (the Immersion module: the party cards on a target change, previewed and back)
+    { name = "party cards", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local PC = IF and IF.Interface and IF.Interface.PartyCards
+        if not PC then return end
+        fire("PLAYER_TARGET_CHANGED")
+        PC.TogglePreview()
+        PC.TogglePreview("off")
+    end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
         local IF = rawget(_G, "ImprovedForever")

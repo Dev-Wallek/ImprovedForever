@@ -10,7 +10,7 @@
 -- frame, as the player's). Its role's icon at its top right, as the game's
 -- party frames show it (a minion's paw); a minion's card smaller. Faint
 -- when out of range; grey and fainter, while L1 is held for party casting,
--- out of the picked spell's reach.
+-- out of the picked spell's reach. Your target's in a gold border.
 -- /if cards previews every slot (Preview).
 -- Each card is a secure unit button (a click targets, a right click opens
 -- the unit's menu) in a place of its own, shown by the game's state
@@ -45,6 +45,7 @@ local PICK_GROW, PICK_GLYPH, PICK_TIME = 1.15, 44, 0.15
 -- as big to it as the game's to its alert (150 to a 45 button's 63))
 local ALERT_OUT, BURST_SIZE = 18, 150 / 63
 local ROLE_SIZE = 14             -- (its role's icon, at its top right)
+local TARGET_OUT = 3             -- (your target's gold border, past the card's)
 local MINION_SCALE = 0.8         -- (a minion's card, a party member's times)
 -- (the alert's colours, as a monster's level against yours (Module.lua):
 -- green, yellow, orange steady, red flashing at its worst)
@@ -119,6 +120,13 @@ local function Card(name, unit, scale)
     end
     b.bands = {}
     for i, c in ipairs(ALERT_COLORS) do b.bands[i] = Edge(c) end
+    -- (your target's: the border in gold, TARGET_OUT past the card's, clear of the alert's)
+    b.targetMark = Edge(UF.GOLD)
+    b.targetMark:ClearAllPoints()
+    b.targetMark:SetPoint("TOPLEFT", -TARGET_OUT, TARGET_OUT)
+    b.targetMark:SetPoint("BOTTOMRIGHT", TARGET_OUT, -TARGET_OUT)
+    b.targetMark:SetAlpha(1)
+    b.targetMark:Hide()
     local flash = Edge(URGENT_COLOR)
     b.urgent = flash
     local anim = flash:CreateAnimationGroup()
@@ -392,6 +400,7 @@ end
 local function Refresh(b)
     local unit = b.unit
     if not UnitExists(unit) then return end
+    b.targetMark:SetShown(b.sample and b.sample.target or (not b.sample and Flag(UnitIsUnit, unit, "target")))
     PadGlyph(b)
     if b.pickGlyph then b.pickGlyph:SetDesaturated(b.far and true or false) end
     Focus(b)
@@ -421,7 +430,8 @@ local function Listen(b)
     for _, e in ipairs({ "UNIT_LEVEL", "UNIT_CONNECTION", "UNIT_THREAT_SITUATION_UPDATE" }) do
         pcall(b.RegisterUnitEvent, b, e, b.unit)
     end
-    for _, e in ipairs({ "GROUP_ROSTER_UPDATE", "UNIT_PET", "PLAYER_ENTERING_WORLD", "PLAYER_ROLES_ASSIGNED" }) do
+    for _, e in ipairs({ "GROUP_ROSTER_UPDATE", "UNIT_PET", "PLAYER_ENTERING_WORLD", "PLAYER_ROLES_ASSIGNED",
+        "PLAYER_TARGET_CHANGED" }) do
         pcall(b.RegisterEvent, b, e)
     end
     b.Refresh = Refresh
@@ -516,6 +526,10 @@ local function Natives()
     return { { PartyFrame, s.cards }, { CompactPartyFrame, s.cards }, { PetFrame, s.minion } }
 end
 
+local COMPACT_MEMBERS = {}
+for i = 1, 5 do COMPACT_MEMBERS[#COMPACT_MEMBERS + 1] = "CompactPartyFrameMember" .. i end
+for i = 1, 4 do COMPACT_MEMBERS[#COMPACT_MEMBERS + 1] = "CompactPartyFramePet" .. i end
+
 -- The member to see to, their button lit (Watch, as their buttons show):
 -- a tank's, the highest threat (when the game says it: none secret); a
 -- healer's, the lowest health under HEAL_AT. Health the game keeps secret
@@ -585,6 +599,20 @@ local function Watch()
     for _, n in ipairs(Natives()) do
         IF.Focus.Fade(n[1], n[2] and not edit)
         UF.Cover(n[1], n[2] and not edit)
+    end
+    -- (their parts drawn past their parents' alpha (ignoreParentAlpha): the
+    -- target's box, the ready check, an absent member's icon)
+    local hide = on and not edit
+    for _, name in ipairs(COMPACT_MEMBERS) do
+        local m = _G[name]
+        if m then
+            IF.Focus.Fade(m.selectionHighlight, hide)
+            IF.Focus.Fade(m.readyCheckIcon and m.readyCheckIcon.Icon, hide)
+        end
+    end
+    for i = 1, 4 do
+        local m = PartyFrame and PartyFrame["MemberFrame" .. i]
+        if m then IF.Focus.Fade(m.NotPresentIcon, hide) end
     end
     local alpha = edit and 0 or 1
     for _, list in ipairs({ minions, party }) do
@@ -673,7 +701,7 @@ end
 local SAMPLES = {
     minion = { name = "Minion", role = "MINION", health = 0.9, threat = 0 },
     { name = "Tank", class = "WARRIOR", role = "TANK", health = 0.55, threat = 3 },
-    { name = "Healer", class = "PRIEST", role = "HEALER", health = 0.85, threat = 0 },
+    { name = "Healer", class = "PRIEST", role = "HEALER", health = 0.85, threat = 0, target = true },
     { name = "Mage", class = "MAGE", role = "DAMAGER", health = 0.2, threat = 2 },
     { name = "Rogue", class = "ROGUE", role = "DAMAGER", health = 0.7, threat = 1 },
 }

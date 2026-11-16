@@ -44,9 +44,9 @@ end
 -- A yes / no about the unit (false when the API has none or says a
 -- secret). A secret is never compared, even in a pcall: the attempt is
 -- blocked and taints what runs after it.
-local function Flag(fn, unit)
+local function Flag(fn, ...)
     if not fn then return false end
-    local ok, v = pcall(fn, unit)
+    local ok, v = pcall(fn, ...)
     if not ok or Secret(v) then return false end
     return v == true
 end
