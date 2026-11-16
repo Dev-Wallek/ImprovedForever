@@ -35,6 +35,15 @@ local ITEMS = {
         IF.Override.Apply()
     end, "Square always attacks")),
     Item({
+        key = "bagSort", group = "gamepad", label = "L3 cleans up the bags",
+        tip = "While a bag is open, L3 (the left stick click) sorts the items in your bags. Once they close, "
+            .. "the button does its own job again. The button can't be changed.",
+    }, OnOff(function() return IF.db.bagSort ~= false end, function(on)
+        IF.db.bagSort = on
+        IF.db.bagSortKey = nil
+        IF.UpdateBagBinding()
+    end, "L3 cleans up the bags")),
+    Item({
         key = "resetBindings", group = "gamepad", label = "Reset all bindings",
         tip = "Puts every binding back to its default: the buttons and keys of the Bindings tab, the actions "
             .. "put on presses and keys, and the touchpad's corners. The crossbar's own slots stay as they are.",

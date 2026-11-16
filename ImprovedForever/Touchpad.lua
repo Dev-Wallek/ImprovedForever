@@ -473,6 +473,17 @@ local function BlockTouchCursor(block)
     end
 end
 
+-- The game's gamepad cursor drawn: the pad is on a panel of the game's (read, never touched)
+function touch.CursorUp()
+    local nav = _G.SmartNavigation
+    local pointer = nav and nav.Pointer
+    if not pointer then return false end
+    local ok, shown = pcall(function() return pointer:IsShown() and pointer:GetAlpha() > 0 end)
+    return ok and shown and true or false
+end
+
+local focusOwner = CreateFrame("Frame")
+
 function touch.Apply()
     if IF.InCombat() then
         pending = true
@@ -536,7 +547,9 @@ function touch.Apply()
     -- window of its open for its own click to focus; through combat whatever
     -- is open, as the other world bindings. Or the peek map has it: the
     -- pad's release closes it)
-    local free = not WindowsShown() or UnitAffectingCombat("player") or touch.DoubleOpen()
+    -- (and not while the game's own cursor is up on a panel of its that isn't a window, the
+    -- native party panel: its click is the game's then. Not in combat: it stays ours there)
+    local free = (not WindowsShown() and not touch.CursorUp()) or UnitAffectingCombat("player") or touch.DoubleOpen()
     local inGame = (IF.Binds.InGame() and free) or (IF.PeekMap and IF.PeekMap.IsPeeking())
     local shapes = IF.PadStyle() == "Shapes"
     local ours = settings.enabled ~= false and shapes and IF.Binds.PadOverrides()
@@ -550,6 +563,16 @@ function touch.Apply()
         for _, modifier in ipairs(MODIFIERS) do
             SetOverrideBindingClick(click, true, modifier .. KEY, click:GetName(), "LeftButton")
         end
+    end
+    -- (another button for the game's own touchpad click, the Bindings tab's "Focus panels": the
+    -- same game command on it, so its press is the game's, untainted: the way to the native party
+    -- panel while the touchpad is ours)
+    ClearOverrideBindings(focusOwner)
+    local focusSpec = IF.db and IF.db.focusKey
+    local focusKey = focusSpec and IF.Binds.KeyOf(focusSpec)
+    if focusKey and not panelOpen and IF.Binds.InGame() and IF.Binds.PadOverrides() then
+        local ok, command = pcall(GetBindingAction, KEY, false)
+        SetOverrideBinding(focusOwner, true, focusKey, ok and command and command ~= "" and command or "TOGGLEUIFOCUS")
     end
     if IF.PeekMap and IF.PeekMap.debug then
         Say("touch: apply, bound: " .. tostring(ours and not panelOpen and inGame) .. ", in game: "
@@ -657,6 +680,25 @@ B.Add({
     end,
 })
 
+-- A button of the player's own for the game's touchpad click (focus on the game's panels, the
+-- native party panel): the touchpad is ours while the game has the focus, so this one is the game's
+B.Add({
+    id = "focuspanels", label = "Focus panels", group = "Other", tab = "bindings",
+    icon = "gamepad-ps-touchpad-normal", context = "world", order = 33,
+    tip = "Does what the game's own touchpad click does: puts the pad on its panels, the party panel on the left "
+        .. "among them. For when the touchpad click is taken by the corners.",
+    accepts = function(spec) return B.Overridable(spec) end,
+    specs = function() return IF.db.focusKey and B.One(IF.db.focusKey) or {} end,
+    set = function(spec)
+        IF.db.focusKey = spec
+        IF.Touch.Apply()
+    end,
+    reset = function()
+        IF.db.focusKey = nil
+        IF.Touch.Apply()
+    end,
+})
+
 -- /if cornerkeys on|off: the four corner keys (numpad 7 9 1 3, from Steam Input's touchpad areas)
 -- bound even when the pad isn't seen as a PlayStation one (SteamOS Game Mode)
 IF.AddCommand("cornerkeys", function(words)
@@ -669,3 +711,16 @@ IF.AddCommand("cornerkeys", function(words)
     IF.Print("cornerkeys: " .. (settings.cornerKeys and "on" or "off")
         .. " (numpad 7 9 1 3 = top left, top right, bottom left, bottom right)")
 end, "on|off: touchpad corners from four numpad keys (Steam Input)")
+
+-- The cursor coming or going: the click is the game's or ours again
+local cursorWatch, cursorWas = CreateFrame("Frame"), false
+cursorWatch:SetScript("OnUpdate", function(self, elapsed)
+    self.t = (self.t or 0) + elapsed
+    if self.t < 0.15 then return end
+    self.t = 0
+    local now = touch.CursorUp()
+    if now ~= cursorWas then
+        cursorWas = now
+        if not IF.InCombat() and IF.db then touch.Apply() end
+    end
+end)

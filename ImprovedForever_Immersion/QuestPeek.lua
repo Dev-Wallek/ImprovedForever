@@ -216,6 +216,12 @@ local function Build(id, focused, expanded, budget)
         key = tostring(id), sig = table.concat(sig, "|") .. (way and "|way" or "|noway") .. "|" .. tostring(info and info.level),
         lines = lines, tint = GOLD, level = level, ids = { id }, rowOf = { [id] = 1 }, endOf = { [id] = #lines },
         portrait = function(icon)
+            -- (the way's arrow stands alone: the diamond's ground and border out)
+            local tile = icon:GetParent()
+            if tile and tile.bg and tile.border then
+                tile.bg:SetShown(not way)
+                tile.border:SetShown(not way)
+            end
             if way then
                 icon:SetTexture(nil)
                 return
@@ -274,7 +280,11 @@ local function BuildGroup(quests, budget, open)
     return {
         key = "group", sig = table.concat(sig, "|"), lines = lines, tint = GOLD, ids = ids, rowOf = rowOf, endOf = endOf,
         level = { text = tostring(others), color = { 1, 1, 1 } },
-        portrait = function(icon) IN.Card.Icon(icon, ICON) end,
+        portrait = function(icon)
+            local tile = icon:GetParent()
+            if tile and tile.bg and tile.border then tile.bg:Show(); tile.border:Show() end
+            IN.Card.Icon(icon, ICON)
+        end,
     }
 end
 

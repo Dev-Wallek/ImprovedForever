@@ -564,10 +564,11 @@ local function CursorSize(tex)
     local w, h = native and tonumber(native:GetWidth()), native and tonumber(native:GetHeight())
     local ns, ts = native and tonumber(native:GetEffectiveScale()), tonumber(tex:GetEffectiveScale())
     if w and h and ns and ts and w > 0 and h > 0 then
-        local k = ns / math.max(0.01, ts)
+        local k = ns / math.max(0.01, ts) * (tex.sizeMul or 1)
         tex:SetSize(w * k, h * k)
     else
-        tex:SetSize(CURSOR_W * CURSOR_SCALE, CURSOR_H * CURSOR_SCALE)
+        local m = tex.sizeMul or 1
+        tex:SetSize(CURSOR_W * CURSOR_SCALE * m, CURSOR_H * CURSOR_SCALE * m)
     end
 end
 

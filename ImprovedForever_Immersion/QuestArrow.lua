@@ -156,7 +156,7 @@ for i = 1, 6 do world[i], screen[i] = {}, {} end
 
 -- The arrow in the card's diamond (where the portrait would be): its middle on the diamond's middle
 -- (the gem hovers RAISE above its middle: put lower by as much), small enough to lie inside it
-local ICON_SCALE = 0.5
+local ICON_SCALE = 0.8
 local function Place(size)
     if not peekCard then return end
     local across = peekCard.across
