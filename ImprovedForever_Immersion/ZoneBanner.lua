@@ -238,7 +238,7 @@ function ZB.Test()
     name:SetText(zone)
     sub:SetText(subzone ~= zone and subzone or "")
     -- (the client may lack it, as in SetKind's)
-    local pvpType, faction
+    local pvpType, _, faction
     if GetZonePVPInfo then pvpType, _, faction = GetZonePVPInfo() end
     pvp:SetText("")
     SetKind()

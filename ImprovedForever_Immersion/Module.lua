@@ -150,10 +150,6 @@ local DEFAULTS = {
     partyPad = false,   -- L1 ours: + the D-pad picks a party spell, + a face button casts it on party 1 to 4 (an experiment)
 }
 
--- A watcher: fn() every `every` seconds. One that errors stops, said once
--- in chat: an error each tick would flood the game's error handler, whose
--- popup then runs from our stack and taints the controller's focus
--- (SetPreferredGamepadInteractTarget forbidden).
 -- The room left empty at each side of the screen so the HUD fits the ratio of the setting hudWidth
 -- (UIParent's units; 0 when off or the screen is no wider): the pieces anchored to the screen's
 -- left and right edges move in by it
@@ -165,6 +161,10 @@ function IN.Inset()
     return math.max(0, math.floor((UIParent:GetWidth() - UIParent:GetHeight() * ratio) / 2 + 0.5))
 end
 
+-- A watcher: fn() every `every` seconds. One that errors stops, said once
+-- in chat: an error each tick would flood the game's error handler, whose
+-- popup then runs from our stack and taints the controller's focus
+-- (SetPreferredGamepadInteractTarget forbidden).
 function IN.Watcher(name, every, fn)
     local f = CreateFrame("Frame")
     local since = 0
