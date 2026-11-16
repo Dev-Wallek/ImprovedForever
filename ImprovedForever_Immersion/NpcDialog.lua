@@ -360,9 +360,17 @@ tipAnchor:SetPoint("TOPLEFT", panel, "TOPRIGHT", 4, 1 - PAD)
 
 local function ItemTip(b)
     GameTooltip:SetOwner(tipAnchor, "ANCHOR_BOTTOMRIGHT")
-    pcall(GameTooltip.SetQuestItem, GameTooltip, b.kind, b.index)
+    if b.spellID then
+        pcall(GameTooltip.SetSpellByID, GameTooltip, b.spellID, nil, true)
+    elseif b.currency then
+        pcall(GameTooltip.SetQuestCurrency, GameTooltip, b.kind, b.index)
+    else
+        pcall(GameTooltip.SetQuestItem, GameTooltip, b.kind, b.index)
+    end
     GameTooltip:Show()
-    if GameTooltip_ShowCompareItem then pcall(GameTooltip_ShowCompareItem, GameTooltip) end
+    if not (b.spellID or b.currency) and GameTooltip_ShowCompareItem then
+        pcall(GameTooltip_ShowCompareItem, GameTooltip)
+    end
 end
 
 -- (the game's cursor on a reward: its tooltip shown by ours as the cursor
@@ -370,7 +378,7 @@ end
 -- window's button (faded, elsewhere), taken over each time it shows it)
 local tipped
 local function FollowTip(button, target)
-    local item = target and target.kind and target.index and target or nil
+    local item = target and target.kind and target or nil
     if item ~= tipped then
         if tipped and not item and GameTooltip:GetOwner() == tipAnchor then GameTooltip:Hide() end
         tipped = item
@@ -456,36 +464,121 @@ end
 
 ---------------------------------------------------------------------------
 -- What the game's windows show now: a dialog { kind, native, unit, title,
--- text, rows = { { key, text, icon/atlas, Run } }, items = { { kind,
--- index, texture, count, choice } }, itemLabel, money, xp, answers = { {
--- key ("PAD1" / "PAD2"), text, Run, disabled } }, scrollFrame }
+-- text, rows = { { key, text, icon/atlas, Run } }, items = { { key, kind,
+-- index, spellID, currency, texture, count, choice } }, pending, itemLabel,
+-- money, xp, lines, answers = { { key ("PAD1" / "PAD2"), text, Run,
+-- disabled } }, scrollFrame }
 ---------------------------------------------------------------------------
 local choice = 0        -- (the reward picked with the mouse)
+-- (an item whose data hasn't come yet: in its place, as the game's window keeps its button)
+local UNKNOWN = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local function QuestItems(list, kind, count, label)
-    local first = #list + 1
+-- (a choice can be a currency: QuestInfo_ShowRewards' loot type 1)
+local function QuestItems(list, kind, count, label, d)
     for i = 1, count do
-        local itemName, texture, number = GetQuestItemInfo(kind, i)
-        if texture then
-            list[#list + 1] = { kind = kind, index = i, texture = texture, count = number, name = itemName }
+        local entry = { kind = kind, index = i, key = kind .. ":" .. i }
+        local cur = kind == "choice" and GetQuestItemInfoLootType and GetQuestItemInfoLootType(kind, i) == 1
+            and C_QuestOffer and C_QuestOffer.GetQuestRewardCurrencyInfo
+        if cur then
+            local info = C_QuestOffer.GetQuestRewardCurrencyInfo(kind, i) or {}
+            entry.currency, entry.key = true, kind .. ":c" .. i
+            entry.texture, entry.count, entry.name = info.texture, info.totalRewardAmount, info.name
+        else
+            entry.name, entry.texture, entry.count = GetQuestItemInfo(kind, i)
         end
+        if not entry.texture then
+            entry.texture = UNKNOWN
+            d.pending = true
+        end
+        list[#list + 1] = entry
     end
-    return #list >= first and label or nil
+    return count > 0 and label or nil
 end
 
+-- The spells the quest teaches, as the game's window lists them
+-- (QuestInfo_ShowRewards: only one not known yet, in its order of kinds)
+local function Spells(list, questID)
+    local sys, T = C_QuestInfoSystem, Enum.QuestCompleteSpellType
+    if not (sys and sys.GetQuestRewardSpells and sys.GetQuestRewardSpellInfo and T) then return end
+    local ORDER = { T.Follower, T.Companion, T.Tradeskill, T.Ability, T.Aura, T.Spell, T.Unlock,
+        T.QuestlineUnlock, T.QuestlineReward, T.QuestlineUnlockPart, T.PossibleReward }
+    local function Rank(info)
+        local kind = (info.type and info.type ~= T.LegacyBehavior and info.type)
+            or (info.isTradeskillSpell and T.Tradeskill) or (info.isBoostSpell and T.Ability)
+            or (info.isSpellLearned and T.Spell) or (info.genericUnlock and T.Unlock) or T.Aura
+        for i, k in ipairs(ORDER) do
+            if k == kind then return i end
+        end
+        return #ORDER + 1
+    end
+    local found = {}
+    for _, id in ipairs(sys.GetQuestRewardSpells(questID) or {}) do
+        local info = id and id > 0 and sys.GetQuestRewardSpellInfo(questID, id)
+        local known = C_SpellBook and C_SpellBook.IsSpellInSpellBook
+            and C_SpellBook.IsSpellInSpellBook(id, Enum.SpellBookSpellBank.Player, true)
+        local boosted = IsCharacterNewlyBoosted and IsCharacterNewlyBoosted()
+        -- (a follower shows as no spell)
+        if info and info.texture and not known and (not info.isBoostSpell or boosted) and not info.garrFollowerID then
+            found[#found + 1] = { kind = "spell", key = "spell:" .. id, spellID = id, texture = info.texture,
+                name = info.name, rank = Rank(info), at = #found }
+        end
+    end
+    table.sort(found, function(a, b) return a.rank < b.rank or (a.rank == b.rank and a.at < b.at) end)
+    for _, it in ipairs(found) do list[#list + 1] = it end
+end
+
+-- The currencies given, after the items in the same rows (QuestInfo_SetUpRewardCurrency)
+local function Currencies(list, questID)
+    local sys = C_QuestInfoSystem
+    if not (sys and sys.GetQuestRewardCurrencies) then return end
+    for i, c in ipairs(sys.GetQuestRewardCurrencies(questID) or {}) do
+        local name, texture, amount = c.name, c.texture, c.totalRewardAmount
+        if CurrencyContainerUtil and CurrencyContainerUtil.GetCurrencyContainerInfo then
+            name, texture, amount = CurrencyContainerUtil.GetCurrencyContainerInfo(c.currencyID, amount, name, texture, c.quality)
+        end
+        list[#list + 1] = { kind = "reward", index = i, key = "reward:c" .. i, currency = true,
+            texture = texture or UNKNOWN, count = amount, name = name }
+    end
+end
+
+-- What the game's window shows as text: a title, skill points, major
+-- factions' reputation, honor (the game's quest window shows no other reputation)
+local function RewardLines()
+    local lines = {}
+    local title = GetRewardTitle and GetRewardTitle()
+    if title then lines[#lines + 1] = "Title: " .. title end
+    local skill, _, points
+    if GetRewardSkillPoints then skill, _, points = GetRewardSkillPoints() end
+    if points then lines[#lines + 1] = "+" .. points .. " " .. (skill or "skill points") end
+    local offer, factions = C_QuestOffer, C_MajorFactions
+    local reps = offer and offer.GetQuestOfferMajorFactionReputationRewards and offer.GetQuestOfferMajorFactionReputationRewards()
+    for _, rep in ipairs(reps or {}) do
+        local data = factions and factions.GetMajorFactionData and factions.GetMajorFactionData(rep.factionID)
+        if data then lines[#lines + 1] = "+" .. rep.rewardAmount .. " " .. data.name .. " reputation" end
+    end
+    local honor = GetRewardHonor and GetRewardHonor() or 0
+    if honor > 0 then lines[#lines + 1] = honor .. " Honor" end
+    return lines
+end
+
+-- (in the game's window's order: choices, spells, items, currencies)
 local function Rewards(d)
     d.items = {}
     local choices = GetNumQuestChoices() or 0
-    local label = QuestItems(d.items, "choice", choices, choices > 1 and "Choose one" or nil)
+    local label = QuestItems(d.items, "choice", choices, choices > 1 and "Choose one" or nil, d)
     if choices > 0 then
         for _, it in ipairs(d.items) do it.choice = true end
     end
-    QuestItems(d.items, "reward", GetNumQuestRewards() or 0)
+    local questID = GetQuestID and GetQuestID()
+    Spells(d.items, questID)
+    QuestItems(d.items, "reward", GetNumQuestRewards() or 0, nil, d)
+    Currencies(d.items, questID)
     local money = GetRewardMoney and GetRewardMoney() or 0
     local xp = GetRewardXP and GetRewardXP() or 0
     d.money = money > 0 and money or nil
     d.xp = xp > 0 and xp or nil
-    d.itemLabel = label or ((#d.items > 0 or d.money or d.xp) and "Rewards" or nil)
+    d.lines = RewardLines()
+    d.itemLabel = label or ((#d.items > 0 or d.money or d.xp or #d.lines > 0) and "Rewards" or nil)
 end
 
 -- (the chosen reward: the mouse's, else the game's window's)
@@ -531,7 +624,7 @@ end
 local function Progress()
     local d = { kind = "progress", title = GetTitleText(), text = GetProgressText(), scrollFrame = _G.QuestProgressScrollFrame }
     d.items = {}
-    d.itemLabel = QuestItems(d.items, "required", GetNumQuestItems() or 0, "Required items")
+    d.itemLabel = QuestItems(d.items, "required", GetNumQuestItems() or 0, "Required items", d)
     local can = IsQuestCompletable()
     d.answers = {
         { key = "PAD1", text = CONTINUE or "Continue", Run = CompleteQuest, disabled = not can },
@@ -1363,24 +1456,27 @@ local function Build(d)
     if speaking and questPage then Place(track, PROGRESS_H, 12) end
 
     -- (the rewards or the items needed: their heading, round icons, then
-    -- money and experience on a row of their own)
+    -- money and experience on a row of their own, the rest a line each)
     local list = d.items or {}
     local extras = {}
     if d.money then extras[#extras + 1] = IF.ItemValue.Money(d.money) end
     if d.xp then extras[#extras + 1] = d.xp .. " " .. (XP or "XP") end
-    local hasItems = #list > 0 or #extras > 0
+    local lines = { #extras > 0 and table.concat(extras, "    ") or nil }
+    for _, line in ipairs(d.lines or {}) do lines[#lines + 1] = line end
+    local hasItems = #list > 0 or #lines > 0
     itemLabel:SetText(d.itemLabel or "")
     itemLabel:SetShown(hasItems and d.itemLabel ~= nil)
     if itemLabel:IsShown() then Place(itemLabel, itemLabel:GetStringHeight(), 6) end
-    extra:SetText(table.concat(extras, "    "))
+    extra:SetText(table.concat(lines, "\n"))
     -- (in the game's grid, so each D-pad press lands where it looks: its
-    -- rewards to choose, then the fixed ones from a new row, two a row
+    -- rewards to choose, then its spells one a row, then the fixed ones
+    -- and the currencies from a new row, two a row
     -- (QuestInfo_ShowRewards; QuestFrame.xml's QuestProgressItem<n> for the
     -- items needed). The game hard-codes the two, so it can't be read.)
-    local COLUMNS = 2
     local cells, kind, first, n, rowCount, colCount = {}, nil, 0, 0, 0, 1
     for i, it in ipairs(list) do
         if it.kind ~= kind then kind, first, n = it.kind, rowCount, 0 end
+        local COLUMNS = it.kind == "spell" and 1 or 2
         local row, col = first + math.floor(n / COLUMNS), n % COLUMNS
         cells[i] = { row, col }
         n = n + 1
@@ -1391,11 +1487,11 @@ local function Build(d)
     local tall = math.max(1, rowCount) * (ITEM + GAP) - GAP
     for i, it in ipairs(list) do
         local b = ItemButton(i)
-        b.kind, b.index, b.choice = it.kind, it.index, it.choice
+        b.kind, b.index, b.choice, b.spellID, b.currency = it.kind, it.index, it.choice, it.spellID, it.currency
         b.icon:SetTexture(it.texture)
         b.count:SetText(it.count and it.count > 1 and it.count or "")
         if b.upArrow then
-            local link = GetQuestItemLink and GetQuestItemLink(it.kind, it.index)
+            local link = not (it.spellID or it.currency) and GetQuestItemLink and GetQuestItemLink(it.kind, it.index)
             b.upArrow:SetShown(link and IF.Upgrades.IsUpgrade(link) or false)
         end
         b.Run = it.choice and function()
@@ -1405,14 +1501,14 @@ local function Build(d)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", items, "TOP", -wide / 2 + cells[i][2] * (ITEM + GAP), -cells[i][1] * (ITEM + GAP))
         b:Show()
-        byKey[it.kind .. ":" .. it.index] = b
+        byKey[it.key] = b
     end
     for i = #list + 1, #itemPool do itemPool[i]:Hide() end
     items:SetShown(#list > 0)
     items:SetHeight(tall)
-    if #list > 0 then Place(items, tall, #extras > 0 and 8 or 12) end
-    extra:SetShown(#extras > 0)
-    if #extras > 0 then Place(extra, extra:GetStringHeight(), 12) end
+    if #list > 0 then Place(items, tall, #lines > 0 and 8 or 12) end
+    extra:SetShown(#lines > 0)
+    if #lines > 0 then Place(extra, extra:GetStringHeight(), 12) end
 
     -- (the quests and options: a round icon and the words, centred, one a
     -- line)
@@ -1526,10 +1622,10 @@ local function KeyOf(button)
     if button.isActive ~= nil and button.GetID then
         return (button.isActive == 1 and "qactive:" or "qavail:") .. button:GetID()
     end
-    -- (a currency's button shares its index with an item's: ours shows items only)
-    if (button.type == "choice" or button.type == "reward" or button.type == "required")
-        and button.objectType ~= "currency" and button.GetID then
-        return button.type .. ":" .. button:GetID()
+    if button.rewardSpellID then return "spell:" .. tostring(button.rewardSpellID) end
+    -- (a currency's button shares its index with an item's)
+    if (button.type == "choice" or button.type == "reward" or button.type == "required") and button.GetID then
+        return button.type .. ":" .. (button.objectType == "currency" and "c" or "") .. button:GetID()
     end
 end
 
@@ -1855,18 +1951,22 @@ end)
 
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "GOSSIP_SHOW", "QUEST_GREETING", "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE",
-    "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE", "LEARNED_SPELL_IN_SKILL_LINE" }) do
+    "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE", "LEARNED_SPELL_IN_SKILL_LINE", "GET_ITEM_INFO_RECEIVED" }) do
     events:RegisterEvent(event)
 end
+-- (the page itself unchanged: no new words for Spoken to wait on)
+local RELAYOUT = { QUEST_LOG_UPDATE = true, QUEST_ITEM_UPDATE = true, LEARNED_SPELL_IN_SKILL_LINE = true,
+    GET_ITEM_INFO_RECEIVED = true }
 events:SetScript("OnEvent", function(_, event)
     -- (the game lays the rewards out again on these and scrolls its text back to the top)
     if event == "QUEST_ITEM_UPDATE" or event == "LEARNED_SPELL_IN_SKILL_LINE" then revealed = nil end
-    if event == "LEARNED_SPELL_IN_SKILL_LINE" then return end
+    -- (an item's data come: read again only while a reward waits for it)
+    if event == "GET_ITEM_INFO_RECEIVED" and not (current and current.pending) then return end
     -- (the quest log changing: only a list of quests to read again)
     if event == "QUEST_LOG_UPDATE" and not (current and (current.kind == "gossip" or current.kind == "greeting")) then
         return
     end
-    if event ~= "QUEST_LOG_UPDATE" and event ~= "QUEST_ITEM_UPDATE" then eventAt = GetTime() end
+    if not RELAYOUT[event] then eventAt = GetTime() end
     dirty = true
 end)
 

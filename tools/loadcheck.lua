@@ -396,6 +396,73 @@ local CHECKS = {
         end
         M.Close()
     end },
+    -- (Immersion's quest page: every reward the game's window lists, in its
+    -- order (choices, spells, items, currencies), one not loaded yet kept in
+    -- its place, each one ours for the game's button the pad is on)
+    { name = "immersion quest rewards", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        if not (IN and IN.NpcDialog) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        -- (a local of the dialog's, by the upvalues from its ticker down)
+        local function Up(fn, want, depth)
+            for i = 1, 200 do
+                local name, value = debug.getupvalue(fn, i)
+                if not name then break end
+                if name == want then return value end
+                if type(value) == "function" and depth > 0 then
+                    local found = Up(value, want, depth - 1)
+                    if found then return found end
+                end
+            end
+        end
+        local Tick
+        for _, f in ipairs(frames) do
+            local fn = f.__scripts.OnUpdate
+            Tick = Tick or (fn and Up(fn, "Tick", 2))
+        end
+        check(Tick, "the dialog's Tick is found")
+        local Detail, Build, KeyOf = Up(Tick, "Detail", 2), Up(Tick, "Build", 0), Up(Tick, "KeyOf", 0)
+        local saved = {}
+        local stubs = {
+            GetNumQuestChoices = function() return 1 end,
+            GetNumQuestRewards = function() return 2 end,
+            GetQuestItemInfo = function(kind, i)
+                if kind == "reward" and i == 2 then return nil end
+                return kind .. i, 100 + i, 1
+            end,
+            GetQuestItemInfoLootType = function() return 0 end,
+            GetQuestID = function() return 5 end,
+            GetRewardTitle = function() return "the Brave" end,
+            C_QuestInfoSystem = {
+                GetQuestRewardSpells = function() return { 123 } end,
+                GetQuestRewardSpellInfo = function() return { texture = 7, name = "Mining", isTradeskillSpell = true } end,
+                GetQuestRewardCurrencies = function() return { { texture = 8, name = "Mark", totalRewardAmount = 3, currencyID = 1 } } end,
+            },
+            C_SpellBook = { IsSpellInSpellBook = function() return false end },
+            C_QuestOffer = { GetQuestOfferMajorFactionReputationRewards = function() return nil end },
+            CurrencyContainerUtil = { GetCurrencyContainerInfo = function(_, amount, name, texture) return name, texture, amount end },
+        }
+        for k, v in pairs(stubs) do saved[k] = rawget(_G, k) rawset(_G, k, v) end
+        local ok, err = pcall(function()
+            local d = Detail()
+            local keys = {}
+            for _, it in ipairs(d.items) do keys[#keys + 1] = it.key end
+            check(table.concat(keys, ",") == "choice:1,spell:123,reward:1,reward:2,reward:c1",
+                "the rewards in the game's order: " .. table.concat(keys, ","))
+            check(d.pending and d.lines[1] == "Title: the Brave", "a reward waits for its data; the title a line")
+            Build(d)
+            local byKey = Up(Build, "byKey", 0)
+            local spell = byKey[KeyOf({ rewardSpellID = 123 })]
+            local currency = byKey[KeyOf({ type = "reward", objectType = "currency", GetID = function() return 1 end })]
+            local item = byKey[KeyOf({ type = "reward", objectType = "item", GetID = function() return 2 end })]
+            check(spell and spell.spellID == 123, "the game's spell button is our spell")
+            check(currency and currency.currency and currency.index == 1, "the game's currency button is our currency")
+            -- (rawget: the stand-in's frames answer any unset field)
+            check(item and not rawget(item, "currency") and item.index == 2, "the game's item button is our item, not the currency")
+        end)
+        for k in pairs(stubs) do rawset(_G, k, saved[k]) end
+        check(ok, err)
+    end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
         local IF = rawget(_G, "ImprovedForever")
