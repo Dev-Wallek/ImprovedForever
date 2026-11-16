@@ -511,6 +511,29 @@ local function Cover(native, on)
     f:Show()
 end
 
+-- An aura button's time left in fs, short as the buff timeline's (45, 30m,
+-- 2h; seconds rounded up): a formatter of the game's, as the time is secret
+-- in a fight. Without one, the game's own text.
+local durationFormat
+function UF.DurationText(b, fs)
+    if durationFormat == nil then
+        durationFormat = false
+        pcall(function()
+            local up = Enum.NumericRuleFormatRounding.Up
+            local f = C_StringUtil.CreateNumericRuleFormatter()
+            f:SetBreakpoints({
+                { threshold = 0, step = 1, rounding = up, format = "%d" },
+                { threshold = 60, format = "%dm", components = { { div = 60, step = 1, rounding = up } } },
+                { threshold = 3600, format = "%dh", components = { { div = 3600, step = 1, rounding = up } } },
+            })
+            durationFormat = f
+        end)
+    end
+    if not (durationFormat and pcall(b.SetDurationText, b, fs, { textFormatter = durationFormat })) then
+        pcall(b.SetDurationText, b, fs)
+    end
+end
+
 UF.Cover = Cover
 UF.EditMode = EditMode
 -- (the pieces the party cards are made of too, PartyCards.lua)
