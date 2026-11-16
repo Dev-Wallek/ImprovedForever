@@ -2,13 +2,14 @@
 -- the game's buff frame draws them (square, a debuff in its kind's border,
 -- its time over it in the game's yellow):
 -- * left: your buffs and debuffs, from after the minion card (else the
---   player frame) to the party's cards, a full line wrapping upward:
+--   player frame) to the party's cards, a full line wrapping upward,
+--   three lines at most, then the icons pushed together (overlapping) so all show:
 --   the game's aura container (Blizzard_AuraContainer's
 --   CustomAuraContainerTemplate), filled by the game itself, in a fight
 --   too, when it hides auras from addons: which auras, their icons,
 --   stacks, time left and tooltips, your own first, then by time left (the
 --   soonest gone nearest the middle, debuffs nearest). Ours only styles each button and
---   places the row; it never sees an aura.
+--   places the row; it only counts the auras (out of a fight) to space them.
 -- * right: the cooldowns of what's on your gamepad bar (every slot of the
 --   crossbar's page shown) and your on-use trinkets, from the party
 --   spells' diamond (PartyPad.lua) toward the spell diamonds; only while
@@ -393,6 +394,11 @@ end
 ---------------------------------------------------------------------------
 local GROUP_GAP = 12            -- (between the buffs and the debuffs)
 local LINES = 3                 -- (the row's lines at most, wrapping upward)
+local MAX_OVERLAP = 2 / 3       -- (of an icon, hidden under its neighbour at most)
+local TIME_ROOM = 24            -- (an icon step narrower than this: neighbouring times, "59m", would overlap)
+
+-- (the buttons' time texts, shown while the icons have room for them)
+local times, timesShown = {}, true
 
 local function StyleButton(b, harmful, size)
     b:SetSize(size, size)
@@ -401,6 +407,8 @@ local function StyleButton(b, harmful, size)
 
     local time = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     time:SetPoint("BOTTOM", b, "TOP", 0, 1)
+    time:SetShown(timesShown)
+    times[#times + 1] = time
     local count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
     count:SetPoint("BOTTOMRIGHT", -2, 2)
 
@@ -442,28 +450,35 @@ local function BuffLane()
     return start, math.max(start + 1, stop - MIDDLE_GAP)
 end
 
--- (your debuffs now; the last count kept while the game keeps them from addons)
-local debuffCount = 0
-local function DebuffCount()
-    local ok, ids = pcall(C_UnitAuras and C_UnitAuras.GetUnitAuraInstanceIDs, "player", "HARMFUL")
-    if ok and type(ids) == "table" and not Secret(#ids) then debuffCount = #ids end
-    return debuffCount
+-- (your buffs or debuffs now; the last count kept while the game keeps them from addons: a fight)
+local auraCounts = { HELPFUL = 0, HARMFUL = 0 }
+local function AuraCount(filter)
+    local ok, ids = pcall(C_UnitAuras and C_UnitAuras.GetUnitAuraInstanceIDs, "player", filter)
+    if ok and type(ids) == "table" and not Secret(#ids) then auraCounts[filter] = #ids end
+    return auraCounts[filter]
 end
 
--- How many buffs and debuffs the row holds: LINES lines of the lane at the built icon size (one
--- line also holding the gap between the groups). The debuffs may take them all, the buffs what
--- the debuffs shown leave.
-local function Caps(size)
-    local start, stop = BuffLane()
-    local perLine = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
-    local total = perLine * LINES
-    return math.max(0, total - DebuffCount()), total
+-- The space between two icons: the normal one while every aura fits in LINES lines of the lane,
+-- else less, down to icons overlapping (one line also holding the gap between the groups). The
+-- row never drops an aura for room.
+local function Spacing(width, size)
+    local buffs, debuffs = AuraCount("HELPFUL"), AuraCount("HARMFUL")
+    if buffs > 0 and debuffs > 0 then width = width - GROUP_GAP end
+    local perLine = math.ceil((buffs + debuffs) / LINES)
+    if perLine < 2 then return SPACING end
+    local fit = math.floor((width - perLine * size) / (perLine - 1))
+    return math.max(-math.floor(size * MAX_OVERLAP), math.min(SPACING, fit))
+end
+
+local function GroupLayout(spacing, size)
+    return { elementSpacing = spacing, lineSpacing = ROW_GAP, groupSpacing = GROUP_GAP,
+        elementWidth = size, elementHeight = size }
 end
 
 -- The container, made the first time it's shown (nil: this client has
--- none); its row's start and its icons' size, kept (its buttons are
--- styled once, by the game's code)
-local container, placedAt, builtSize
+-- none); its row's start, its icons' size and their spacing, kept (its
+-- buttons are styled once, by the game's code)
+local container, placedAt, builtSize, builtSpacing
 local function Container()
     if container ~= nil then return container or nil end
     container = false
@@ -474,35 +489,32 @@ local function Container()
     -- lying over the row took it first)
     c:SetFrameStrata("HIGH")
     local size = Size()
-    builtSize = size
-    local buffCap, debuffCap = Caps(size)
+    builtSize, builtSpacing = size, SPACING
     pcall(c.SetUnit, c, "player")
-    -- (the game's order: your own first, then the soonest gone, the permanent last, so a full row
-    -- drops others' and permanent ones; laid out right to left, so the soonest gone sit nearest the
-    -- middle, a full line wrapping onto one over it)
+    -- (the game's order: your own first, then the soonest gone, the permanent last; laid out right
+    -- to left, so the soonest gone sit nearest the middle, a full line wrapping onto one over it;
+    -- no cap: the game makes buttons for the auras on you only)
     pcall(c.SetFlowLayoutAnchorPoint, c, "BOTTOMRIGHT")
     pcall(c.SetFlowLayoutGrowthDirection, c, AnchorUtil.FlowDirection.Left, AnchorUtil.FlowDirection.Up)
-    local function Group(key, filter, harmful, max)
+    local function Group(key, filter, harmful)
         pcall(c.AddAuraGroup, c, key, filter, {
-            maxFrameCount = max,
             sortMethod = AuraContainerSortMethod.Expiration,
             sortDirection = AuraContainerSortDirection.Normal,
-            layout = { elementSpacing = SPACING, lineSpacing = ROW_GAP, groupSpacing = GROUP_GAP,
-                elementWidth = size, elementHeight = size },
+            layout = GroupLayout(SPACING, size),
             initializeFrame = function(b) StyleButton(b, harmful, size) end,
         })
     end
     -- (the debuffs first: right to left, nearest the middle)
-    Group("debuffs", "HARMFUL", true, debuffCap)
-    Group("buffs", "HELPFUL", false, buffCap)
+    Group("debuffs", "HARMFUL", true)
+    Group("buffs", "HELPFUL", false)
     c:Hide()
     container = c
     return c
 end
 
 -- (shown or not; its row placed: its bottom left at the lane's start
--- on IN.BOTTOM; its line width and caps following the lane, the
--- game's setters doing nothing while they're unchanged)
+-- on IN.BOTTOM; its line width and spacing following the lane and the
+-- auras on you, the game's line setter doing nothing while unchanged)
 local function ShowBuffs(on)
     local c = (on or container) and Container()
     if not c then return end
@@ -514,10 +526,20 @@ local function ShowBuffs(on)
             c:ClearAllPoints()
             c:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM)
         end
-        pcall(c.SetFlowLayoutMaximumLineSize, c, math.floor(stop - start))
-        local buffs, debuffs = Caps(builtSize)
-        pcall(c.SetAuraGroupMaxFrameCount, c, "buffs", buffs)
-        pcall(c.SetAuraGroupMaxFrameCount, c, "debuffs", debuffs)
+        local width = math.floor(stop - start)
+        pcall(c.SetFlowLayoutMaximumLineSize, c, width)
+        local spacing = Spacing(width, builtSize)
+        if spacing ~= builtSpacing then
+            builtSpacing = spacing
+            pcall(c.SetAuraGroupLayout, c, "debuffs", GroupLayout(spacing, builtSize))
+            pcall(c.SetAuraGroupLayout, c, "buffs", GroupLayout(spacing, builtSize))
+            -- (ponytail: all hidden at once while the icons are too close, not per overlapping neighbour)
+            local shown = builtSize + spacing >= TIME_ROOM
+            if shown ~= timesShown then
+                timesShown = shown
+                for _, t in ipairs(times) do pcall(t.SetShown, t, shown) end
+            end
+        end
     end
     if c:IsShown() ~= on then
         c:SetShown(on)

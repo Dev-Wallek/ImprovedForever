@@ -417,9 +417,10 @@ local CHECKS = {
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
     end },
-    -- (Immersion's buff row: its caps from the size its icons were built with, the debuffs' slots
-    -- the buffs' while none is on you, its lane from after the minion card (else the player frame)
-    -- to the shown party cards, wrapping upward)
+    -- (Immersion's buff row: no caps, its icons pushed together (overlapping at most) when all the
+    -- auras don't fit in 3 lines at the size they were built with, their times hidden while too
+    -- close; its lane from after the minion card (else the player frame) to the shown party cards,
+    -- wrapping upward)
     { name = "immersion buff row", fn = function()
         local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
         if not (IN and IN.BuffTimeline and IN.PartyCards and IN.HudLayout) then return end
@@ -439,21 +440,38 @@ local CHECKS = {
         local HL, s = IN.HudLayout, IN.Settings()
         local saved = { CreateFrame = CreateFrame, C_UnitAuras = rawget(_G, "C_UnitAuras"), UnitExists = UnitExists,
             size = HL.CooldownIconSize, w = rawget(UIParent, "__w"), partyX = s.partyX }
-        local rec, measured, debuffs = { caps = {} }, nil, {}
+        local rec, measured, auras = { caps = {}, spacing = {} }, nil, { HELPFUL = 0, HARMFUL = 0 }
         CreateFrame = function(kind, ...)
             if kind ~= "AuraContainer" then return saved.CreateFrame(kind, ...) end
             local c = saved.CreateFrame("Frame", ...)
-            c.AddAuraGroup = function(_, key, _, o) rec.caps[key], rec.size = o.maxFrameCount, o.layout.elementWidth end
-            c.SetAuraGroupMaxFrameCount = function(_, key, n) rec.caps[key] = n end
+            c.AddAuraGroup = function(_, key, _, o)
+                rec.caps[key], rec.size, rec.spacing[key] = o.maxFrameCount or "none", o.layout.elementWidth, o.layout.elementSpacing
+                local b = saved.CreateFrame("Frame")
+                local made = b.CreateFontString
+                -- (the first a button makes: its time)
+                b.CreateFontString = function(...)
+                    local t = made(...)
+                    rec.time = rec.time or t
+                    return t
+                end
+                o.initializeFrame(b)
+            end
+            c.SetAuraGroupLayout = function(_, key, o) rec.spacing[key] = o.elementSpacing end
             c.SetFlowLayoutMaximumLineSize = function(_, n) rec.line = n end
             c.SetFlowLayoutGrowthDirection = function(_, _, v) rec.up = v == AnchorUtil.FlowDirection.Up end
             c.SetPoint = function(_, _, _, _, x) rec.x = x end
             return c
         end
-        C_UnitAuras = { GetUnitAuraInstanceIDs = function()
-            if debuffs == "secret" then error("secret") end
-            return debuffs
+        C_UnitAuras = { GetUnitAuraInstanceIDs = function(_, filter)
+            if auras == "secret" then error("secret") end
+            local ids = {}
+            for i = 1, auras[filter] do ids[i] = i end
+            return ids
         end }
+        -- (the spacing both groups got, the same, or nil)
+        local function spacing()
+            return rec.spacing.buffs == rec.spacing.debuffs and rec.spacing.buffs or nil
+        end
         HL.CooldownIconSize = function() return measured end
         UnitExists = function(unit) return unit == "party1" or unit == "party2" end
         UIParent.__w = 1920
@@ -472,16 +490,35 @@ local CHECKS = {
             -- (lane: the player frame's right 100 + 20 to 960 - a full row's half 164 - 28: 648)
             ShowBuffs(true)
             check(rec.size == 24 and rec.x == 120 and rec.line == 648 and rec.up, "the row built at 24, lane 120 + 648, wrapping up")
-            check(rec.caps.buffs == 57 and rec.caps.debuffs == 57, "no debuffs: the buffs take all 3 lines of 19: " .. tostring(rec.caps.buffs))
+            check(rec.caps.buffs == "none" and rec.caps.debuffs == "none", "no caps: " .. tostring(rec.caps.buffs))
+            check(spacing() == 10 and rec.time.__shown, "no auras: the normal spacing, times shown")
+            -- (3 lines of 19 at 24 + 10: 57 fit; 60 make 20 a line: (648 - 480) / 19 = 8)
+            auras.HELPFUL = 57
+            ShowBuffs(true)
+            check(spacing() == 10, "57 buffs fit 3 lines: the normal spacing: " .. tostring(spacing()))
+            auras.HELPFUL = 60
+            ShowBuffs(true)
+            check(spacing() == 8 and rec.time.__shown, "60 buffs: pushed together to 8: " .. tostring(spacing()))
             measured = 55
             ShowBuffs(true)
-            check(rec.caps.buffs == 57, "the caps follow the built size, not the measured one: " .. tostring(rec.caps.buffs))
-            debuffs = { 1, 2 }
+            check(spacing() == 8, "the spacing follows the built size, not the measured one: " .. tostring(spacing()))
+            -- (30 and 30: the line holding the gap 636 wide, still 20 a line)
+            auras.HELPFUL, auras.HARMFUL = 30, 30
             ShowBuffs(true)
-            check(rec.caps.buffs == 55 and rec.caps.debuffs == 57, "two debuffs: two slots less for the buffs")
-            debuffs = "secret"
+            check(spacing() == 8, "30 debuffs and 30 buffs: the gap between them counted: " .. tostring(spacing()))
+            -- (40 a line: (648 - 960) / 39 = -8, the icons overlapping, their times hidden)
+            auras.HELPFUL, auras.HARMFUL = 120, 0
             ShowBuffs(true)
-            check(rec.caps.buffs == 55, "debuffs unreadable: the last count kept")
+            check(spacing() == -8 and not rec.time.__shown, "120 buffs: overlapping by 8, times hidden: " .. tostring(spacing()))
+            auras.HELPFUL = 1000
+            ShowBuffs(true)
+            check(spacing() == -16, "far too many: two thirds of an icon hidden at most: " .. tostring(spacing()))
+            auras = "secret"
+            ShowBuffs(true)
+            check(spacing() == -16, "auras unreadable: the last count kept: " .. tostring(spacing()))
+            auras = { HELPFUL = 3, HARMFUL = 2 }
+            ShowBuffs(true)
+            check(spacing() == 10 and rec.time.__shown, "few again: the normal spacing, times back: " .. tostring(spacing()))
             minion.__shown = true
             ShowBuffs(true)
             check(rec.x == 197 and rec.line == 571, "a minion: the lane after its card: " .. tostring(rec.x))
