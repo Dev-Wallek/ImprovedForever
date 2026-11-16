@@ -26,10 +26,15 @@ local function X(f)
     return f:GetCenter() * f:GetEffectiveScale()
 end
 
+-- (on screen: the bag slots bar stays shown under a hidden bags window)
+local function Shown(win)
+    return win:IsVisible() and F.Shown(win)
+end
+
 local function ShownPlaces()
     local list = {}
     for win in pairs(places) do
-        if F.Shown(win) then list[#list + 1] = win end
+        if Shown(win) then list[#list + 1] = win end
     end
     return list
 end
@@ -37,7 +42,7 @@ end
 -- The next of ours along from win towards the game's window (with none
 -- open: the nearest of ours), or nil
 local function Neighbour(win)
-    if not F.Shown(win) then return nil end
+    if not Shown(win) then return nil end
     local game, x = F.GameWindow(win), X(win)
     local gx = game and X(game)
     local best, dist
@@ -81,7 +86,7 @@ end
 -- would be behind our catcher)
 local function Apply(win)
     local v = places[win]
-    local ours = v.sw.focus == "ours" and win:IsShown() and not IF.BindPanel.Shown()
+    local ours = v.sw.focus == "ours" and win:IsVisible() and not IF.BindPanel.Shown()
     F.Glow(win, ours)
     F.DimNative(win, ours)
     v.nav:Set(ours)
@@ -271,7 +276,7 @@ Baganator.API.Skins.RegisterListener(Seen)
 -- The radial's Bags while one of ours is away: its pad back, true (false in combat)
 function BG.Back()
     for win, v in pairs(places) do
-        if v.away and F.Shown(win) then
+        if v.away and Shown(win) then
             v.sw:Set("ours")
             return v.sw.focus == "ours"
         end

@@ -59,7 +59,10 @@ function frameMeta.Show(self) self.__shown = true end
 function frameMeta.Hide(self) self.__shown = false end
 function frameMeta.SetShown(self, on) self.__shown = on and true or false end
 function frameMeta.IsShown(self) return self.__shown end
-function frameMeta.IsVisible(self) return self.__shown end
+function frameMeta.IsVisible(self)
+    local parent = self.__parent
+    return self.__shown and (getmetatable(parent) ~= frameMeta or parent:IsVisible())
+end
 function frameMeta.GetWidth(self) return self.__w or 100 end
 function frameMeta.GetHeight(self) return self.__h or 20 end
 function frameMeta.SetWidth(self, w) self.__w = w end
@@ -504,6 +507,35 @@ local CHECKS = {
         B(bank)
         GamepadMode = gamepadMode
         check(not bank:IsShown(), "one B then closes the bank")
+    end },
+    -- (the bag slots bar open above the backpack: closing the backpack with
+    -- B leaves the bar shown under it, unseen; the pad must not go to it)
+    { name = "baganator close skips the hidden bag slots bar", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode = GamepadMode
+        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
+        local backpack = CreateFrame("Frame")
+        backpack.__shown = false
+        local slots = CreateFrame("Frame", nil, backpack)
+        backpack.BagSlots = slots
+        slots.liveBagSlots = { CreateFrame("Button", nil, slots) }
+        function backpack:ToggleBagSlots() end
+        function backpack:Show() self.__shown = true self.__scripts.OnShow(self) end
+        function backpack:Hide() self.__shown = false self.__scripts.OnHide(self) end
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = backpack, tags = { "backpack" } }) end
+        local catcher
+        for _, f in ipairs(frames) do
+            if f.__parent == backpack and f.__scripts.OnGamePadButtonUp then catcher = f end
+        end
+        backpack:Show()
+        check(F.Holding() == backpack, "the backpack holds the pad")
+        catcher.__scripts.OnGamePadButtonDown(catcher, "PAD2")
+        catcher.__scripts.OnGamePadButtonUp(catcher, "PAD2")
+        GamepadMode = gamepadMode
+        check(not backpack:IsShown() and F.Holding() == nil, "closing the backpack leaves the pad to no window of ours")
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
