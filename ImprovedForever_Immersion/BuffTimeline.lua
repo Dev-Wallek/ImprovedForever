@@ -19,8 +19,8 @@
 --   each is timed from your cast, by the length it had out of one.
 -- The cooldowns' end by the middle is marked with a short black line cut
 -- into the power line. The middle is kept for the party cards (the
--- cooldowns: a full party's row, its spells' diamond, MIDDLE_GAP; the
--- buffs: the cards shown, else a full party's row).
+-- cooldowns: the cards shown, else a full party's row, then its spells'
+-- diamond, MIDDLE_GAP; the buffs: the same without the diamond).
 -- The game's buffs, debuffs and Cooldown Manager are drawn at 0
 -- (IF.Focus.Fade), the mouse they'd still get taken over where they are
 -- (UnitFrames.lua's Cover).
@@ -967,8 +967,9 @@ end)
 
 local cooldowns = Timeline("ImprovedForeverCooldownTimeline", {
     Lane = function()
-        local middle = UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0)
-        local near = middle + (IN.PartyCards.ROW_HALF or 164) + MIDDLE_GAP
+        local PC = IN.PartyCards
+        local near = (PC.RowRight() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) + PC.ROW_HALF))
+            + MIDDLE_GAP
         local PP = IN.PartyPad
         if PP and PP.Shown and PP.Shown() then near = near + PAD_GAP + PP.Width() end
         local GB = IN.GamepadBar

@@ -420,10 +420,10 @@ local CHECKS = {
     -- (Immersion's buff row: no caps, its icons pushed together (overlapping at most) when all the
     -- auras don't fit in 3 lines at the size they were built with, their times hidden while too
     -- close; its lane from after the minion card (else the player frame) to the shown party cards,
-    -- wrapping upward)
+    -- wrapping upward; the cooldowns' lane from the shown party cards' right edge)
     { name = "immersion buff row", fn = function()
         local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
-        if not (IN and IN.BuffTimeline and IN.PartyCards and IN.HudLayout) then return end
+        if not (IN and IN.BuffTimeline and IN.PartyCards and IN.HudLayout and IN.PartyPad) then return end
         local function check(ok, msg) if not ok then error(msg, 0) end end
         local function Up(fn, want)
             for i = 1, 200 do
@@ -480,13 +480,22 @@ local CHECKS = {
             local b = _G["ImprovedForeverPartyCard" .. i]
             b.SetPoint = function(self, _, _, _, x) self.__x = x end
             b.GetLeft = function(self) return UIParent:GetWidth() / 2 + self.__x end
+            b.GetRight = function(self) return self:GetLeft() + self.cardW end
             b.__shown = false
             cards[i] = b
         end
         minion.__shown = false
         minion.GetRight = function() return 177 end
         s.partyX = 0
+        -- (the cooldowns' lane: its near end, the party spells' diamond hidden)
+        local cooldowns = Up(IN.BuffTimeline.Apply, "cooldowns")
+        -- (the row's OnUpdate, or IN.Prof's wrapper round it)
+        local onUpdate = cooldowns.holder:GetScript("OnUpdate")
+        local Lane = (Up(onUpdate, "source") or Up(Up(onUpdate, "fn"), "source")).Lane
+        local PP = IN.PartyPad
+        saved.ppShown, PP.Shown = PP.Shown, function() return false end
         local ok, err = pcall(function()
+            check(Lane() == 1152, "no cards: the cooldowns after a full row's half 164 + 28: " .. tostring(Lane()))
             -- (lane: the player frame's right 100 + 20 to 960 - a full row's half 164 - 28: 648)
             ShowBuffs(true)
             check(rec.size == 24 and rec.x == 120 and rec.line == 648 and rec.up, "the row built at 24, lane 120 + 648, wrapping up")
@@ -528,13 +537,16 @@ local CHECKS = {
             cards[1].__shown, cards[2].__shown = true, true
             ShowBuffs(true)
             check(rec.line == 455, "two party cards moved left: the lane to their left edge: " .. tostring(rec.line))
+            check(Lane() == 868, "two party cards moved left: the cooldowns from their right edge 840: " .. tostring(Lane()))
             UnitExists = function() return true end
             IN.PartyCards.Layout()
             cards[3].__shown, cards[4].__shown = true, true
             ShowBuffs(true)
             check(rec.line == 371, "four party cards: the lane shorter: " .. tostring(rec.line))
+            check(Lane() == 952, "four party cards: the cooldowns from their right edge 924: " .. tostring(Lane()))
         end)
         CreateFrame, C_UnitAuras, UnitExists, HL.CooldownIconSize = saved.CreateFrame, saved.C_UnitAuras, saved.UnitExists, saved.size
+        PP.Shown = saved.ppShown
         UIParent.__w, s.partyX = saved.w, saved.partyX
         check(ok, err)
     end },
