@@ -10,7 +10,7 @@
 -- frame, as the player's). Its role's icon at its top right, as the game's
 -- party frames show it (a minion's paw); a minion's card smaller. Faint
 -- when out of range; grey and fainter, while L1 is held for party casting,
--- out of the picked spell's reach. Your target's in a gold border.
+-- out of the picked spell's reach. Your target's edged in a thin gold line.
 -- /if cards previews every slot (Preview).
 -- Each card is a secure unit button (a click targets, a right click opens
 -- the unit's menu) in a place of its own, shown by the game's state
@@ -45,7 +45,7 @@ local PICK_GROW, PICK_GLYPH, PICK_TIME = 1.15, 44, 0.15
 -- as big to it as the game's to its alert (150 to a 45 button's 63))
 local ALERT_OUT, BURST_SIZE = 18, 150 / 63
 local ROLE_SIZE = 14             -- (its role's icon, at its top right)
-local TARGET_OUT = 3             -- (your target's gold border, past the card's)
+local TARGET_LINE = 2            -- (your target's gold line, along the card's edge)
 local MINION_SCALE = 0.8         -- (a minion's card, a party member's times)
 -- (the alert's colours, as a monster's level against yours (Module.lua):
 -- green, yellow, orange steady, red flashing at its worst)
@@ -120,12 +120,11 @@ local function Card(name, unit, scale)
     end
     b.bands = {}
     for i, c in ipairs(ALERT_COLORS) do b.bands[i] = Edge(c) end
-    -- (your target's: the border in gold, TARGET_OUT past the card's, clear of the alert's)
-    b.targetMark = Edge(UF.GOLD)
-    b.targetMark:ClearAllPoints()
-    b.targetMark:SetPoint("TOPLEFT", -TARGET_OUT, TARGET_OUT)
-    b.targetMark:SetPoint("BOTTOMRIGHT", TARGET_OUT, -TARGET_OUT)
-    b.targetMark:SetAlpha(1)
+    -- (your target's: a solid gold line over the border's outer rim)
+    b.targetMark = CreateFrame("Frame", nil, b.avatar)
+    b.targetMark:SetAllPoints()
+    b.targetMark:SetFrameLevel(level)
+    UF.Outline(b.targetMark, UF.GOLD, TARGET_LINE)
     b.targetMark:Hide()
     local flash = Edge(URGENT_COLOR)
     b.urgent = flash
@@ -526,9 +525,41 @@ local function Natives()
     return { { PartyFrame, s.cards }, { CompactPartyFrame, s.cards }, { PetFrame, s.minion } }
 end
 
-local COMPACT_MEMBERS = {}
-for i = 1, 5 do COMPACT_MEMBERS[#COMPACT_MEMBERS + 1] = "CompactPartyFrameMember" .. i end
-for i = 1, 4 do COMPACT_MEMBERS[#COMPACT_MEMBERS + 1] = "CompactPartyFramePet" .. i end
+-- The raid-style party's parts drawn past their parents' alpha
+-- (ignoreParentAlpha): the target's box, the ready check. Each of its
+-- member and pet buttons (the player's own among them), faded while
+-- partsHidden; restarted each time the game updates them, as it hides and
+-- shows them then, which can end a fade playing on them.
+local partsHidden = false
+local COMPACT_LISTS = { "memberUnitFrames", "petUnitFrames" }
+
+local function EachCompact(fn, ...)
+    local p = CompactPartyFrame
+    if not p then return end
+    for _, key in ipairs(COMPACT_LISTS) do
+        for _, m in ipairs(p[key] or {}) do fn(m, ...) end
+    end
+end
+
+local function FadePart(region, restart)
+    if restart then IF.Focus.Refade(region) end
+    IF.Focus.Fade(region, partsHidden)
+end
+
+local function FadeParts(m, restart)
+    FadePart(m.selectionHighlight, restart)
+    FadePart(m.readyCheckIcon and m.readyCheckIcon.Icon, restart)
+end
+
+-- (also called for raid and nameplate frames: only compared, never read)
+local function IfUpdated(m, frame)
+    if m == frame then FadeParts(m, true) end
+end
+local function Updated(frame)
+    EachCompact(IfUpdated, frame)
+end
+hooksecurefunc("CompactUnitFrame_UpdateSelectionHighlight", Updated)
+hooksecurefunc("CompactUnitFrame_UpdateReadyCheck", Updated)
 
 -- The member to see to, their button lit (Watch, as their buttons show):
 -- a tank's, the highest threat (when the game says it: none secret); a
@@ -600,19 +631,12 @@ local function Watch()
         IF.Focus.Fade(n[1], n[2] and not edit)
         UF.Cover(n[1], n[2] and not edit)
     end
-    -- (their parts drawn past their parents' alpha (ignoreParentAlpha): the
-    -- target's box, the ready check, an absent member's icon)
-    local hide = on and not edit
-    for _, name in ipairs(COMPACT_MEMBERS) do
-        local m = _G[name]
-        if m then
-            IF.Focus.Fade(m.selectionHighlight, hide)
-            IF.Focus.Fade(m.readyCheckIcon and m.readyCheckIcon.Icon, hide)
-        end
-    end
+    partsHidden = on and not edit
+    EachCompact(FadeParts)
+    -- (an absent member's icon, drawn past its parent's alpha too)
     for i = 1, 4 do
         local m = PartyFrame and PartyFrame["MemberFrame" .. i]
-        if m then IF.Focus.Fade(m.NotPresentIcon, hide) end
+        if m then IF.Focus.Fade(m.NotPresentIcon, partsHidden) end
     end
     local alpha = edit and 0 or 1
     for _, list in ipairs({ minions, party }) do

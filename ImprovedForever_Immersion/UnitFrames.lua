@@ -240,6 +240,22 @@ local PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomR
     "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
 local BORDER_LAYOUT, BORDER_SCALE = "Dialog", 0.35
 
+-- Solid lines of a colour along the frame's inner edge, size thick; their textures
+local function Outline(frame, color, size)
+    local lines = {}
+    for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, size }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, size },
+        { "TOPLEFT", "BOTTOMLEFT", size, nil }, { "TOPRIGHT", "BOTTOMRIGHT", size, nil } }) do
+        local t = frame:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(color[1], color[2], color[3], 1)
+        t:SetPoint(e[1])
+        t:SetPoint(e[2])
+        if e[3] then t:SetWidth(e[3]) end
+        if e[4] then t:SetHeight(e[4]) end
+        lines[#lines + 1] = t
+    end
+    return lines
+end
+
 local function Border(frame)
     frame.borderPieces = {}
     local edge = CreateFrame("Frame", nil, frame)
@@ -255,16 +271,7 @@ local function Border(frame)
         return
     end
     edge:Hide()
-    for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 },
-        { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }) do
-        local t = frame:CreateTexture(nil, "BORDER")
-        t:SetColorTexture(BRONZE[1], BRONZE[2], BRONZE[3], 1)
-        t:SetPoint(e[1])
-        t:SetPoint(e[2])
-        if e[3] then t:SetWidth(e[3]) end
-        if e[4] then t:SetHeight(e[4]) end
-        frame.borderPieces[#frame.borderPieces + 1] = t
-    end
+    frame.borderPieces = Outline(frame, BRONZE, 1)
 end
 
 -- A model draws at its own alpha, whatever its parents' (UIParent faded to
@@ -541,7 +548,7 @@ UF.Try, UF.Flag, UF.Text, UF.Atlas, UF.Bar = Try, Flag, Text, Atlas, Bar
 UF.FillHealth, UF.FillPower, UF.UnitButton, UF.NameColor = FillHealth, FillPower, UnitButton, NameColor
 UF.Listen, UF.Join, UF.UNIT, UF.POWER_EVENTS = Listen, Join, UNIT, POWER_EVENTS
 UF.Avatar, UF.AvatarUnit, UF.AvatarLook, UF.ClassColor = Avatar, AvatarUnit, AvatarLook, ClassColor
-UF.Border = Border
+UF.Border, UF.Outline = Border, Outline
 -- (the target's header, TargetHeader.lua)
 UF.Secret, UF.Percent, UF.Numbers = Secret, Percent, Numbers
 UF.MODEL_EVENTS, UF.GOLD, UF.GREY = MODEL_EVENTS, GOLD, GREY

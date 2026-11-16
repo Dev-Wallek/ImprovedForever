@@ -56,7 +56,10 @@ function frameMeta.UnregisterEvent(self, e) self.__events[e] = nil end
 function frameMeta.RegisterUnitEvent(self, e) self.__events[e] = true end
 function frameMeta.IsEventRegistered(self, e) return self.__events[e] == true end
 function frameMeta.Show(self) self.__shown = true end
-function frameMeta.Hide(self) self.__shown = false end
+function frameMeta.Hide(self)
+    self.__shown = false
+    for _, g in ipairs(rawget(self, "__groups") or {}) do g.__playing = false end
+end
 function frameMeta.SetShown(self, on) self.__shown = on and true or false end
 function frameMeta.IsShown(self) return self.__shown end
 function frameMeta.IsVisible(self) return self.__shown end
@@ -98,7 +101,22 @@ function frameMeta.CreateTexture(self) return Frame(nil, self) end
 function frameMeta.CreateFontString(self) return Frame(nil, self) end
 function frameMeta.CreateMaskTexture(self) return Frame(nil, self) end
 function frameMeta.CreateLine(self) return Frame(nil, self) end
-function frameMeta.CreateAnimationGroup(self) return Frame(nil, self) end
+-- (animation groups play and stop; hiding a region stops those playing on it, its own and the
+-- ones aimed at it, as in game)
+local function PlaysOn(region, group)
+    local list = rawget(region, "__groups") or {}
+    rawset(region, "__groups", list)
+    list[#list + 1] = group
+end
+function frameMeta.CreateAnimationGroup(self)
+    local g = Frame(nil, self)
+    PlaysOn(self, g)
+    return g
+end
+function frameMeta.SetTarget(self, region) PlaysOn(region, self.__parent) end
+function frameMeta.Play(self) self.__playing = true end
+function frameMeta.Stop(self) self.__playing = false end
+function frameMeta.IsPlaying(self) return self.__playing == true end
 function frameMeta.CreateAnimation(self)
     local a = Frame(nil, self)
     self.__anim = self.__anim or a
@@ -177,7 +195,16 @@ function GetInventoryItemID() return nil end
 function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
-function hooksecurefunc() end
+-- (a hook on a global function runs after it; one on a frame's method never runs)
+function hooksecurefunc(name, hook)
+    if type(name) ~= "string" then return end
+    local orig = _G[name]
+    rawset(_G, name, function(...)
+        local r = { orig(...) }
+        hook(...)
+        return unpack(r)
+    end)
+end
 function issecurevariable() return true end
 function securecall(fn, ...) return fn(...) end
 function SetOverrideBinding() end
@@ -404,6 +431,18 @@ local CHECKS = {
         fire("PLAYER_TARGET_CHANGED")
         PC.TogglePreview()
         PC.TogglePreview("off")
+        -- (the raid-style party's target boxes faded, the player's and a fifth pet's, and the
+        -- player's again after the game hides and shows it on a target change)
+        local party = Frame("CompactPartyFrame")
+        local me, pet = Frame("CompactPartyFrameMember1", party), Frame("CompactPartyFramePet5", party)
+        me.selectionHighlight, pet.selectionHighlight = Frame(nil, me), Frame(nil, pet)
+        party.memberUnitFrames, party.petUnitFrames = { me }, { pet }
+        PC.Apply()
+        assert(IF.Focus.Faded(pet.selectionHighlight), "a fifth pet's target box not faded")
+        me.selectionHighlight:Hide()
+        me.selectionHighlight:Show()
+        CompactUnitFrame_UpdateSelectionHighlight(me)
+        assert(IF.Focus.Faded(me.selectionHighlight), "the player's target box shown again unfaded")
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
