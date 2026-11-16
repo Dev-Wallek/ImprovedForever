@@ -424,7 +424,13 @@ local CHECKS = {
         if not IN then return end
         local s = IN.Settings()
         assert(s.player == true and IN.Settings() == s, "Settings: not filled once")
-        C_AddOnProfiler = { GetAddOnMetric = function() return 0.5 end }
+        -- (each metric read counts up, so every loaded addon gains frames over 5 ms during the run)
+        local reads = 0
+        C_AddOnProfiler = { IsEnabled = function() return true end,
+            GetAddOnMetric = function() reads = reads + 1; return reads end }
+        local addOns = C_AddOns
+        C_AddOns = setmetatable({ GetNumAddOns = function() return 1 end, IsAddOnLoaded = function() return true end,
+            GetAddOnInfo = function() return "Spiky" end }, { __index = addOns })
         local after = C_Timer.After
         local report
         C_Timer.After = function(_, fn) report = fn end
@@ -432,9 +438,17 @@ local CHECKS = {
         C_Timer.After = after
         IN.Prof("check", function() end)()
         report()
+        C_AddOns = addOns
         local log = IF.db.perfLog
-        assert(log and log[2] and log[2]:find("^check: ") and log[3] and log[3]:find("^module: "),
-            "perf: no row for the timed handler or the module")
+        local has = {}
+        for _, line in ipairs(log or {}) do
+            if line:find("^check: .*slowest call") then has.row = true end
+            if line:find("^  check: ") then has.slowest = true end
+            if line:find("^module: ") then has.module = true end
+            if line:find("^addons with frames over 5 ms: Spiky %d") then has.spikes = true end
+        end
+        assert(has.row and has.slowest and has.module and has.spikes,
+            "perf: a row, the slowest calls, the module or the addons' spikes missing")
     end },
 }
 

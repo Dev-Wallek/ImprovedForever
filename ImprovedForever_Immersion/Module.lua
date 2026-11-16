@@ -167,20 +167,39 @@ end
 
 -- /if perf [seconds]: each handler wrapped with IN.Prof timed while it runs (default 10 s), the top ten
 -- said in chat, every row into IF.db.perfLog (saved on /reload). Off, a wrapper costs one check.
-local perf          -- (name: { ms, calls } while measuring; nil: off)
+-- Besides the totals, each handler's slowest single call and every loaded addon's frames over 5 ms
+-- during the run, for one-off hitches (a window closing) that an average hides.
+local perf          -- (name: { ms, calls, max } while measuring; nil: off)
+local spikesAtStart -- (addon name: its frames over 5 ms when the run started)
 function IN.Prof(name, fn)
     return function(...)
         if not perf then return fn(...) end
         local start = debugprofilestop()
         fn(...)
+        local took = debugprofilestop() - start
         local row = perf[name]
         if not row then
-            row = { ms = 0, calls = 0 }
+            row = { ms = 0, calls = 0, max = 0 }
             perf[name] = row
         end
-        row.ms = row.ms + debugprofilestop() - start
+        row.ms = row.ms + took
         row.calls = row.calls + 1
+        if took > row.max then row.max = took end
     end
+end
+
+-- Each loaded addon's count of one metric (nil: the game has no addon profiler)
+local function AddOnCounts(metric)
+    local P = C_AddOnProfiler
+    if not (P and P.GetAddOnMetric and P.IsEnabled and P.IsEnabled()) then return nil end
+    local counts = {}
+    for i = 1, C_AddOns.GetNumAddOns() do
+        if C_AddOns.IsAddOnLoaded(i) then
+            local name = C_AddOns.GetAddOnInfo(i)
+            counts[name] = P.GetAddOnMetric(name, metric)
+        end
+    end
+    return counts
 end
 
 -- frame:SetScript(script, fn), timed under name
@@ -191,7 +210,7 @@ end
 local function PerfReport(seconds)
     local rows = {}
     for name, row in pairs(perf) do
-        rows[#rows + 1] = { name = name, ms = row.ms / seconds, calls = row.calls / seconds }
+        rows[#rows + 1] = { name = name, ms = row.ms / seconds, calls = row.calls / seconds, max = row.max }
     end
     perf = nil
     table.sort(rows, function(a, b) return a.ms > b.ms end)
@@ -199,10 +218,34 @@ local function PerfReport(seconds)
     IF.db.perfLog = log
     IF.Print(("Immersion perf: %d s, top %d by ms/s:"):format(seconds, math.min(10, #rows)))
     for i, row in ipairs(rows) do
-        local line = ("%s: %.3f ms/s, %.1f calls/s"):format(row.name, row.ms, row.calls)
+        local line = ("%s: %.3f ms/s, %.1f calls/s, slowest call %.2f ms"):format(row.name, row.ms, row.calls, row.max)
         log[#log + 1] = line
         if i <= 10 then IF.Print("  " .. line) end
     end
+    table.sort(rows, function(a, b) return a.max > b.max end)
+    IF.Print("  slowest single calls:")
+    log[#log + 1] = "slowest single calls:"
+    for i = 1, math.min(5, #rows) do
+        local line = ("%s: %.2f ms"):format(rows[i].name, rows[i].max)
+        log[#log + 1] = "  " .. line
+        IF.Print("    " .. line)
+    end
+    -- (every addon's frames over 5 ms during the run: is a hitch Immersion's at all)
+    local spikesNow = spikesAtStart and AddOnCounts(Enum.AddOnProfilerMetric.CountTimeOver5Ms)
+    if spikesNow then
+        local spiked = {}
+        for name, count in pairs(spikesNow) do
+            local added = count - (spikesAtStart[name] or 0)
+            if added > 0 then spiked[#spiked + 1] = { name = name, added = added } end
+        end
+        table.sort(spiked, function(a, b) return a.added > b.added end)
+        local parts = {}
+        for i, s in ipairs(spiked) do parts[i] = ("%s %d"):format(s.name, s.added) end
+        local line = "addons with frames over 5 ms: " .. (#parts > 0 and table.concat(parts, ", ") or "none")
+        log[#log + 1] = line
+        IF.Print("  " .. line)
+    end
+    spikesAtStart = nil
     -- (the game's own figure for the whole module, all its code: per frame over the last 60)
     local P, metric = C_AddOnProfiler, Enum.AddOnProfilerMetric
     if P and P.GetAddOnMetric and metric and metric.RecentAverageTime then
@@ -219,6 +262,7 @@ IF.AddCommand("perf", function(args)
     if perf then return IF.Print("Immersion perf: already measuring.") end
     local seconds = math.max(1, math.floor(tonumber(args[1]) or 10))
     perf = {}
+    spikesAtStart = Enum.AddOnProfilerMetric and AddOnCounts(Enum.AddOnProfilerMetric.CountTimeOver5Ms)
     IF.Print(("Immersion perf: measuring %d s."):format(seconds))
     C_Timer.After(seconds, function() PerfReport(seconds) end)
 end, "[seconds]: time the Immersion module's handlers (default 10 s), the top ten in chat, all in the saved log")
