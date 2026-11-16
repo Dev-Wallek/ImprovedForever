@@ -851,7 +851,7 @@ end
 local castAt, castLength = {}, {}
 local ownCasts = CreateFrame("Frame")
 ownCasts:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-ownCasts:SetScript("OnEvent", function(_, _, _, _, spellID)
+IN.Script(ownCasts, "OnEvent", "GamepadBar ownCasts", function(_, _, _, _, spellID)
     if Secret(spellID) or type(spellID) ~= "number" then return end
     local get = C_Spell and C_Spell.GetSpellName or GetSpellInfo
     local ok, name = pcall(get, spellID)
@@ -1042,7 +1042,7 @@ end
 local castWatch = CreateFrame("Frame")
 castWatch:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
 castWatch:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
-castWatch:SetScript("OnEvent", function(_, _, _, _, spellID)
+IN.Script(castWatch, "OnEvent", "GamepadBar castWatch", function(_, _, _, _, spellID)
     interactCast = nil
     if Secret(spellID) or type(spellID) ~= "number" then return end
     local near = Yes(UnitExists, "softinteract") or Yes(UnitIsGameObject, "softinteract")
@@ -1760,7 +1760,7 @@ end)
 
 local menuWatch = CreateFrame("Frame")
 menuWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
-menuWatch:SetScript("OnEvent", function()
+IN.Script(menuWatch, "OnEvent", "GamepadBar menuWatch", function()
     if pendingClose then ClosePopup() end
 end)
 
@@ -1787,7 +1787,7 @@ local function SetSwap(f)
 end
 
 local swapper = CreateFrame("Frame", nil, holder)
-swapper:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(swapper, "OnUpdate", "GamepadBar swapper", function(_, elapsed)
     if swap.now == swap.want then return end
     local step = elapsed / SWAP_TIME
     swap.now = swap.want > swap.now and math.min(swap.want, swap.now + step) or math.max(swap.want, swap.now - step)
@@ -1877,7 +1877,7 @@ local glyphEvents = CreateFrame("Frame")
 for _, e in ipairs({ "GAME_PAD_ACTIVE_CHANGED", "GAME_PAD_CONNECTED" }) do
     pcall(glyphEvents.RegisterEvent, glyphEvents, e)
 end
-glyphEvents:SetScript("OnEvent", function()
+IN.Script(glyphEvents, "OnEvent", "GamepadBar glyphEvents", function()
     if padShown then UpdateGlyphs() end
 end)
 
@@ -1934,7 +1934,7 @@ local function Supply(read, tip)
     -- (none left: the tile pulsing red, as a cooldown's beat: a flash on
     -- each whole second, fading over BEAT)
     local alarm = CreateFrame("Frame", nil, b)
-    alarm:SetScript("OnUpdate", function()
+    IN.Script(alarm, "OnUpdate", "GamepadBar alarm", function()
         local since = GetTime() % 1
         b.flashFill:SetVertexColor(1, 0.15, 0.1, 1)
         b.flashFill:SetAlpha(BEAT_FLASH * math.max(0, 1 - since / BEAT))
@@ -2085,13 +2085,13 @@ local supplyEvents = CreateFrame("Frame")
 for _, e in ipairs({ "BAG_UPDATE_DELAYED", "PLAYER_ENTERING_WORLD", "UNIT_INVENTORY_CHANGED" }) do
     supplyEvents:RegisterEvent(e)
 end
-supplyEvents:SetScript("OnEvent", function(_, event, unit)
+IN.Script(supplyEvents, "OnEvent", "GamepadBar supplyEvents", function(_, event, unit)
     if event == "UNIT_INVENTORY_CHANGED" and unit ~= "player" then return end
     UpdateSupplies()
 end)
 -- (placed again now and then: the R3 slot comes, goes and moves (Edit Mode))
 local sincePlaced = 0
-supplyRow:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(supplyRow, "OnUpdate", "GamepadBar supplyRow", function(_, elapsed)
     sincePlaced = sincePlaced + elapsed
     if sincePlaced < 0.5 then return end
     sincePlaced = 0

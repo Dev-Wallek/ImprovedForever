@@ -417,6 +417,25 @@ local CHECKS = {
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
     end },
+    -- (the Immersion module: its settings filled once, /if perf timing a handler and saving its log)
+    { name = "immersion settings and perf", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local IN = IF and IF.Interface
+        if not IN then return end
+        local s = IN.Settings()
+        assert(s.player == true and IN.Settings() == s, "Settings: not filled once")
+        C_AddOnProfiler = { GetAddOnMetric = function() return 0.5 end }
+        local after = C_Timer.After
+        local report
+        C_Timer.After = function(_, fn) report = fn end
+        IF.RunCommand("perf 2")
+        C_Timer.After = after
+        IN.Prof("check", function() end)()
+        report()
+        local log = IF.db.perfLog
+        assert(log and log[2] and log[2]:find("^check: ") and log[3] and log[3]:find("^module: "),
+            "perf: no row for the timed handler or the module")
+    end },
 }
 
 local args = { ... }

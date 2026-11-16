@@ -165,9 +165,68 @@ function IN.Inset()
     return math.max(0, math.floor((UIParent:GetWidth() - UIParent:GetHeight() * ratio) / 2 + 0.5))
 end
 
+-- /if perf [seconds]: each handler wrapped with IN.Prof timed while it runs (default 10 s), the top ten
+-- said in chat, every row into IF.db.perfLog (saved on /reload). Off, a wrapper costs one check.
+local perf          -- (name: { ms, calls } while measuring; nil: off)
+function IN.Prof(name, fn)
+    return function(...)
+        if not perf then return fn(...) end
+        local start = debugprofilestop()
+        fn(...)
+        local row = perf[name]
+        if not row then
+            row = { ms = 0, calls = 0 }
+            perf[name] = row
+        end
+        row.ms = row.ms + debugprofilestop() - start
+        row.calls = row.calls + 1
+    end
+end
+
+-- frame:SetScript(script, fn), timed under name
+function IN.Script(frame, script, name, fn)
+    frame:SetScript(script, IN.Prof(name, fn))
+end
+
+local function PerfReport(seconds)
+    local rows = {}
+    for name, row in pairs(perf) do
+        rows[#rows + 1] = { name = name, ms = row.ms / seconds, calls = row.calls / seconds }
+    end
+    perf = nil
+    table.sort(rows, function(a, b) return a.ms > b.ms end)
+    local log = { date("%H:%M:%S") .. (" perf run, %d s, %d handlers"):format(seconds, #rows) }
+    IF.db.perfLog = log
+    IF.Print(("Immersion perf: %d s, top %d by ms/s:"):format(seconds, math.min(10, #rows)))
+    for i, row in ipairs(rows) do
+        local line = ("%s: %.3f ms/s, %.1f calls/s"):format(row.name, row.ms, row.calls)
+        log[#log + 1] = line
+        if i <= 10 then IF.Print("  " .. line) end
+    end
+    -- (the game's own figure for the whole module, all its code: per frame over the last 60)
+    local P, metric = C_AddOnProfiler, Enum.AddOnProfilerMetric
+    if P and P.GetAddOnMetric and metric and metric.RecentAverageTime then
+        local addon = "ImprovedForever_Immersion"
+        local line = ("module: %.3f ms/frame recent, %.3f ms peak"):format(P.GetAddOnMetric(addon, metric.RecentAverageTime),
+            P.GetAddOnMetric(addon, metric.PeakTime))
+        log[#log + 1] = line
+        IF.Print("  " .. line)
+    end
+    IF.Print("  /reload to save every row (ImprovedForeverDB.perfLog)")
+end
+
+IF.AddCommand("perf", function(args)
+    if perf then return IF.Print("Immersion perf: already measuring.") end
+    local seconds = math.max(1, math.floor(tonumber(args[1]) or 10))
+    perf = {}
+    IF.Print(("Immersion perf: measuring %d s."):format(seconds))
+    C_Timer.After(seconds, function() PerfReport(seconds) end)
+end, "[seconds]: time the Immersion module's handlers (default 10 s), the top ten in chat, all in the saved log")
+
 function IN.Watcher(name, every, fn)
     local f = CreateFrame("Frame")
     local since = 0
+    fn = IN.Prof(name, fn)
     f:SetScript("OnUpdate", function(self, elapsed)
         since = since + elapsed
         if since < every then return end
@@ -200,14 +259,18 @@ end
 -- A setting's default, for the reset buttons
 IN.DEFAULTS = DEFAULTS
 
+-- (filled and cleaned up once: the saved table is only ever replaced at login, and nothing sets a key
+-- to nil to mean its default)
+local settings
 function IN.Settings()
+    if settings then return settings end
     local db = IF.db
     db.plateLog = nil           -- (the nameplate probes' logs, done)
     db.plateFly = nil
     db.npLog = nil              -- (the nameplate probes' log, done)
     db.tipLog = nil             -- (the tooltip probe's log, done)
     db.interface = db.interface or {}
-    local settings = db.interface
+    settings = db.interface
     -- (the name's size default grew from 13 to 17: the old default moves up once)
     if not settings.nameplateSizeV2 then
         settings.nameplateSizeV2 = true

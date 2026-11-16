@@ -320,7 +320,7 @@ for _, e in ipairs({ "SUPER_TRACKING_CHANGED", "QUEST_LOG_UPDATE", "QUEST_POI_UP
     "ZONE_CHANGED", "PLAYER_ENTERING_WORLD", "QUEST_WATCH_LIST_CHANGED" }) do
     pcall(events.RegisterEvent, events, e)
 end
-events:SetScript("OnEvent", function() dirty = true end)
+IN.Script(events, "OnEvent", "QuestArrow events", function() dirty = true end)
 
 ---------------------------------------------------------------------------
 -- The way: yards east and north from the player to the target, in the
@@ -444,7 +444,7 @@ local function Turn(a, b, k)
     return a + d * k
 end
 
-frame:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(frame, "OnUpdate", "QuestArrow frame", function(_, elapsed)
     since = since + elapsed
     if since >= POLL then
         since = 0

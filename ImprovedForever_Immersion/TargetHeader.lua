@@ -292,7 +292,7 @@ IF.AddCommand("combotest", function(args)
 end, "[0-5]: show that many combo point dots for 10 seconds (with a target); again with another number: gained / spent")
 local markEvents = CreateFrame("Frame")
 markEvents:RegisterEvent("RAID_TARGET_UPDATE")
-markEvents:SetScript("OnEvent", function()
+IN.Script(markEvents, "OnEvent", "TargetHeader markEvents", function()
     if look:IsShown() and UnitExists("target") then Mark("target") end
 end)
 local quest = look:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -690,7 +690,7 @@ function cast:Check()
     end
 end
 
-cast:SetScript("OnUpdate", function(self)
+IN.Script(cast, "OnUpdate", "TargetHeader cast", function(self)
     local now = GetTime()
     if self.kind then
         self:SetValue(now * 1000)
@@ -715,7 +715,7 @@ for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLC
     castEvents:RegisterUnitEvent(e, "target")
 end
 castEvents:RegisterEvent("PLAYER_TARGET_CHANGED")
-castEvents:SetScript("OnEvent", function(_, event)
+IN.Script(castEvents, "OnEvent", "TargetHeader castEvents", function(_, event)
     if event == "PLAYER_TARGET_CHANGED" then
         cast.holdUntil = nil
         cast:Check()
@@ -933,7 +933,7 @@ end
 -- (drawn each frame; one error said once, then no more)
 local broken
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(driver, "OnUpdate", "TargetHeader driver", function(_, elapsed)
     if broken then return end
     local ok, err = pcall(Draw, elapsed)
     if not ok then

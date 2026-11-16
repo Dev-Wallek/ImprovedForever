@@ -236,7 +236,7 @@ end
 
 -- (one error said once, then no more; the game's toast back)
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function()
+IN.Script(driver, "OnUpdate", "LevelBanner driver", function()
     if broken then return end
     local ok, err = pcall(Step)
     if not ok then
@@ -249,7 +249,7 @@ end)
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LEVEL_UP")
-events:SetScript("OnEvent", function(_, _, level, healthDelta, powerDelta, talents, _, ...)
+IN.Script(events, "OnEvent", "LevelBanner events", function(_, _, level, healthDelta, powerDelta, talents, _, ...)
     if not On() or broken then return end
     -- (PLAYER_LEVEL_UP: level, health, power, talents, PvP talent slots,
     -- then strength, agility, stamina, intellect)

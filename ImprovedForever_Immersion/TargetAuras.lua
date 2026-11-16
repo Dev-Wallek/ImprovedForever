@@ -122,7 +122,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
-events:SetScript("OnEvent", function()
+IN.Script(events, "OnEvent", "TargetAuras events", function()
     Update()
     Refresh()
 end)

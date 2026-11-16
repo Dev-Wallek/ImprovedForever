@@ -595,7 +595,7 @@ local function PowerGoal()
     return (not PlayerHealth.health or PowerWanted()) and 1 or 0
 end
 
-holder:SetScript("OnUpdate", function(self, elapsed)
+IN.Script(holder, "OnUpdate", "PlayerHealth holder", function(self, elapsed)
     local now = GetTime()
     if healthLine.trail.at and now >= healthLine.trail.at then TrailTo(healthLine, true, 1) end
     if powerLine.trail.at and now >= powerLine.trail.at then TrailTo(powerLine, true, 0) end
@@ -742,7 +742,7 @@ events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("PLAYER_DEAD")
 events:RegisterEvent("PLAYER_ALIVE")
 events:RegisterEvent("PLAYER_UNGHOST")
-events:SetScript("OnEvent", function(_, event, _, castGUID, spellID)
+IN.Script(events, "OnEvent", "PlayerHealth events", function(_, event, _, castGUID, spellID)
     if event == "UNIT_SPELLCAST_START" then
         if PlayerHealth.power and not demo then CastStart(castGUID, spellID) end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then

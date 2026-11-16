@@ -272,7 +272,7 @@ end
 -- effective alpha
 local models = {}
 local modelAlpha = CreateFrame("Frame")
-modelAlpha:SetScript("OnUpdate", function()
+IN.Script(modelAlpha, "OnUpdate", "UnitFrames modelAlpha", function()
     for _, m in ipairs(models) do
         local alpha = m:GetParent():GetEffectiveAlpha()
         if alpha ~= m.parentAlpha then
@@ -439,7 +439,7 @@ local function Listen(frame, unitEvents, events)
     -- (an event this client hasn't: left out, not an error)
     for _, e in ipairs(unitEvents) do pcall(frame.RegisterUnitEvent, frame, e, frame.unit) end
     for _, e in ipairs(events or {}) do pcall(frame.RegisterEvent, frame, e) end
-    frame:SetScript("OnEvent", function(self, event) self:Refresh(event) end)
+    IN.Script(frame, "OnEvent", "UnitFrames frame", function(self, event) self:Refresh(event) end)
     frame:SetScript("OnShow", function(self) self:Refresh() end)
 end
 
@@ -608,7 +608,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
-events:SetScript("OnEvent", function()
+IN.Script(events, "OnEvent", "UnitFrames events", function()
     if pending then UF.Apply() end
 end)
 

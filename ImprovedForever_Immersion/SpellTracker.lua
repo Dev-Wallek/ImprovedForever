@@ -198,7 +198,7 @@ events:RegisterUnitEvent("UNIT_AURA", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:SetScript("OnEvent", function(_, event, _, _, spellID)
+IN.Script(events, "OnEvent", "SpellTracker events", function(_, event, _, _, spellID)
     if event == "PLAYER_ENTERING_WORLD" then
         wipe(state)
         return
@@ -322,7 +322,7 @@ end
 local placed = {}
 local ticker = CreateFrame("Frame")
 local since = 0
-ticker:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(ticker, "OnUpdate", "SpellTracker ticker", function(_, elapsed)
     -- (the buffs looked at now and then out of a fight, as a safety for a missed event)
     since = since + elapsed
     if since >= 1 then

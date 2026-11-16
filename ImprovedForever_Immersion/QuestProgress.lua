@@ -251,7 +251,7 @@ end
 -- Run
 ---------------------------------------------------------------------------
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function()
+IN.Script(driver, "OnUpdate", "QuestProgress driver", function()
     if broken then return end
     local ok, err = pcall(Step)
     if not ok then

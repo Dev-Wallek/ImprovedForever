@@ -192,7 +192,7 @@ end
 -- game's error handler, whose popup taints the pad's focus; the game's
 -- own zone names back)
 local events = CreateFrame("Frame")
-events:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(events, "OnUpdate", "ZoneBanner update", function(_, elapsed)
     if broken then return end
     local ok, err = pcall(Step, elapsed)
     if not ok then

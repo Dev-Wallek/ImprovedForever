@@ -493,7 +493,7 @@ end
 
 local driver = CreateFrame("Frame")
 local pickSince = 1
-driver:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(driver, "OnUpdate", "PlayerCast driver", function(_, elapsed)
     pickSince = pickSince + elapsed
     if pickSince >= 1 then
         pickSince = 0
@@ -504,7 +504,7 @@ driver:SetScript("OnUpdate", function(_, elapsed)
     hub:SetShown(line:IsShown())
 end)
 
-line:SetScript("OnUpdate", function(self)
+IN.Script(line, "OnUpdate", "PlayerCast line", function(self)
     local now = GetTime()
     -- (the cast's diamond while it's cast)
     if self.kind or self.holdUntil then Mirror() end
@@ -555,12 +555,12 @@ end)
 -- (and while it's shown, ours played again each frame: the game's own fade-out and flash of the bar
 -- on a cast's end would else draw it over ours)
 local keeper = CreateFrame("Frame")
-keeper:SetScript("OnUpdate", function()
+IN.Script(keeper, "OnUpdate", "PlayerCast keeper", function()
     local bar = _G.PlayerCastingBarFrame
     if PlayerCast.on and bar and bar:IsShown() then IF.Focus.Refade(bar) end
 end)
 
-events:SetScript("OnEvent", function(_, event)
+IN.Script(events, "OnEvent", "PlayerCast events", function(_, event)
     if not PlayerCast.on then return end
     KeepHidden()
     if event == "UNIT_SPELLCAST_INTERRUPTED" then

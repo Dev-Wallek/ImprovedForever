@@ -335,7 +335,7 @@ for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "CINEMATIC_STOP", "STOP_MOVIE", "P
     "DISPLAY_SIZE_CHANGED", "PLAYER_LOGIN" }) do
     pcall(regen.RegisterEvent, regen, e)
 end
-regen:SetScript("OnEvent", function() Card.gen = Card.gen + 1 end)
+IN.Script(regen, "OnEvent", "Card regen", function() Card.gen = Card.gen + 1 end)
 
 function Card:Dock(above)
     local anchor
