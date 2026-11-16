@@ -1,8 +1,9 @@
 -- Two rows along the bottom, either side of the party cards, each icon as
 -- the game's buff frame draws them (square, a debuff in its kind's border,
 -- its time over it in the game's yellow):
--- * left: your buffs and debuffs, from after the minion card toward the
---   party's row: the game's aura container (Blizzard_AuraContainer's
+-- * left: your buffs and debuffs, from after the minion card (else the
+--   player frame) to the party's cards, a full line wrapping upward:
+--   the game's aura container (Blizzard_AuraContainer's
 --   CustomAuraContainerTemplate), filled by the game itself, in a fight
 --   too, when it hides auras from addons: which auras, their icons,
 --   stacks, time left and tooltips, your own first, then by time left (the
@@ -16,8 +17,9 @@
 --   comes ready, then gone. In a fight the game keeps their times secret:
 --   each is timed from your cast, by the length it had out of one.
 -- The cooldowns' end by the middle is marked with a short black line cut
--- into the power line. The middle is kept for the party cards (a full
--- party's row, its spells' diamond, MIDDLE_GAP).
+-- into the power line. The middle is kept for the party cards (the
+-- cooldowns: a full party's row, its spells' diamond, MIDDLE_GAP; the
+-- buffs: the cards shown, else a full party's row).
 -- The game's buffs, debuffs and Cooldown Manager are drawn at 0
 -- (IF.Focus.Fade), the mouse they'd still get taken over where they are
 -- (UnitFrames.lua's Cover).
@@ -33,8 +35,7 @@ local function Secret(v)
 end
 
 local LINE_H = IN.MP_H          -- (the power line, PlayerHealth.lua)
-local START_GAP = 20            -- (after the minion card)
-local MINION_W = 61             -- (a minion's card, PartyCards.lua)
+local START_GAP = 20            -- (after the minion card or the player frame)
 local MIDDLE_GAP = 28           -- (kept clear by the party's row)
 local PAD_GAP = 12              -- (the party spells' diamond after the cards, PartyCards.lua)
 local DIAMOND_GAP = 40          -- (before the spell diamonds)
@@ -391,7 +392,7 @@ end
 -- by the game too)
 ---------------------------------------------------------------------------
 local GROUP_GAP = 12            -- (between the buffs and the debuffs)
-local DEBUFF_MAX = 8
+local LINES = 3                 -- (the row's lines at most, wrapping upward)
 
 local function StyleButton(b, harmful, size)
     b:SetSize(size, size)
@@ -432,26 +433,37 @@ local function StyleButton(b, harmful, size)
     end
 end
 
--- (the buffs' lane: after the minion card, to the party's row)
+-- (the buffs' lane: after the minion card, else after the player frame, to the shown party cards,
+-- else to a full party's row around the middle)
 local function BuffLane()
-    local start = (UF.PlayerRight() or 140) + 16 + MINION_W + START_GAP
-    local stop = UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) - (IN.PartyCards.ROW_HALF or 164) - MIDDLE_GAP
-    return start, math.max(start + 1, stop)
+    local PC = IN.PartyCards
+    local start = (PC.MinionRight() or UF.PlayerRight() or 140) + START_GAP
+    local stop = PC.RowLeft() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) - PC.ROW_HALF)
+    return start, math.max(start + 1, stop - MIDDLE_GAP)
 end
 
--- How many buffs and debuffs fit in the lane. The debuffs keep a third of the row at most: a short row
--- (a small screen, a low UI scale) left the buffs only what DEBUFF_MAX did not take, two icons.
-local function Caps()
-    local size = Size()
+-- (your debuffs now; the last count kept while the game keeps them from addons)
+local debuffCount = 0
+local function DebuffCount()
+    local ok, ids = pcall(C_UnitAuras and C_UnitAuras.GetUnitAuraInstanceIDs, "player", "HARMFUL")
+    if ok and type(ids) == "table" and not Secret(#ids) then debuffCount = #ids end
+    return debuffCount
+end
+
+-- How many buffs and debuffs the row holds: LINES lines of the lane at the built icon size (one
+-- line also holding the gap between the groups). The debuffs may take them all, the buffs what
+-- the debuffs shown leave.
+local function Caps(size)
     local start, stop = BuffLane()
-    local fits = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
-    local debuffs = math.max(1, math.min(DEBUFF_MAX, math.floor(fits / 3)))
-    return math.max(1, fits - debuffs), debuffs
+    local perLine = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
+    local total = perLine * LINES
+    return math.max(0, total - DebuffCount()), total
 end
 
 -- The container, made the first time it's shown (nil: this client has
--- none); its row's start and caps, kept
-local container, placedAt, buffCap, debuffCap
+-- none); its row's start and its icons' size, kept (its buttons are
+-- styled once, by the game's code)
+local container, placedAt, builtSize
 local function Container()
     if container ~= nil then return container or nil end
     container = false
@@ -462,18 +474,21 @@ local function Container()
     -- lying over the row took it first)
     c:SetFrameStrata("HIGH")
     local size = Size()
-    buffCap, debuffCap = Caps()
+    builtSize = size
+    local buffCap, debuffCap = Caps(size)
     pcall(c.SetUnit, c, "player")
     -- (the game's order: your own first, then the soonest gone, the permanent last, so a full row
-    -- drops others' and permanent ones; laid out right to left, so the soonest gone sit nearest the middle)
-    pcall(c.SetFlowLayoutAnchorPoint, c, "TOPRIGHT")
-    pcall(c.SetFlowLayoutGrowthDirection, c, AnchorUtil.FlowDirection.Left, AnchorUtil.FlowDirection.Down)
+    -- drops others' and permanent ones; laid out right to left, so the soonest gone sit nearest the
+    -- middle, a full line wrapping onto one over it)
+    pcall(c.SetFlowLayoutAnchorPoint, c, "BOTTOMRIGHT")
+    pcall(c.SetFlowLayoutGrowthDirection, c, AnchorUtil.FlowDirection.Left, AnchorUtil.FlowDirection.Up)
     local function Group(key, filter, harmful, max)
         pcall(c.AddAuraGroup, c, key, filter, {
             maxFrameCount = max,
             sortMethod = AuraContainerSortMethod.Expiration,
             sortDirection = AuraContainerSortDirection.Normal,
-            layout = { elementSpacing = SPACING, groupSpacing = GROUP_GAP, elementWidth = size, elementHeight = size },
+            layout = { elementSpacing = SPACING, lineSpacing = ROW_GAP, groupSpacing = GROUP_GAP,
+                elementWidth = size, elementHeight = size },
             initializeFrame = function(b) StyleButton(b, harmful, size) end,
         })
     end
@@ -485,25 +500,24 @@ local function Container()
     return c
 end
 
--- (shown or not; its row placed: its top left, the row's foot on
--- IN.BOTTOM; its caps following the lane)
+-- (shown or not; its row placed: its bottom left at the lane's start
+-- on IN.BOTTOM; its line width and caps following the lane, the
+-- game's setters doing nothing while they're unchanged)
 local function ShowBuffs(on)
     local c = (on or container) and Container()
     if not c then return end
     if on then
-        local start = BuffLane()
+        local start, stop = BuffLane()
         local at = math.floor(start + 0.5)
         if at ~= placedAt then
             placedAt = at
             c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM + Size())
+            c:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM)
         end
-        local buffs, debuffs = Caps()
-        if buffs ~= buffCap or debuffs ~= debuffCap then
-            buffCap, debuffCap = buffs, debuffs
-            pcall(c.SetAuraGroupMaxFrameCount, c, "buffs", buffs)
-            pcall(c.SetAuraGroupMaxFrameCount, c, "debuffs", debuffs)
-        end
+        pcall(c.SetFlowLayoutMaximumLineSize, c, math.floor(stop - start))
+        local buffs, debuffs = Caps(builtSize)
+        pcall(c.SetAuraGroupMaxFrameCount, c, "buffs", buffs)
+        pcall(c.SetAuraGroupMaxFrameCount, c, "debuffs", debuffs)
     end
     if c:IsShown() ~= on then
         c:SetShown(on)

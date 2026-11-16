@@ -482,6 +482,21 @@ for i = 1, 4 do
     party[i] = b
 end
 
+-- (the buff row's lane ends, BuffTimeline.lua, in UIParent's units: the minion card's right edge,
+-- the shown party cards' left edge; nil while none shows)
+function PC.MinionRight()
+    return minions[1]:IsShown() and minions[1]:GetRight() or nil
+end
+
+function PC.RowLeft()
+    local left
+    for _, b in ipairs(party) do
+        local l = b:IsShown() and b:GetLeft()
+        if l and (not left or l < left) then left = l end
+    end
+    return left
+end
+
 for _, b in ipairs(minions) do Listen(b) end
 for _, b in ipairs(party) do Listen(b) end
 

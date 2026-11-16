@@ -417,6 +417,90 @@ local CHECKS = {
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
     end },
+    -- (Immersion's buff row: its caps from the size its icons were built with, the debuffs' slots
+    -- the buffs' while none is on you, its lane from after the minion card (else the player frame)
+    -- to the shown party cards, wrapping upward)
+    { name = "immersion buff row", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        if not (IN and IN.BuffTimeline and IN.PartyCards and IN.HudLayout) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local function Up(fn, want)
+            for i = 1, 200 do
+                local name, value = debug.getupvalue(fn, i)
+                if not name then return end
+                if name == want then return value, i end
+            end
+        end
+        local ShowBuffs = Up(Up(IN.BuffTimeline.Apply, "Watch"), "ShowBuffs")
+        local Container = Up(ShowBuffs, "Container")
+        -- (made afresh, wherever login placed it)
+        debug.setupvalue(Container, select(2, Up(Container, "container")), nil)
+        debug.setupvalue(ShowBuffs, select(2, Up(ShowBuffs, "placedAt")), nil)
+        local HL, s = IN.HudLayout, IN.Settings()
+        local saved = { CreateFrame = CreateFrame, C_UnitAuras = rawget(_G, "C_UnitAuras"), UnitExists = UnitExists,
+            size = HL.CooldownIconSize, w = rawget(UIParent, "__w"), partyX = s.partyX }
+        local rec, measured, debuffs = { caps = {} }, nil, {}
+        CreateFrame = function(kind, ...)
+            if kind ~= "AuraContainer" then return saved.CreateFrame(kind, ...) end
+            local c = saved.CreateFrame("Frame", ...)
+            c.AddAuraGroup = function(_, key, _, o) rec.caps[key], rec.size = o.maxFrameCount, o.layout.elementWidth end
+            c.SetAuraGroupMaxFrameCount = function(_, key, n) rec.caps[key] = n end
+            c.SetFlowLayoutMaximumLineSize = function(_, n) rec.line = n end
+            c.SetFlowLayoutGrowthDirection = function(_, _, v) rec.up = v == AnchorUtil.FlowDirection.Up end
+            c.SetPoint = function(_, _, _, _, x) rec.x = x end
+            return c
+        end
+        C_UnitAuras = { GetUnitAuraInstanceIDs = function()
+            if debuffs == "secret" then error("secret") end
+            return debuffs
+        end }
+        HL.CooldownIconSize = function() return measured end
+        UnitExists = function(unit) return unit == "party1" or unit == "party2" end
+        UIParent.__w = 1920
+        local minion, cards = _G.ImprovedForeverMinionCard1, {}
+        for i = 1, 4 do
+            local b = _G["ImprovedForeverPartyCard" .. i]
+            b.SetPoint = function(self, _, _, _, x) self.__x = x end
+            b.GetLeft = function(self) return UIParent:GetWidth() / 2 + self.__x end
+            b.__shown = false
+            cards[i] = b
+        end
+        minion.__shown = false
+        minion.GetRight = function() return 177 end
+        s.partyX = 0
+        local ok, err = pcall(function()
+            -- (lane: the player frame's right 100 + 20 to 960 - a full row's half 164 - 28: 648)
+            ShowBuffs(true)
+            check(rec.size == 24 and rec.x == 120 and rec.line == 648 and rec.up, "the row built at 24, lane 120 + 648, wrapping up")
+            check(rec.caps.buffs == 57 and rec.caps.debuffs == 57, "no debuffs: the buffs take all 3 lines of 19: " .. tostring(rec.caps.buffs))
+            measured = 55
+            ShowBuffs(true)
+            check(rec.caps.buffs == 57, "the caps follow the built size, not the measured one: " .. tostring(rec.caps.buffs))
+            debuffs = { 1, 2 }
+            ShowBuffs(true)
+            check(rec.caps.buffs == 55 and rec.caps.debuffs == 57, "two debuffs: two slots less for the buffs")
+            debuffs = "secret"
+            ShowBuffs(true)
+            check(rec.caps.buffs == 55, "debuffs unreadable: the last count kept")
+            minion.__shown = true
+            ShowBuffs(true)
+            check(rec.x == 197 and rec.line == 571, "a minion: the lane after its card: " .. tostring(rec.x))
+            -- (two cards, 160 wide, centred 200 left: their left 680, the lane to 652)
+            s.partyX = -200
+            IN.PartyCards.Layout()
+            cards[1].__shown, cards[2].__shown = true, true
+            ShowBuffs(true)
+            check(rec.line == 455, "two party cards moved left: the lane to their left edge: " .. tostring(rec.line))
+            UnitExists = function() return true end
+            IN.PartyCards.Layout()
+            cards[3].__shown, cards[4].__shown = true, true
+            ShowBuffs(true)
+            check(rec.line == 371, "four party cards: the lane shorter: " .. tostring(rec.line))
+        end)
+        CreateFrame, C_UnitAuras, UnitExists, HL.CooldownIconSize = saved.CreateFrame, saved.C_UnitAuras, saved.UnitExists, saved.size
+        UIParent.__w, s.partyX = saved.w, saved.partyX
+        check(ok, err)
+    end },
 }
 
 local args = { ... }
