@@ -296,6 +296,7 @@ local powerPulse, powerBeat = Pulse(power, 0.2, 0.6)
 local healthLine = { halves = {}, trail = {} }
 local powerLine = { halves = {}, trail = {} }
 local halves, powerHalves = healthLine.halves, powerLine.halves
+local bothLines = { healthLine, powerLine }
 
 for i = 1, 1 do
     local left = false
@@ -619,7 +620,7 @@ IN.Script(holder, "OnUpdate", "PlayerHealth holder", function(self, elapsed)
     for _, p in ipairs(powerHalves) do
         Beat(p.cost, p.cost.base, flash)
     end
-    for _, L in ipairs({ healthLine, powerLine }) do
+    for _, L in ipairs(bothLines) do
         if L.flareAt then
             local t = (now - L.flareAt) / FLARE_TIME
             if t >= 1 then

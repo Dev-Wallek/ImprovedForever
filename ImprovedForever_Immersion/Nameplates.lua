@@ -624,7 +624,7 @@ events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
 events:RegisterEvent("RAID_TARGET_UPDATE")
 for _, e in ipairs({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_COMBO_POINTS" }) do
-    pcall(events.RegisterEvent, events, e)
+    pcall(events.RegisterUnitEvent, events, e, "player")
 end
 -- (casts: any unit's, the ones with a plate of ours kept)
 local CAST_EVENTS = {

@@ -728,16 +728,14 @@ local CHANNEL_COLOR = { 0.4, 1, 0.5 }
 -- diamond's from its top point, a square's from its top left corner, a
 -- circle's from its top)
 local CIRCLE_STEPS = 32
+local CIRCLE_PATH = {}
+for i = 0, CIRCLE_STEPS do
+    local a = i / CIRCLE_STEPS * 2 * math.pi
+    CIRCLE_PATH[#CIRCLE_PATH + 1] = { math.sin(a), math.cos(a) }
+end
 local function RingPath()
     if style.grid then return { { -1, 1 }, { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } } end
-    if style.round then
-        local path = {}
-        for i = 0, CIRCLE_STEPS do
-            local a = i / CIRCLE_STEPS * 2 * math.pi
-            path[#path + 1] = { math.sin(a), math.cos(a) }
-        end
-        return path
-    end
+    if style.round then return CIRCLE_PATH end
     return { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 }, { 0, 1 } }
 end
 GB.RingPath = RingPath
@@ -791,11 +789,12 @@ local function DrawRing(ring, f, color, pulse, path)
             local a, z = path[i], path[i + 1]
             local x1, y1 = a[1] * r, a[2] * r
             local x2, y2 = x1 + (z[1] - a[1]) * r * part, y1 + (z[2] - a[2]) * r * part
-            for _, l in ipairs({ line, glow }) do
-                l:SetStartPoint("CENTER", ring, x1, y1)
-                l:SetEndPoint("CENTER", ring, x2, y2)
-                l:Show()
-            end
+            line:SetStartPoint("CENTER", ring, x1, y1)
+            line:SetEndPoint("CENTER", ring, x2, y2)
+            line:Show()
+            glow:SetStartPoint("CENTER", ring, x1, y1)
+            glow:SetEndPoint("CENTER", ring, x2, y2)
+            glow:Show()
             line:SetVertexColor(lr, lg, lb, 1)
             glow:SetVertexColor(color[1], color[2], color[3], 0.25 + 0.25 * pulse)
         end
@@ -806,11 +805,6 @@ end
 -- ring frame over `parent`, `half` its half width; GB.Ring.Draw(ring, f, color, pulse, path) as the
 -- tiles' (path: GB.Ring.CIRCLE or GB.Ring.SQUARE, else the style's); the beat, the flash and the
 -- colours by the share left are the tiles' too.
-local CIRCLE_PATH = {}
-for i = 0, CIRCLE_STEPS do
-    local a = i / CIRCLE_STEPS * 2 * math.pi
-    CIRCLE_PATH[#CIRCLE_PATH + 1] = { math.sin(a), math.cos(a) }
-end
 GB.Ring = {
     CIRCLE = CIRCLE_PATH,
     SQUARE = { { -1, 1 }, { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } },

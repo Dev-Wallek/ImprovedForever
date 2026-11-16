@@ -47,13 +47,16 @@ local Try, Secret = UF.Try, function(v)
     return type(issecretvalue) == "function" and issecretvalue(v)
 end
 
--- A spell icon's main colour ({ r, g, b }), or nil (not listed, or secret)
+-- A spell icon's main colour ({ r, g, b }, shared: read only), or nil (not listed, or secret)
+local iconColors = {}
 local function IconColor(texture)
     local map = IN.IconColors and IN.IconColors.icons
     if not map or Secret(texture) or type(texture) ~= "number" then return nil end
+    if iconColors[texture] then return iconColors[texture] end
     local c = map[texture]
     if not c then return nil end
-    return { math.floor(c / 65536) / 255, math.floor(c / 256) % 256 / 255, c % 256 / 255 }
+    iconColors[texture] = { math.floor(c / 65536) / 255, math.floor(c / 256) % 256 / 255, c % 256 / 255 }
+    return iconColors[texture]
 end
 
 PlayerCast.IconColor = IconColor
