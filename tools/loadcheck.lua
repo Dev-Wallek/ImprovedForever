@@ -180,7 +180,11 @@ function GetInventoryItemID() return nil end
 function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
-function hooksecurefunc() end
+-- (hooks on a table's function kept, for the checks to call them as the game would)
+local tableHooks = {}
+function hooksecurefunc(t, name, fn)
+    if type(t) == "table" and fn then tableHooks[#tableHooks + 1] = { name = name, fn = fn } end
+end
 function issecurevariable() return true end
 function securecall(fn, ...) return fn(...) end
 function SetOverrideBinding() end
@@ -210,7 +214,8 @@ function GetNumQuestLeaderBoards() return 0 end
 function GetNumQuestWatches() return 0 end
 C_Texture = { GetAtlasInfo = function() return nil end }
 C_CVar = { GetCVar = function() return "1" end, GetCVarBool = function() return false end, SetCVar = function() end }
-C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end }
+C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end,
+    GetNumAddOns = function() return 0 end }
 C_GamePad = { IsEnabled = function() return true end, GetActiveDeviceID = function() return 1 end,
     GetDeviceMappedState = function() return nil end, GetDeviceRawState = function() return nil end,
     GetCombinedDeviceID = function() return 1 end, GetPowerLevel = function() return nil end,
@@ -553,6 +558,80 @@ local CHECKS = {
         catcher.__scripts.OnGamePadButtonUp(catcher, "PAD2")
         GamepadMode = gamepadMode
         check(not backpack:IsShown() and F.Holding() == nil, "closing the backpack leaves the pad to no window of ours")
+    end },
+    -- (a window the frame manager shows and focuses while the panel is up:
+    -- the panel stays open behind it; in front again when it closes, or on
+    -- opening or toggling the panel)
+    { name = "panel behind a game window", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Menu and #IF.Menu.TABS > 0) then return end
+        local M = IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local shown
+        for _, h in ipairs(tableHooks) do
+            if h.name == "FrameShown" then shown = h.fn end
+        end
+        check(shown, "the panel hooks the frame manager's FrameShown")
+        local gamepadMode = GamepadMode
+        local game = CreateFrame("Frame")
+        local manager = { shownFrames = { game }, focusedFrame = game, isUIFocused = true }
+        GamepadMode = { FrameControlsManager = manager }
+        M.Open()
+        shown(manager, game)
+        check(M.IsOpen() and M.Behind(), "a window shown takes the pad, the panel stays open behind it")
+        M.Open()
+        check(not M.Behind(), "opening the panel again brings it to front")
+        shown(manager, game)
+        M.Toggle()
+        check(M.IsOpen() and not M.Behind(), "the toggle brings it to front, not closed")
+        shown(manager, game)
+        game:Hide()
+        M.OnUpdate(0)
+        check(M.IsOpen() and not M.Behind(), "the window closing brings the panel to front")
+        GamepadMode = gamepadMode
+        M.Close()
+    end },
+    -- (the Addons tab: /if addons opens on it; L1 / R1 jump between addons;
+    -- A runs a command (by the secure button on the pad) or opens a page)
+    { name = "addons tab", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Addons and IF.Menu) then return end
+        local M, AD = IF.Menu, IF.Addons
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local commands, ran = AD.Commands, nil
+        SlashCmdList.ALPHA = function(msg) ran = msg end
+        AD.Commands = function()
+            return {
+                { title = "Alpha", entries = { { kind = "slash", text = "/al", key = "ALPHA", aliases = { "/al" } },
+                    { kind = "settings", text = "Alpha", id = 7, openable = true } } },
+                { title = "Beta", entries = { { kind = "ldb", text = "Beta" } } },
+            }
+        end
+        IF.RunCommand("addons")
+        check(M.IsOpen() and M.tab == "addons", "/if addons opens the panel on the Addons tab")
+        local page
+        for _, tab in ipairs(M.TABS) do
+            if tab.key == "addons" then page = tab.page end
+        end
+        local function verb()
+            for _, h in ipairs(page:Help()) do
+                if h.press == "A" then return h.verb end
+            end
+        end
+        check(verb() == "Run" and page:PadButton("PAD1") == "ImprovedForeverAddonsRun"
+            and ImprovedForeverAddonsRun:GetAttribute("macrotext") == "/al", "A on a command runs it by the secure button")
+        M.Press("A")
+        check(ran == "", "A clicked runs the command without arguments")
+        M.Press("DOWN")
+        check(verb() == "Open" and page:PadButton("PAD1") == nil, "A on a settings page opens it")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 jumps to the next addon")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 on the last addon stays")
+        M.Press("LB")
+        check(page:Entry().text == "/al", "L1 jumps to the previous addon's first entry")
+        AD.Commands, SlashCmdList.ALPHA = commands, nil
+        M.Close()
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()

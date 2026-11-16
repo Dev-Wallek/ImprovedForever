@@ -6,8 +6,9 @@ IF.AddModule({ key = "addons", label = "Addons", icon = IF.TEX .. "ic_mod_addons
 
 IF.Addons = {}
 
--- /if addons dump: the command list into IF.db.addonsLog
+-- /if addons: the panel on the Addons tab (Page.lua); /if addons dump: the
+-- command list into IF.db.addonsLog
 IF.AddCommand("addons", function(args)
     if args[1] == "dump" then return IF.Addons.Dump() end
-    IF.Print("/if addons dump: the command list into the saved variables (written on /reload)")
-end, "dump: the command list into the saved variables")
+    IF.Menu.Open("addons")
+end, ": the Addons tab; dump: the command list into the saved variables")

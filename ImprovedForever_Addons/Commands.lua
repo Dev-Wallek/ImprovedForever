@@ -7,7 +7,7 @@
 --     ({ kind, text, reason }: every entry left out or not matched to an
 --     addon); an entry: { kind = "slash" (text, key, aliases), "settings"
 --     (text, id, openable: a number id), "compartment" (text: the
---     function's name), "ldb" (text) }
+--     function's name, addon), "ldb" (text) }
 --   IF.Addons.Dump(): the list into IF.db.addonsLog
 local IF = ImprovedForever
 
@@ -183,7 +183,7 @@ function AD.Commands()
 
     for _, addon in pairs(loaded) do
         local func = C_AddOns.GetAddOnMetadata(addon, "AddonCompartmentFunc")
-        if func then Add(addon, { kind = "compartment", text = strtrim(func) }) end
+        if func then Add(addon, { kind = "compartment", text = strtrim(func), addon = addon }) end
     end
 
     local ldb = LibStub and LibStub("LibDataBroker-1.1", true)
