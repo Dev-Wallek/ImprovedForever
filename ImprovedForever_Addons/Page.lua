@@ -107,7 +107,7 @@ function P:Choose()
         local fn = SlashCmdList[e.key]
         if fn then fn("") end
     elseif e.kind == "settings" then
-        -- (one of CLAUDE.md's taint exceptions: the game opens its panel in its own event handler)
+        -- (one of the exceptions in docs/taint.md: the game opens its panel in its own event handler)
         C_SettingsUtil.OpenSettingsPanel(e.id)
     elseif e.kind == "compartment" then
         local fn = _G[e.text]
