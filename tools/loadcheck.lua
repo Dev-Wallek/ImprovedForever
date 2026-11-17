@@ -482,6 +482,34 @@ local CHECKS = {
             "the menu has the item's title and entries: " .. table.concat(kinds, ","))
         nav.menu:Close()
     end },
+    -- (a held D-pad repeat steps through its press's list, the window's tree walked once)
+    { name = "navigator held repeat", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Navigator) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local root, buttons, walks = CreateFrame("Frame"), {}, 0
+        for i = 1, 3 do
+            local b = CreateFrame("Button")
+            b.GetCenter = function() return i * 50, 100 end
+            b.GetWidth = function() return 40 end
+            b.GetObjectType = function() return "Button" end
+            b.IsEnabled = function() return true end
+            b.IsMouseEnabled = function() return true end
+            b.navigatorSkip, b.smartNavigationIgnored = false, false
+            buttons[i] = b
+        end
+        root.GetChildren = function() walks = walks + 1 return unpack(buttons) end
+        local nav = IF.Navigator.New(CreateFrame("Frame"), root)
+        nav.on, nav.sel = true, buttons[1]
+        nav:Press("PADDRIGHT", true)
+        check(nav.sel == buttons[2] and walks == 1, "the press walks the tree and steps")
+        nav:Move("PADDRIGHT", true)
+        check(nav.sel == buttons[3] and walks == 1, "the repeat steps without a walk")
+        nav:Press("PADDRIGHT", false)
+        nav:Press("PADDLEFT", true)
+        check(nav.sel == buttons[2] and walks == 2, "a new press walks again")
+        nav:Press("PADDLEFT", false)
+    end },
     -- (a switch's legend entry: the same table while it stays the same, a new one when it changes)
     { name = "switch hint kept", fn = function()
         local IF = rawget(_G, "ImprovedForever")
