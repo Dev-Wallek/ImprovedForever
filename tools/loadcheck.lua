@@ -220,7 +220,15 @@ function hooksecurefunc(t, name, fn)
         return unpack(r)
     end)
 end
-function issecurevariable() return true end
+-- (UISpecialFrames: a game window, one of another addon's, one of ours, one of
+-- Baganator's; an entry an addon put there is tainted by it)
+UISpecialFrames = { "GameSpecialWindow", "OtherAddonWindow", "ImprovedForeverSpecialWindow", "BaganatorSpecialWindow" }
+local specialBy = { [2] = "OtherAddon", [3] = "ImprovedForever_Wiki", [4] = "Baganator" }
+for _, name in ipairs(UISpecialFrames) do Frame(name) end
+function issecurevariable(t, key)
+    if t == UISpecialFrames and specialBy[key] then return false, specialBy[key] end
+    return true
+end
 function securecall(fn, ...) return fn(...) end
 function SetOverrideBinding() end
 function SetOverrideBindingClick() end
@@ -636,6 +644,20 @@ local CHECKS = {
         check(nav.menu.entries[1].text == "[Sword]" and #kinds >= 3,
             "the menu has the item's title and entries: " .. table.concat(kinds, ","))
         nav.menu:Close()
+    end },
+    -- (UISpecialFrames at login: another addon's window joins L2 / R2; the game's,
+    -- ours and one of an addon a module claims don't)
+    { name = "addon windows from UISpecialFrames", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local W = IF and IF.AddonWindows
+        if not W then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        check(W.Watched(OtherAddonWindow), "another addon's window joins")
+        check(not W.Watched(GameSpecialWindow), "the game's doesn't")
+        check(not W.Watched(ImprovedForeverSpecialWindow), "ours doesn't")
+        check(not (IF.Baganator and W.Watched(BaganatorSpecialWindow)), "a claimed addon's doesn't")
+        -- (out of the way of the checks after: closing a window hands the pad to the nearest shown)
+        for _, name in ipairs(UISpecialFrames) do _G[name].__shown = false end
     end },
     -- (a switch's legend entry: the same table while it stays the same, a new one when it changes)
     { name = "switch hint kept", fn = function()

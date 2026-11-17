@@ -26,7 +26,7 @@ the core, **Improved Forever**:
 
 | Addon | What it does |
 |---|---|
-| `ImprovedForever` | The core: button glyphs, the configuration panel, the Bindings tab (every press on one drawing of the controller, and its keyboard / mouse press), bag clean-up, touchpad corners, the game data (QuestieDB's, recipes) and the item verdict every module shares. Required. Holds the former Controller module. |
+| `ImprovedForever` | The core: button glyphs, the configuration panel, the Bindings tab (every press on one drawing of the controller, and its keyboard / mouse press), bag clean-up, touchpad corners, other addons' windows that close with Escape in L2 / R2 with a cursor in them, the game data (QuestieDB's, recipes) and the item verdict every module shares. Required. Holds the former Controller module. |
 | `ImprovedForever_Wheel` | Wheels on R3 combos, the recent action slot. |
 | `ImprovedForever_Vibration` | Vibration on game events and spell casts. |
 | `ImprovedForever_Minimap` | Names beside the minimap's dots (herbs, ore, quests, NPCs, party members: you choose), gathering alerts. Formerly Gather. |
@@ -34,8 +34,8 @@ the core, **Improved Forever**:
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
 | `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
-| `ImprovedForever_Addons` | Every installed addon with the controller: its commands, settings pages and launchers gathered per addon in the panel's Addons tab (`/if addons`): a heading per addon, L1 / R1 to the next one, A runs a command as typed or opens a page or launcher; a window that opens meanwhile gets the controller, the panel waits behind it. |
 | `ImprovedForever_Baganator` | Baganator's bags with the controller: the gamepad radial's Bags opens or closes Baganator with one press, the game's own bags, which the game still opens unseen (mailbox, merchant, bank), close again at once (where Baganator opens by itself is its Auto Open setting; at the auction house it stays shut while Improved Forever's auction window is on, its checkbox greyed out saying so), L2 / R2 reach its bags, bank, guild bank, customise, character and search help windows and its bag slots bar beside the game's, the D-pad moves over their items and buttons, the right stick scrolls, A picks an item up or puts it down, X uses it, Y opens a menu on an item (mark it junk or not, keep it in KeepOrSell when that is installed, bind it to the action bar, destroy it with A held, longer for rare and better), Baganator's junk category and grey icons follow Improved Forever's junk verdict and marks, Select puts the cursor in the search box, Select again gives the pad back to the game with the window left open (Select or the radial's Bags takes it again), a legend names the buttons. Needs Baganator. |
+| `ImprovedForever_Addons` | Every installed addon with the controller: its commands, settings pages and launchers gathered per addon in the panel's Addons tab (`/if addons`): a heading per addon, L1 / R1 to the next one, A runs a command as typed or opens a page or launcher; a window that opens meanwhile gets the controller, the panel waits behind it. |
 | `ImprovedForever_Wiki` | Everything about an item. |
 | `ImprovedForever_Journal` | A diary of your days, read as a book. |
 | `ImprovedForever_Fishing` | Fishing from the controller: fishing mode, a cast bar of its own, the session's stringer, the Fish Collection. |
