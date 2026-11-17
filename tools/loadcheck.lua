@@ -417,6 +417,18 @@ local CHECKS = {
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
     end },
+    -- (Immersion's pad bar: a tile left empty drops its whole cooldown, the global one's too)
+    { name = "immersion pad tile cooldown cleared", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        local GB = IN and IN.GamepadBar
+        if not GB then return end
+        local cleared = false
+        local b = { gcdStart = 5, cdDuration = 2, cdUntil = 3, cdDoneAt = 4,
+            cooldown = { Clear = function() cleared = true end } }
+        GB.ClearCooldown(b)
+        assert(cleared and not (b.gcdStart or b.cdDuration or b.cdUntil or b.cdDoneAt),
+            "an emptied tile kept a cooldown")
+    end },
 }
 
 local args = { ... }
