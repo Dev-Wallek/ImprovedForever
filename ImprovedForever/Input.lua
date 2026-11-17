@@ -109,6 +109,11 @@ function I.SetMode(mode)
     Changed(was)
 end
 
+-- Whether a CVAR_UPDATE's CVar turns gamepad mode or the Gamepad UI on / off
+function I.ModeCVar(name)
+    return name == "GamePadEnable" or name == "GAMEPAD_ENABLE" or name == "InputDeviceInterfaceStyle"
+end
+
 local watch = CreateFrame("Frame")
 for _, event in ipairs({ "GAME_PAD_ACTIVE_CHANGED", "GAME_PAD_DISCONNECTED", "CVAR_UPDATE", "GLOBAL_MOUSE_DOWN" }) do
     pcall(watch.RegisterEvent, watch, event)
@@ -119,7 +124,7 @@ watch:SetScript("OnEvent", function(_, event, arg)
     elseif event == "GAME_PAD_DISCONNECTED" then
         if not Connected() then Set(false) end
     elseif event == "CVAR_UPDATE" then
-        if arg == "GamePadEnable" or arg == "GAMEPAD_ENABLE" or arg == "InputDeviceInterfaceStyle" then
+        if I.ModeCVar(arg) then
             Set(pad or Connected())
         end
     elseif event == "GLOBAL_MOUSE_DOWN" then
