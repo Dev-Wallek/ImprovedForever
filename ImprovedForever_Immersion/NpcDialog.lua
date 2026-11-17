@@ -1308,7 +1308,7 @@ local function FadeSubtitle(on)
     -- UIParent beside it, faded with it; its Compendium button, a child of the
     -- quest window above the items, so where the game's first D-pad press went,
     -- marked for the game's D-pad to skip, through the game's own mark (set by
-    -- its secure helper, refused in combat))
+    -- its secure helper, refused in combat: one of CLAUDE.md's taint exceptions))
     local vo = rawget(_G, "VoiceOver")
     if type(vo) ~= "table" then return end
     for i = 1, 2 do
