@@ -44,9 +44,9 @@ end
 -- A yes / no about the unit (false when the API has none or says a
 -- secret). A secret is never compared, even in a pcall: the attempt is
 -- blocked and taints what runs after it.
-local function Flag(fn, unit)
+local function Flag(fn, ...)
     if not fn then return false end
-    local ok, v = pcall(fn, unit)
+    local ok, v = pcall(fn, ...)
     if not ok or Secret(v) then return false end
     return v == true
 end
@@ -240,6 +240,22 @@ local PIECES = { "TopLeftCorner", "TopRightCorner", "BottomLeftCorner", "BottomR
     "TopEdge", "BottomEdge", "LeftEdge", "RightEdge" }
 local BORDER_LAYOUT, BORDER_SCALE = "Dialog", 0.35
 
+-- Solid lines of a colour along the frame's inner edge, size thick; their textures
+local function Outline(frame, color, size)
+    local lines = {}
+    for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, size }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, size },
+        { "TOPLEFT", "BOTTOMLEFT", size, nil }, { "TOPRIGHT", "BOTTOMRIGHT", size, nil } }) do
+        local t = frame:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(color[1], color[2], color[3], 1)
+        t:SetPoint(e[1])
+        t:SetPoint(e[2])
+        if e[3] then t:SetWidth(e[3]) end
+        if e[4] then t:SetHeight(e[4]) end
+        lines[#lines + 1] = t
+    end
+    return lines
+end
+
 local function Border(frame)
     frame.borderPieces = {}
     local edge = CreateFrame("Frame", nil, frame)
@@ -255,16 +271,7 @@ local function Border(frame)
         return
     end
     edge:Hide()
-    for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 },
-        { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }) do
-        local t = frame:CreateTexture(nil, "BORDER")
-        t:SetColorTexture(BRONZE[1], BRONZE[2], BRONZE[3], 1)
-        t:SetPoint(e[1])
-        t:SetPoint(e[2])
-        if e[3] then t:SetWidth(e[3]) end
-        if e[4] then t:SetHeight(e[4]) end
-        frame.borderPieces[#frame.borderPieces + 1] = t
-    end
+    frame.borderPieces = Outline(frame, BRONZE, 1)
 end
 
 -- A model draws at its own alpha, whatever its parents' (UIParent faded to
@@ -511,6 +518,29 @@ local function Cover(native, on)
     f:Show()
 end
 
+-- An aura button's time left in fs, short as the buff timeline's (45, 30m,
+-- 2h; seconds rounded up): a formatter of the game's, as the time is secret
+-- in a fight. Without one, the game's own text.
+local durationFormat
+function UF.DurationText(b, fs)
+    if durationFormat == nil then
+        durationFormat = false
+        pcall(function()
+            local up = Enum.NumericRuleFormatRounding.Up
+            local f = C_StringUtil.CreateNumericRuleFormatter()
+            f:SetBreakpoints({
+                { threshold = 0, step = 1, rounding = up, format = "%d" },
+                { threshold = 60, format = "%dm", components = { { div = 60, step = 1, rounding = up } } },
+                { threshold = 3600, format = "%dh", components = { { div = 3600, step = 1, rounding = up } } },
+            })
+            durationFormat = f
+        end)
+    end
+    if not (durationFormat and pcall(b.SetDurationText, b, fs, { textFormatter = durationFormat })) then
+        pcall(b.SetDurationText, b, fs)
+    end
+end
+
 UF.Cover = Cover
 UF.EditMode = EditMode
 -- (the pieces the party cards are made of too, PartyCards.lua)
@@ -518,7 +548,7 @@ UF.Try, UF.Flag, UF.Text, UF.Atlas, UF.Bar = Try, Flag, Text, Atlas, Bar
 UF.FillHealth, UF.FillPower, UF.UnitButton, UF.NameColor = FillHealth, FillPower, UnitButton, NameColor
 UF.Listen, UF.Join, UF.UNIT, UF.POWER_EVENTS = Listen, Join, UNIT, POWER_EVENTS
 UF.Avatar, UF.AvatarUnit, UF.AvatarLook, UF.ClassColor = Avatar, AvatarUnit, AvatarLook, ClassColor
-UF.Border = Border
+UF.Border, UF.Outline = Border, Outline
 -- (the target's header, TargetHeader.lua)
 UF.Secret, UF.Percent, UF.Numbers = Secret, Percent, Numbers
 UF.MODEL_EVENTS, UF.GOLD, UF.GREY = MODEL_EVENTS, GOLD, GREY

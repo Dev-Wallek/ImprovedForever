@@ -176,7 +176,7 @@ local function StyleDebuff(b)
     time:SetPoint("TOP", b, "BOTTOM", 0, -1)
     pcall(b.SetIcon, b, icon)
     pcall(b.SetApplicationCount, b, count)
-    pcall(b.SetDurationText, b, time)
+    UF.DurationText(b, time)
     local styles = Enum.CustomAuraButtonDispelTypeTextureStyle
     local border = b:CreateTexture(nil, "OVERLAY")
     border:SetPoint("CENTER")
