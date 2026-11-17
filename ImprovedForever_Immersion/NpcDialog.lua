@@ -1776,7 +1776,7 @@ local function Tick()
 end
 
 local ticker = CreateFrame("Frame")
-ticker:SetScript("OnUpdate", function()
+IN.Script(ticker, "OnUpdate", "NpcDialog ticker", function()
     local ok, err = pcall(Tick)
     if not ok then
         ticker:SetScript("OnUpdate", nil)
@@ -1790,7 +1790,7 @@ for _, event in ipairs({ "GOSSIP_SHOW", "QUEST_GREETING", "QUEST_DETAIL", "QUEST
     "QUEST_ITEM_UPDATE", "QUEST_LOG_UPDATE" }) do
     events:RegisterEvent(event)
 end
-events:SetScript("OnEvent", function(_, event)
+IN.Script(events, "OnEvent", "NpcDialog events", function(_, event)
     -- (the quest log changing: only a list of quests to read again)
     if event == "QUEST_LOG_UPDATE" and not (current and (current.kind == "gossip" or current.kind == "greeting")) then
         return

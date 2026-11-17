@@ -165,9 +165,18 @@ function IN.Inset()
     return math.max(0, math.floor((UIParent:GetWidth() - UIParent:GetHeight() * ratio) / 2 + 0.5))
 end
 
+-- Handlers timed by the core's /if perf (ImprovedForever/Perf.lua)
+IN.Prof = IF.Prof
+
+-- frame:SetScript(script, fn), timed under name
+function IN.Script(frame, script, name, fn)
+    frame:SetScript(script, IN.Prof(name, fn))
+end
+
 function IN.Watcher(name, every, fn)
     local f = CreateFrame("Frame")
     local since = 0
+    fn = IN.Prof(name, fn)
     f:SetScript("OnUpdate", function(self, elapsed)
         since = since + elapsed
         if since < every then return end
@@ -200,14 +209,18 @@ end
 -- A setting's default, for the reset buttons
 IN.DEFAULTS = DEFAULTS
 
+-- (filled and cleaned up once: the saved table is only ever replaced at login, and nothing sets a key
+-- to nil to mean its default)
+local settings
 function IN.Settings()
+    if settings then return settings end
     local db = IF.db
     db.plateLog = nil           -- (the nameplate probes' logs, done)
     db.plateFly = nil
     db.npLog = nil              -- (the nameplate probes' log, done)
     db.tipLog = nil             -- (the tooltip probe's log, done)
     db.interface = db.interface or {}
-    local settings = db.interface
+    settings = db.interface
     -- (the name's size default grew from 13 to 17: the old default moves up once)
     if not settings.nameplateSizeV2 then
         settings.nameplateSizeV2 = true

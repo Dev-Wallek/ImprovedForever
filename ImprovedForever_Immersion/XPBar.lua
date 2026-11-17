@@ -224,7 +224,7 @@ local function Refresh()
     local r = math.min(math.max((cur + rest) / max, f), 1)
     if f < shown.f then shown.f, shown.r = 0, 0 end
     goal.f, goal.r = f, r
-    ring:SetScript("OnUpdate", Step)
+    IN.Script(ring, "OnUpdate", "XPBar ring", Step)
 end
 
 ring:SetScript("OnSizeChanged", Draw)
@@ -240,7 +240,7 @@ function XP.Air(share)
         airGoal = share
         if coming then airShown = 0 end
     end
-    ring:SetScript("OnUpdate", Step)
+    IN.Script(ring, "OnUpdate", "XPBar ring", Step)
     XP.Apply()
 end
 
@@ -268,7 +268,7 @@ for _, e in ipairs({ "PLAYER_XP_UPDATE", "UPDATE_EXHAUSTION", "PLAYER_LEVEL_UP",
     "ENABLE_XP_GAIN", "DISABLE_XP_GAIN" }) do
     events:RegisterEvent(e)
 end
-events:SetScript("OnEvent", Refresh)
+IN.Script(events, "OnEvent", "XPBar events", Refresh)
 
 ---------------------------------------------------------------------------
 -- Shown while the setting and the player frame are on and experience is
@@ -287,7 +287,7 @@ local function Watch()
     if on ~= ring:IsShown() then
         ring:SetShown(on)
         if on then Refresh() end
-        if on then ring:SetScript("OnUpdate", Step) end
+        if on then IN.Script(ring, "OnUpdate", "XPBar ring", Step) end
     end
 end
 

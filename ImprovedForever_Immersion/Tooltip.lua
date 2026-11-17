@@ -154,7 +154,7 @@ local function Native(on)
 end
 
 local ticker = CreateFrame("Frame")
-ticker:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(ticker, "OnUpdate", "Tooltip ticker", function(_, elapsed)
     local lines = WorldTip() and Lines() or nil
     Native(lines ~= nil)
     BuffTip()

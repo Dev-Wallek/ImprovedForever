@@ -624,7 +624,7 @@ events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
 events:RegisterEvent("RAID_TARGET_UPDATE")
 for _, e in ipairs({ "UNIT_POWER_UPDATE", "UNIT_POWER_FREQUENT", "UNIT_COMBO_POINTS" }) do
-    pcall(events.RegisterEvent, events, e)
+    pcall(events.RegisterUnitEvent, events, e, "player")
 end
 -- (casts: any unit's, the ones with a plate of ours kept)
 local CAST_EVENTS = {
@@ -635,7 +635,7 @@ local CAST_EVENTS = {
     UNIT_SPELLCAST_INTERRUPTED = CastInterrupted,
 }
 for e in pairs(CAST_EVENTS) do pcall(events.RegisterEvent, events, e) end
-events:SetScript("OnEvent", function(_, event, unit)
+IN.Script(events, "OnEvent", "Nameplates events", function(_, event, unit)
     if event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_COMBO_POINTS" then
         if unit == "player" then
             for u, a in pairs(active) do
@@ -690,7 +690,7 @@ end
 
 
 local since = 0
-events:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(events, "OnUpdate", "Nameplates update", function(_, elapsed)
     since = since + elapsed
     local data = since >= STEP
     if data then since = 0 end
@@ -721,7 +721,7 @@ end
 
 local demoTicker = CreateFrame("Frame")
 demoTicker:Hide()
-demoTicker:SetScript("OnUpdate", function()
+IN.Script(demoTicker, "OnUpdate", "Nameplates demoTicker", function()
     if not demo then return demoTicker:Hide() end
     local now = GetTime() * 1000
     if demo.casting then
@@ -830,7 +830,7 @@ end
 local cvarEvents = CreateFrame("Frame")
 cvarEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
 cvarEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
-cvarEvents:SetScript("OnEvent", function(_, event)
+IN.Script(cvarEvents, "OnEvent", "Nameplates cvarEvents", function(_, event)
     if event == "PLAYER_REGEN_ENABLED" and not N.cvarPending then return end
     pcall(N.ApplyCVar)
 end)

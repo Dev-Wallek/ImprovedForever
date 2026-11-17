@@ -226,7 +226,7 @@ end
 -- (one error said once, then no more: an error each frame floods the
 -- game's error handler, whose popup taints the pad's focus)
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(driver, "OnUpdate", "HeaderSlot driver", function(_, elapsed)
     if broken then return end
     local ok, err = pcall(Step, elapsed)
     if not ok then

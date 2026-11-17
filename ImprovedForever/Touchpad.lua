@@ -656,7 +656,8 @@ events:SetScript("OnUpdate", function(_, elapsed)
     local now = WindowsShown()
     if now ~= lastShown then
         lastShown = now
-        touch.Apply()
+        local took = IF.Run("touchpad: windows changed", touch.Apply)
+        if took then IF.Note(("touchpad, windows shown %s: %.2f ms"):format(tostring(now), took)) end
     end
 end)
 

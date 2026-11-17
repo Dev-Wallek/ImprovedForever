@@ -425,7 +425,7 @@ local function Listen(b)
         pcall(b.RegisterEvent, b, e)
     end
     b.Refresh = Refresh
-    b:SetScript("OnEvent", function(self, event)
+    IN.Script(b, "OnEvent", "PartyCards card", function(self, event)
         if not UnitExists(self.unit) then return end
         if MODEL_EVENTS[event] then UF.AvatarUnit(self.avatar, self.unit, true) end
         Refresh(self)
@@ -607,7 +607,7 @@ IN.Watcher("cards", 0.2, Watch)
 -- the secure button stays as it is)
 local picker = CreateFrame("Frame")
 local RANGE_EVERY, rangeSince = 0.1, 0
-picker:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(picker, "OnUpdate", "PartyCards picker", function(_, elapsed)
     if not IF.db then return end
     local want = PC.Picking() and 1 or 0
     -- (each member out of the picked spell's reach greyed, a few times a second)
@@ -757,7 +757,7 @@ for _, e in ipairs({ "GROUP_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD", "PLAYER_REG
     layoutEvents:RegisterEvent(e)
 end
 layoutEvents:RegisterUnitEvent("UNIT_PET", "player")
-layoutEvents:SetScript("OnEvent", function(_, event)
+IN.Script(layoutEvents, "OnEvent", "PartyCards layoutEvents", function(_, event)
     if event ~= "PLAYER_REGEN_ENABLED" or layoutPending then Layout() end
 end)
 
@@ -842,7 +842,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
-events:SetScript("OnEvent", function()
+IN.Script(events, "OnEvent", "PartyCards events", function()
     if pending then PC.Apply() end
 end)
 

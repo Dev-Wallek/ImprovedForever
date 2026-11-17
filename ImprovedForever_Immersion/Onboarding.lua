@@ -376,7 +376,7 @@ Example("header", function(f)
     end
     f:SetScript("OnShow", function() index, t = 0, STEP_HOLD end)
     f:SetScript("OnHide", function() OB.StopDemos() end)
-    f:SetScript("OnUpdate", function(_, elapsed)
+    IN.Script(f, "OnUpdate", "Onboarding steps", function(_, elapsed)
         if goal ~= 1 or not root:IsShown() then return end
         t = t + elapsed
         if t >= STEP_HOLD then
@@ -402,7 +402,7 @@ Example("cast", function(f)
     local index, t = 0, CAST_HOLD
     f:SetScript("OnShow", function() index, t = 0, CAST_HOLD end)
     f:SetScript("OnHide", function() OB.StopDemos() end)
-    f:SetScript("OnUpdate", function(_, elapsed)
+    IN.Script(f, "OnUpdate", "Onboarding casts", function(_, elapsed)
         if goal ~= 1 or not root:IsShown() then return end
         t = t + elapsed
         if t >= CAST_HOLD then
@@ -628,7 +628,7 @@ local function Step(elapsed)
 end
 
 local driver = CreateFrame("Frame")
-driver:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(driver, "OnUpdate", "Onboarding driver", function(_, elapsed)
     if broken then return end
     local ok, err = pcall(Step, elapsed)
     if not ok then

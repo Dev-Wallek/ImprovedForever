@@ -159,7 +159,7 @@ end
 -- (gone auras forgotten: on each change of yours)
 local forget = CreateFrame("Frame")
 forget:RegisterUnitEvent("UNIT_AURA", "player")
-forget:SetScript("OnEvent", function()
+IN.Script(forget, "OnEvent", "AuraLabels forget", function()
     local get = C_UnitAuras and C_UnitAuras.GetAuraDataByAuraInstanceID
     if not get then return end
     for id in pairs(known) do

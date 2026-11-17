@@ -728,16 +728,14 @@ local CHANNEL_COLOR = { 0.4, 1, 0.5 }
 -- diamond's from its top point, a square's from its top left corner, a
 -- circle's from its top)
 local CIRCLE_STEPS = 32
+local CIRCLE_PATH = {}
+for i = 0, CIRCLE_STEPS do
+    local a = i / CIRCLE_STEPS * 2 * math.pi
+    CIRCLE_PATH[#CIRCLE_PATH + 1] = { math.sin(a), math.cos(a) }
+end
 local function RingPath()
     if style.grid then return { { -1, 1 }, { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } } end
-    if style.round then
-        local path = {}
-        for i = 0, CIRCLE_STEPS do
-            local a = i / CIRCLE_STEPS * 2 * math.pi
-            path[#path + 1] = { math.sin(a), math.cos(a) }
-        end
-        return path
-    end
+    if style.round then return CIRCLE_PATH end
     return { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 }, { 0, 1 } }
 end
 GB.RingPath = RingPath
@@ -791,11 +789,12 @@ local function DrawRing(ring, f, color, pulse, path)
             local a, z = path[i], path[i + 1]
             local x1, y1 = a[1] * r, a[2] * r
             local x2, y2 = x1 + (z[1] - a[1]) * r * part, y1 + (z[2] - a[2]) * r * part
-            for _, l in ipairs({ line, glow }) do
-                l:SetStartPoint("CENTER", ring, x1, y1)
-                l:SetEndPoint("CENTER", ring, x2, y2)
-                l:Show()
-            end
+            line:SetStartPoint("CENTER", ring, x1, y1)
+            line:SetEndPoint("CENTER", ring, x2, y2)
+            line:Show()
+            glow:SetStartPoint("CENTER", ring, x1, y1)
+            glow:SetEndPoint("CENTER", ring, x2, y2)
+            glow:Show()
             line:SetVertexColor(lr, lg, lb, 1)
             glow:SetVertexColor(color[1], color[2], color[3], 0.25 + 0.25 * pulse)
         end
@@ -806,11 +805,6 @@ end
 -- ring frame over `parent`, `half` its half width; GB.Ring.Draw(ring, f, color, pulse, path) as the
 -- tiles' (path: GB.Ring.CIRCLE or GB.Ring.SQUARE, else the style's); the beat, the flash and the
 -- colours by the share left are the tiles' too.
-local CIRCLE_PATH = {}
-for i = 0, CIRCLE_STEPS do
-    local a = i / CIRCLE_STEPS * 2 * math.pi
-    CIRCLE_PATH[#CIRCLE_PATH + 1] = { math.sin(a), math.cos(a) }
-end
 GB.Ring = {
     CIRCLE = CIRCLE_PATH,
     SQUARE = { { -1, 1 }, { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } },
@@ -851,7 +845,7 @@ end
 local castAt, castLength = {}, {}
 local ownCasts = CreateFrame("Frame")
 ownCasts:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-ownCasts:SetScript("OnEvent", function(_, _, _, _, spellID)
+IN.Script(ownCasts, "OnEvent", "GamepadBar ownCasts", function(_, _, _, _, spellID)
     if Secret(spellID) or type(spellID) ~= "number" then return end
     local get = C_Spell and C_Spell.GetSpellName or GetSpellInfo
     local ok, name = pcall(get, spellID)
@@ -1042,7 +1036,7 @@ end
 local castWatch = CreateFrame("Frame")
 castWatch:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
 castWatch:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
-castWatch:SetScript("OnEvent", function(_, _, _, _, spellID)
+IN.Script(castWatch, "OnEvent", "GamepadBar castWatch", function(_, _, _, _, spellID)
     interactCast = nil
     if Secret(spellID) or type(spellID) ~= "number" then return end
     local near = Yes(UnitExists, "softinteract") or Yes(UnitIsGameObject, "softinteract")
@@ -1760,7 +1754,7 @@ end)
 
 local menuWatch = CreateFrame("Frame")
 menuWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
-menuWatch:SetScript("OnEvent", function()
+IN.Script(menuWatch, "OnEvent", "GamepadBar menuWatch", function()
     if pendingClose then ClosePopup() end
 end)
 
@@ -1787,7 +1781,7 @@ local function SetSwap(f)
 end
 
 local swapper = CreateFrame("Frame", nil, holder)
-swapper:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(swapper, "OnUpdate", "GamepadBar swapper", function(_, elapsed)
     if swap.now == swap.want then return end
     local step = elapsed / SWAP_TIME
     swap.now = swap.want > swap.now and math.min(swap.want, swap.now + step) or math.max(swap.want, swap.now - step)
@@ -1877,7 +1871,7 @@ local glyphEvents = CreateFrame("Frame")
 for _, e in ipairs({ "GAME_PAD_ACTIVE_CHANGED", "GAME_PAD_CONNECTED" }) do
     pcall(glyphEvents.RegisterEvent, glyphEvents, e)
 end
-glyphEvents:SetScript("OnEvent", function()
+IN.Script(glyphEvents, "OnEvent", "GamepadBar glyphEvents", function()
     if padShown then UpdateGlyphs() end
 end)
 
@@ -1934,7 +1928,7 @@ local function Supply(read, tip)
     -- (none left: the tile pulsing red, as a cooldown's beat: a flash on
     -- each whole second, fading over BEAT)
     local alarm = CreateFrame("Frame", nil, b)
-    alarm:SetScript("OnUpdate", function()
+    IN.Script(alarm, "OnUpdate", "GamepadBar alarm", function()
         local since = GetTime() % 1
         b.flashFill:SetVertexColor(1, 0.15, 0.1, 1)
         b.flashFill:SetAlpha(BEAT_FLASH * math.max(0, 1 - since / BEAT))
@@ -2085,13 +2079,13 @@ local supplyEvents = CreateFrame("Frame")
 for _, e in ipairs({ "BAG_UPDATE_DELAYED", "PLAYER_ENTERING_WORLD", "UNIT_INVENTORY_CHANGED" }) do
     supplyEvents:RegisterEvent(e)
 end
-supplyEvents:SetScript("OnEvent", function(_, event, unit)
+IN.Script(supplyEvents, "OnEvent", "GamepadBar supplyEvents", function(_, event, unit)
     if event == "UNIT_INVENTORY_CHANGED" and unit ~= "player" then return end
     UpdateSupplies()
 end)
 -- (placed again now and then: the R3 slot comes, goes and moves (Edit Mode))
 local sincePlaced = 0
-supplyRow:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(supplyRow, "OnUpdate", "GamepadBar supplyRow", function(_, elapsed)
     sincePlaced = sincePlaced + elapsed
     if sincePlaced < 0.5 then return end
     sincePlaced = 0
