@@ -62,6 +62,8 @@ local function FocusedChat()
     return chat
 end
 
+CL.FocusedChat = FocusedChat
+
 -- (a line's top on screen, nil: not shown, or not to be read)
 local function Top(line)
     if not (line:IsShown() and line.messageInfo) then return nil end
@@ -160,6 +162,7 @@ end
 local openLegend = IF.InputLegend(UIParent)
 openLegend:SetFrameStrata("DIALOG")
 local OPEN_PROMPTS = { { glyph = "DPAD_UP", text = "Chat Lines" } }
+local OPEN_PROMPTS_KB = { { glyph = "DPAD_UP", text = "Chat Lines" }, { glyph = "DPAD_DOWN", text = "Keyboard" } }
 
 ---------------------------------------------------------------------------
 -- State
@@ -396,8 +399,9 @@ local wasDown, shown = false, false
 local watch = CreateFrame("Frame")
 watch:SetScript("OnUpdate", function()
     if not IF.db then return end
-    local window = not overlay:IsShown() and not IF.InCombat() and CL.Settings().enabled and IF.Input.Pad()
-        and FocusedChat()
+    local kb = IF.ChatKeyboard
+    local window = not overlay:IsShown() and not (kb and kb.IsOpen()) and not IF.InCombat()
+        and CL.Settings().enabled and IF.Input.Pad() and FocusedChat()
     local down = IsKeyDown and IsKeyDown(OPEN_KEY) or false
     -- (a press counts if the prompt was up just before it)
     if window and down and not wasDown and shown then
@@ -415,7 +419,7 @@ watch:SetScript("OnUpdate", function()
         else
             openLegend:SetPoint("TOPLEFT", window.editBox, "BOTTOMLEFT", 0, -4)
         end
-        openLegend:Set(OPEN_PROMPTS)
+        openLegend:Set(kb and kb.Settings().enabled and OPEN_PROMPTS_KB or OPEN_PROMPTS)
     elseif openLegend:IsShown() then
         openLegend:Hide()
     end

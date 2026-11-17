@@ -11,4 +11,5 @@
 
 Module.lua
 ChatLines.lua
+ChatKeyboard.lua
 ChatEditor.lua

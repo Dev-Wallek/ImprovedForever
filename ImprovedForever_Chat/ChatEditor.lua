@@ -23,6 +23,21 @@ local ITEMS = {
         CL.Settings().enabled = on
         if not on then CL.Close() end
     end, "Chat lines")),
+    Item({
+        key = "keyboard", group = "lines", label = "Inline keyboard",
+        tip = "LB + RB held, Cross (the Chat keyboard binding, Bindings tab) opens a keyboard anywhere, the chat's "
+            .. "edit box not needed; so does D-pad Down while the chat has the controller. It sits low in the "
+            .. "middle of the screen, laid out as the PS5's: the D-pad picks a key, Cross types it, Square "
+            .. "deletes, Triangle is a space, LB / RB move the cursor, LT / RT pick the channel (Say, Party, "
+            .. "Guild, Whisper, General...), Start sends to the channel, Circle closes. The sticks stay the game's.",
+        note = function()
+            if IF.Input.Pad() then return nil end
+            return "For the controller. With the mouse, type on the keyboard."
+        end,
+    }, OnOff(function() return IF.ChatKeyboard.Settings().enabled end, function(on)
+        IF.ChatKeyboard.Settings().enabled = on
+        if not on then IF.ChatKeyboard.Close() end
+    end, "Inline keyboard")),
 }
 
 local GROUPS = {
