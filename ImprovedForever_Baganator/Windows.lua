@@ -148,6 +148,16 @@ local function WhileAway(win, v)
     if BG.Settings().switch and F.GameWindow(win) then v.sw:Update() end
 end
 
+-- An item's menu, with KeepOrSell loaded: its keep mark, by its /kos keep | unkeep
+-- (KeepOrSellDB.keep: it has no Lua API)
+local function KeepOrSell(id, Add)
+    if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("KeepOrSell")) then return end
+    local db, kos = _G.KeepOrSellDB, SlashCmdList.KEEPORSELL
+    if not (db and kos) then return end
+    local kept = db.keep and db.keep[id]
+    Add(kept and "KeepOrSell: don't keep" or "KeepOrSell: keep", function() kos((kept and "unkeep " or "keep ") .. id) end)
+end
+
 -- win joins the row: close() is its B, root (optional) where its elements are
 local function Watch(win, close, root)
     if places[win] then return end
@@ -176,6 +186,7 @@ local function Watch(win, close, root)
     v.sw.focus = "game"
     v.nav.onAway = function() Away(win) end
     v.nav.hint = function() return BG.Settings().switch and v.sw:Hint() or nil end
+    v.nav.itemEntries = KeepOrSell
     -- (A and X go on to the navigator's bindings: a use is protected)
     -- (the press first: it forgets a stale release to swallow, which Passes reads)
     catcher:SetScript("OnGamePadButtonDown", function(self, button)

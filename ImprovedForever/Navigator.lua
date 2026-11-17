@@ -15,7 +15,7 @@
 -- the window lets the pad go as the game's TOGGLEUIFOCUS does. B takes the
 -- keyboard out of any edit box of the window. Y on an item opens a menu of
 -- more (the game's More Actions): mark it junk or not
--- (ItemValue.lua), keep it in KeepOrSell (when loaded), bind it to the
+-- (ItemValue.lua), the window's own entries (nav.itemEntries), bind it to the
 -- crossbar (BindPanel.lua), destroy it (Cross held, longer for rare and
 -- better); while it's up every press is the menu's. The right stick
 -- scrolls the window's scroll box, as the game's windows scroll. A legend of
@@ -361,8 +361,8 @@ function Nav:OpenMenu(build)
     self:ShowLegend()
 end
 
--- The item's menu: its name; junk or not (not a quest's item); KeepOrSell's keep mark (its /kos keep | unkeep,
--- KeepOrSellDB.keep: it has no Lua API); bind (an item that does something
+-- The item's menu: its name; junk or not (not a quest's item); the window's own
+-- (nav.itemEntries(itemID, Add)); bind (an item that does something
 -- when used); destroy (not locked)
 function Nav:ItemEntries(bag, slot)
     local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -378,11 +378,7 @@ function Nav:ItemEntries(bag, slot)
         local toggle = IF.Junk and IF.Junk.Toggle or IF.ItemValue.Toggle
         Add(judged.verdict == "junk" and "Not junk" or "Mark as junk", function() toggle(bag, slot) end)
     end
-    local db, kos = _G.KeepOrSellDB, SlashCmdList.KEEPORSELL
-    if db and kos then
-        local kept = db.keep and db.keep[id]
-        Add(kept and "KeepOrSell: don't keep" or "KeepOrSell: keep", function() kos((kept and "unkeep " or "keep ") .. id) end)
-    end
+    if self.itemEntries then self.itemEntries(id, Add) end
     local action = IF.Native.Available() and IF.BindPanel.ItemAction(id)
     if action then Add("Bind to action bar", function() IF.BindPanel.Open(action) end) end
     if not info.isLocked then
