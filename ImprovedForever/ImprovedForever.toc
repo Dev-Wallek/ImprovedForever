@@ -26,6 +26,7 @@ ConfigKit.lua
 Window.lua
 Focus.lua
 Navigator.lua
+AddonWindows.lua
 Dropdown.lua
 Book.lua
 Menu.lua
