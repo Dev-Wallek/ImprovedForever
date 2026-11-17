@@ -1,5 +1,13 @@
 # Changelog
 
+## Core (next)
+
+- `/if report`: when the game blocks an action ("forbidden", "blocked"), a window with a text to copy and paste in a comment or an issue: the action and addon the game named, where it happened (instance, zone, combat), and the Improved Forever and other addons loaded. Every blocked action is logged for it; the chat tells you once to use it. `/if clearreport` empties the log.
+
+## Wheel (next)
+
+- Fixed: the item tooltip no longer stays in the middle of the screen after you use an item from a wheel.
+
 ## Immersion 0.13.0
 
 - Party casting: pick each slot's spell in the settings, under Party spells (or drag one onto a slot).

@@ -1254,6 +1254,13 @@ ring:HookScript("OnHide", function()
     ShowReagents(nil)
     ShowTooltip(nil)
     SetPrompts(nil, false)
+    -- (using an item refreshes the game's tooltip after the wheel is gone: hide it again a
+    -- frame later, only if it's still ours, so it doesn't stay on screen until the mouse moves)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, function()
+            if not ring:IsShown() and GameTooltip:GetOwner() == ring then GameTooltip:Hide() end
+        end)
+    end
 end)
 ring:HookScript("OnAttributeChanged", function(_, name, value)
     if name == "ic-active" and ring:IsShown() then

@@ -40,5 +40,6 @@ GameData.lua
 Upgrades.lua
 ItemValue.lua
 Options.lua
+Diag.lua
 WhatsNew.lua
 WhatsNewData.lua
