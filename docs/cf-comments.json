@@ -99,10 +99,10 @@
  },
  "8681402": {
   "date": "2026-11-17",
-  "note": "thicker header/nameplate bars + HP numbers",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-immersion",
-  "seen": 8733450,
-  "status": "noted"
+  "seen": 8734961,
+  "status": "resolved"
  },
  "8682231": {
   "date": "2026-11-17",
@@ -127,10 +127,10 @@
  },
  "8684426": {
   "date": "2026-11-17",
-  "note": "vibration on quest complete",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-vibration",
-  "seen": 8733442,
-  "status": "noted"
+  "seen": 8734966,
+  "status": "resolved"
  },
  "8685774": {
   "date": "2026-11-17",
@@ -148,17 +148,17 @@
  },
  "8686623": {
   "date": "2026-11-17",
-  "note": "range dot / distance, red <=5yd for hunters",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever",
-  "seen": 8733457,
-  "status": "noted"
+  "seen": 8734962,
+  "status": "resolved"
  },
  "8688777": {
   "date": "2026-11-17",
-  "note": "same fix; walking+aiming at once not possible yet (af4b55e); tell them at release",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever",
-  "seen": 8734758,
-  "status": "fixed"
+  "seen": 8734954,
+  "status": "resolved"
  },
  "8688885": {
   "date": "2026-11-17",
@@ -218,10 +218,10 @@
  },
  "8694896": {
   "date": "2026-11-17",
-  "note": "wheel no longer stops a walking character (af4b55e); waiting for the Wheel release, then tell them",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-wheel",
-  "seen": 8734757,
-  "status": "fixed"
+  "seen": 8734952,
+  "status": "resolved"
  },
  "8695811": {
   "date": "2026-11-17",
@@ -232,10 +232,10 @@
  },
  "8697171": {
   "date": "2026-11-17",
-  "note": "camp: switch off camera panning",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-camp",
-  "seen": 8733460,
-  "status": "noted"
+  "seen": 8734963,
+  "status": "resolved"
  },
  "8697808": {
   "date": "2026-11-17",
@@ -309,10 +309,10 @@
  },
  "8710058": {
   "date": "2026-11-17",
-  "note": "tracker freeze fixes (d4a61db, 0347ef5)",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-quest-tracker",
-  "seen": 8733408,
-  "status": "fixed"
+  "seen": 8734958,
+  "status": "resolved"
  },
  "8711996": {
   "date": "2026-11-17",
@@ -358,17 +358,17 @@
  },
  "8717307": {
   "date": "2026-11-17",
-  "note": "wheel item tooltip stuck (8ce26af)",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever",
-  "seen": 8733410,
-  "status": "fixed"
+  "seen": 8734955,
+  "status": "resolved"
  },
  "8717474": {
   "date": "2026-11-17",
-  "note": "camp camera options, Happy Camper",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-camp",
-  "seen": 8733461,
-  "status": "noted"
+  "seen": 8734964,
+  "status": "resolved"
  },
  "8718316": {
   "date": "2026-11-17",
@@ -386,10 +386,10 @@
  },
  "8719599": {
   "date": "2026-11-17",
-  "note": "/if report added to collect blocked actions (8ce26af); waiting for their report after release",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-immersion",
-  "seen": 8733428,
-  "status": "fixed"
+  "seen": 8734951,
+  "status": "resolved"
  },
  "8720844": {
   "date": "2026-11-17",
@@ -400,10 +400,10 @@
  },
  "8722291": {
   "date": "2026-11-17",
-  "note": "Square always attacks a targeted living enemy (commit 7ef4e17)",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever",
-  "seen": 8733396,
-  "status": "fixed"
+  "seen": 8734948,
+  "status": "resolved"
  },
  "8723688": {
   "date": "2026-11-17",
@@ -414,10 +414,10 @@
  },
  "8724408": {
   "date": "2026-11-17",
-  "note": "tracker freeze fixes (d4a61db, 0347ef5)",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-quest-tracker",
-  "seen": 8733407,
-  "status": "fixed"
+  "seen": 8734957,
+  "status": "resolved"
  },
  "8725498": {
   "date": "2026-11-17",
@@ -449,10 +449,10 @@
  },
  "8727401": {
   "date": "2026-11-17",
-  "note": "thicker header/nameplate bars",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-immersion",
-  "seen": 8733449,
-  "status": "noted"
+  "seen": 8734960,
+  "status": "resolved"
  },
  "8728060": {
   "date": "2026-11-17",
@@ -470,10 +470,10 @@
  },
  "8730103": {
   "date": "2026-11-17",
-  "note": "game's own tracker hidden by Immersion when QuestTracker is absent (6ff97cc); totem bar noted",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever-immersion",
-  "seen": 8734842,
-  "status": "fixed"
+  "seen": 8734959,
+  "status": "resolved"
  },
  "8730116": {
   "date": "2026-11-17",
@@ -491,9 +491,9 @@
  },
  "8733747": {
   "date": "2026-11-17",
-  "note": "General switch for the double tap of Menu (a4112b9)",
+  "note": "released 2026-11-17, told the player",
   "project": "improved-forever",
-  "seen": 8734843,
-  "status": "fixed"
+  "seen": 8734950,
+  "status": "resolved"
  }
 }
