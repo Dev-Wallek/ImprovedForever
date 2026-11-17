@@ -428,7 +428,18 @@ local CHECKS = {
         local IF = rawget(_G, "ImprovedForever")
         local PC = IF and IF.Interface and IF.Interface.PartyCards
         if not PC then return end
+        -- (your target's card marked in gold, unmarked once you target another)
+        local card, isUnit = _G.ImprovedForeverPartyCard1, UnitIsUnit
+        -- (no preview: the stand-in's frames answer an unset field)
+        card.sample = false
+        UnitIsUnit = function(a, b) return a == card.unit and b == "target" end
         fire("PLAYER_TARGET_CHANGED")
+        local marked = card.targetMark:IsShown()
+        UnitIsUnit = function() return false end
+        fire("PLAYER_TARGET_CHANGED")
+        UnitIsUnit = isUnit
+        rawset(card, "sample", nil)
+        assert(marked and not card.targetMark:IsShown(), "the target's party card not marked, or kept marked")
         PC.TogglePreview()
         PC.TogglePreview("off")
         -- (the raid-style party's target boxes faded, the player's and a fifth pet's, and the
