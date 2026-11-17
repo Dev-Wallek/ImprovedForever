@@ -21,6 +21,7 @@
 --   W.Refresh(): every window whose opts.enabled() is false lets the pad go
 --   W.Claim(addon): its UISpecialFrames entries are left to the module that
 --     hands its windows in
+--   W.Scanned() -> false while the General tab's switch keeps the found ones out
 local _, IF = ...
 
 local W = {}
@@ -288,6 +289,12 @@ local seen = 0          -- entries of the list looked at
 local waiting = {}      -- names in it whose frame isn't made yet
 local claimed = {}      -- addons whose windows a module of ours hands in itself
 
+-- W.Scanned() -> whether the windows found here take part (the General tab's
+-- "Other addons' windows in L2 / R2", IF.db.addonWindows)
+function W.Scanned()
+    return not (IF.db and IF.db.addonWindows == false)
+end
+
 -- W.Claim(addon): its windows come through W.Watch from a module (theirs
 -- need more: Baganator's glow layout, bag slots bar, setting)
 function W.Claim(addon)
@@ -309,7 +316,7 @@ local function Take(name, addon)
     waiting[name] = nil
     -- (an addon may list a game frame for Escape: the frame's own name must be an addon's too)
     if places[win] or issecurevariable(name) then return end
-    if Watchable(win, addon) then W.Watch(win) end
+    if Watchable(win, addon) then W.Watch(win, { enabled = W.Scanned }) end
 end
 
 local function Scan()
