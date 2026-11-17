@@ -160,7 +160,7 @@ variables instead of the chat, then read the file:
 - The game writes it to disk only on `/reload` or logout. Ask the user to run
   the probe, `/reload`, and say when it's done.
 - Read it from
-  `/Applications/World of Warcraft/_classic_era_/WTF/Account/<account>/SavedVariables/ImprovedForever.lua`
+  `World of Warcraft/_forever_/WTF/Account/<account>/SavedVariables/ImprovedForever.lua`
   (per-character data: `ImprovedForeverCharDB` under
   `WTF/Account/<account>/<realm>/<character>/SavedVariables/`).
 - To find which event comes with something, log every event while it

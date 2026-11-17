@@ -8,7 +8,7 @@ For `ADDON_ACTION_FORBIDDEN` / blocked (e.g. `SetPreferredGamepadInteractTarget(
 
 - Note the addon the error names each time: several modules can taint the same game state, and the name changes as one is fixed.
 - Repeat each test 3+ times: the error can be intermittent.
-- Taint log: `/console taintLog 1`, reproduce, `/console taintLog 0`, then `/reload`, and read `_classic_era_/Logs/taint.log` in the game's folder. It restarts on every `/reload` while on. Don't use level 2: it can flood and freeze the game.
+- Taint log: `/console taintLog 1`, reproduce, `/console taintLog 0`, then `/reload`, and read `_forever_/Logs/taint.log` in the game's folder. It restarts on every `/reload` while on. Don't use level 2: it can flood and freeze the game.
 - Taint sources found so far:
   - our code filling the game's shared caches first (`QuestCache:Get`, `QuestUtil.CanCreateQuestGroup`) or adding to its shared async listeners (`QuestEventListener:AddCallback`): keep our own copies
   - the game's `EventRegistry` frame events (`EventUtil.ContinueAfterAllEvents`, `RegisterFrameEventAndCallback`): their counts live in attributes of one shared frame, ours writes them tainted, and the game's own waiter (the objective tracker's `Init`) then runs tainted, in sessions where ours ran first. Wait on our own frame

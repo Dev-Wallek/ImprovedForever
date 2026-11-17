@@ -1,7 +1,7 @@
 #!/bin/sh
 # Links every addon folder of the repo into a game's AddOns folder, so the
 # game loads the working copy (/reload after an edit).
-#   tools/link.sh "/Applications/World of Warcraft/_classic_era_/Interface/AddOns"
+#   tools/link.sh "/Applications/World of Warcraft/_forever_/Interface/AddOns"
 set -e
 dest="$1"
 [ -d "$dest" ] || { echo "usage: tools/link.sh <the game's Interface/AddOns folder>"; exit 1; }
