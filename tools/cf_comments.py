@@ -3,6 +3,9 @@
     python3 tools/cf_comments.py           threads still waiting on us
     python3 tools/cf_comments.py --all     every thread
     python3 tools/cf_comments.py --json    the same, as JSON (for the skill)
+    python3 tools/cf_comments.py --mark ID STATUS [NOTE...]
+                                           record a thread as dealt with (see below)
+    python3 tools/cf_comments.py --state   list what was recorded
 
 CurseForge's public API has no comments. These come from the website's own
 endpoint (GET www.curseforge.com/api/v1/mods/<id>/comments), which needs no
@@ -11,6 +14,12 @@ login. Each addon with '## X-Curse-Project-ID' in its TOC is read.
 A thread waits on us when its last word isn't the author's (AUTHOR, or
 CF_AUTHOR in the environment): a comment nobody answered, or a reply that came
 after ours.
+
+Dealt-with threads: docs/cf-comments.json keeps, per thread ID, a STATUS (resolved: nothing
+left to do, e.g. thanks or answered by players; noted: a request we answered and may build;
+fixed: fixed, waiting for a release; ignore), a NOTE and the ID of the thread's last post when it
+was recorded. A recorded thread stays out of the waiting list until someone posts after that
+post (then it is back, marked "new since"). --all still shows everything.
 
 Replying needs the author's login, so it isn't done here: the skill
 (.claude/skills/curseforge-comments) posts from the browser, where the author is
@@ -28,6 +37,19 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = "https://www.curseforge.com/api/v1"
 AUTHOR = os.environ.get("CF_AUTHOR", "markgravity11")
 PAGE = 50
+STATE = ROOT / "docs" / "cf-comments.json"
+STATUSES = ("resolved", "noted", "fixed", "ignore")
+
+
+def load_state():
+    try:
+        return json.loads(STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    STATE.write_text(json.dumps(state, indent=1, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def projects():
@@ -77,15 +99,21 @@ def when(ms):
     return datetime.fromtimestamp(ms / 1000, timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-def threads(show_all):
+def threads(show_all, state=None):
+    state = load_state() if state is None else state
     out = []
     for folder, project, slug in projects():
         for top in comments(project):
             posts = flat(top)
             waiting = who(posts[-1])[0] != AUTHOR
+            known = state.get(str(top["id"]))
+            if known and known.get("seen") == posts[-1]["id"]:
+                waiting = False        # dealt with, and nothing since
+            fresh = bool(known) and waiting
             if not (waiting or show_all):
                 continue
             out.append({
+                "known": known, "newSince": fresh,
                 "folder": folder, "project": project, "slug": slug,
                 "url": f"https://www.curseforge.com/wow/addons/{slug}/comments",
                 "id": top["id"], "waiting": waiting,
@@ -97,8 +125,29 @@ def threads(show_all):
     return out
 
 
+def mark(args):
+    thread, status, note = args[0], args[1], " ".join(args[2:])
+    if status not in STATUSES:
+        sys.exit("status: " + ", ".join(STATUSES))
+    for t in threads(True, {}):
+        if str(t["id"]) == thread:
+            state = load_state()
+            state[thread] = {"status": status, "note": note, "seen": t["posts"][-1]["id"],
+                             "project": t["slug"], "date": datetime.now().strftime("%Y-%m-%d")}
+            save_state(state)
+            print(f"thread {thread}: {status}")
+            return
+    sys.exit(f"no thread {thread}")
+
+
 def main():
     args = sys.argv[1:]
+    if args[:1] == ["--mark"] and len(args) >= 3:
+        return mark(args[1:])
+    if args[:1] == ["--state"]:
+        for k, v in sorted(load_state().items(), key=lambda kv: kv[1]["date"]):
+            print(f"{k} {v['status']:9} {v['project']}: {v.get('note', '')}")
+        return
     found = threads("--all" in args)
     if "--json" in args:
         print(json.dumps(found, indent=1, ensure_ascii=False))
@@ -108,7 +157,8 @@ def main():
         return
     for t in found:
         print(f"{t['slug']} ({t['folder']}, project {t['project']}) thread {t['id']}"
-              f"{'  <- waiting' if t['waiting'] else ''}\n  {t['url']}")
+              f"{'  <- waiting' if t['waiting'] else ''}{' (new since it was recorded)' if t['newSince'] else ''}"
+              f"{'  [' + t['known']['status'] + ': ' + t['known'].get('note', '') + ']' if t['known'] else ''}\n  {t['url']}")
         for p in t["posts"]:
             me = " (us)" if p["user"] == AUTHOR else ""
             print(f"  [{p['id']}] {p['date']} {p['name']}{me}: {p['text']}")
