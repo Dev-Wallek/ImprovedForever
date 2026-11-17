@@ -36,6 +36,9 @@ local PAD = 16
 local BOTTOM_Y = 40
 local WIDTH = COLS * (KEY_W + GAP) - GAP + PAD * 2
 local TEXT_W = WIDTH - PAD * 2          -- (the message's room)
+local SIDE_X, SIDE_COLS = 40, 6        -- (left / right: its margin, its keys a row)
+-- (set by CK.Place: where it sits, bottom / left / right; its width, the message's)
+local mode, side, boardW, textW = "bottom", false, WIDTH, TEXT_W
 local MAX_BYTES = 255
 local BAND_REACH, BAND_ALPHA = 80, 0.6
 local FONT = STANDARD_TEXT_FONT
@@ -44,7 +47,8 @@ local GOLD = { 1, 0.82, 0 }
 local GREY = { 0.62, 0.62, 0.62 }
 local LIT = { 0.55, 0.82, 1 }            -- (Immersion's: the one lit, light blue on a soft bar)
 local DEFAULT_KEY = "PADLSHOULDER+PADRSHOULDER+PAD1"      -- (LB + RB held, Cross)
-local DEFAULTS = { enabled = true }
+local DEFAULTS = { enabled = true, scale = 100, offsetX = 0, offsetY = 0, position = "bottom" }
+CK.DEFAULTS = DEFAULTS
 
 function CK.Settings()
     local db = IF.db
@@ -80,7 +84,28 @@ local LAST_ROW = {
     { action = "send", label = "Send", w = 1.5 },
 }
 
+local SIDE_ACTIONS = {
+    {
+        { action = "shift", label = "Aa", w = 2 }, { action = "symbols", label = "#+=", w = 2 },
+        { action = "back", label = "Del", w = 2 },
+    },
+    { { " ", label = "space", w = 4 }, { action = "send", label = "Send", w = 2 } },
+}
+
 local function RowsOf(layer)
+    if side then
+        -- (left / right: the letters in rows of SIDE_COLS, the actions under them)
+        local rows, row = {}, {}
+        for _, r in ipairs(LAYERS[layer]) do
+            for _, key in ipairs(r) do
+                row[#row + 1] = key
+                if #row == SIDE_COLS then rows[#rows + 1], row = row, {} end
+            end
+        end
+        if #row > 0 then rows[#rows + 1] = row end
+        for _, r in ipairs(SIDE_ACTIONS) do rows[#rows + 1] = r end
+        return rows
+    end
     local rows = {}
     for i, r in ipairs(LAYERS[layer]) do rows[i] = r end
     rows[#rows + 1] = LAST_ROW
@@ -100,7 +125,7 @@ local CHANNEL_H, INPUT_H, LEGEND_H = 28, 40, 34
 local KEYS_H = 5 * (KEY_H + GAP) - GAP
 local HEIGHT = PAD + CHANNEL_H + INPUT_H + 10 + KEYS_H + 10 + LEGEND_H + PAD / 2
 board:SetSize(WIDTH, HEIGHT)
-board:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, BOTTOM_Y)
+board:SetClampedToScreen(true)
 
 -- (the band: dark in the middle, fading out to its sides, as Immersion's)
 local band = CreateFrame("Frame", nil, board)
@@ -172,6 +197,7 @@ keysFrame:SetSize(WIDTH - PAD * 2, KEYS_H)
 local legend = IF.InputLegend(board)
 legend:ClearAllPoints()
 legend:SetPoint("BOTTOM", board, "BOTTOM", 0, PAD / 2)
+local legend2 = IF.InputLegend(board)     -- (left / right: the prompts in two rows)
 local PROMPTS = {
     { glyph = "DPAD", text = "Keys" },
     { "PAD1", "A", "Type" },
@@ -182,6 +208,18 @@ local PROMPTS = {
     { "PADFORWARD", "START", "Send" },
     { "PAD2", "B", "Close" },
 }
+
+local PROMPTS_A = { PROMPTS[1], PROMPTS[2], PROMPTS[3], PROMPTS[4] }
+local PROMPTS_B = { PROMPTS[5], PROMPTS[6], PROMPTS[7], PROMPTS[8] }
+local function SetLegends()
+    if side then
+        legend:Set(PROMPTS_A)
+        legend2:Set(PROMPTS_B)
+    else
+        legend:Set(PROMPTS)
+        legend2:Hide()
+    end
+end
 
 local buttons = {}      -- the key frames, reused
 local function Button(i)
@@ -271,11 +309,17 @@ local function SuggestRender()
         sugText[i]:SetText(cmd)
         total = total + sugText[i]:GetStringWidth() + (i > 1 and gap or 0)
     end
-    local x = (WIDTH - total) / 2
+    local x = (boardW - total) / 2
+    -- (left / right: one under the other, the board being narrow)
+    sug:SetHeight(side and #matches * 24 or 28)
     for i = 1, #matches do
         local fs = sugText[i]
         fs:ClearAllPoints()
-        fs:SetPoint("LEFT", sug, "LEFT", x, 0)
+        if side then
+            fs:SetPoint("TOP", sug, "TOP", 0, -(i - 1) * 24)
+        else
+            fs:SetPoint("LEFT", sug, "LEFT", x, 0)
+        end
         x = x + fs:GetStringWidth() + gap
         if i == sugSel then fs:SetTextColor(LIT[1], LIT[2], LIT[3]) else fs:SetTextColor(1, 1, 1) end
     end
@@ -293,6 +337,7 @@ local layer = "lower"
 local rows, grid = {}, {}
 local cx, cy = 1, 2
 local held, nextRepeat
+local previewing, previewUntil   -- (shown for the config's sliders: no pad taken, nothing sent)
 
 -- The colour of a chat type, the game's own
 local function TypeColor(kind)
@@ -388,7 +433,7 @@ local function MessageRender()
     local total = #chars > 0 and measure:GetStringWidth() or 0
     message:ClearAllPoints()
     caret:ClearAllPoints()
-    if total <= TEXT_W then
+    if total <= textW then
         -- (centred: grows out from the middle)
         message:SetPoint("CENTER", input, "CENTER", 0, 2)
         caret:SetPoint("LEFT", input, "CENTER", -total / 2 + left, 2)
@@ -479,17 +524,19 @@ local function Close()
     if not board:IsShown() then return end
     board:Hide()
     legend:Hide()
+    legend2:Hide()
     if board.EnableGamePadButton then pcall(board.EnableGamePadButton, board, false) end
     F.DimNative(board, false)
     F.Fade(NativeLegend(chat), false)
-    chat, held = nil, nil
+    chat, held, previewing = nil, nil, nil
 end
 CK.Close = Close
 
-function CK.IsOpen() return board:IsShown() end
+function CK.IsOpen() return board:IsShown() and not previewing end
 
 function CK.Open(window)
     if IF.InCombat() then return end
+    CK.Place()
     chat, held, cx, cy = window, nil, 1, 2
     chars, caretAt, bytes, layer = {}, 0, 0, "lower"
     commands, sugSel = nil, nil
@@ -499,7 +546,7 @@ function CK.Open(window)
     Layout()
     ChannelRender()
     MessageRender()
-    legend:Set(PROMPTS)
+    SetLegends()
     if board.EnableGamePadButton then board:EnableGamePadButton(true) end
     F.DimNative(board, true)
     F.Fade(NativeLegend(window), true)
@@ -734,6 +781,11 @@ if board.EnableGamePadButton then
 end
 
 board:SetScript("OnUpdate", function()
+    -- (a preview: as long as the config is up and a slider was touched a moment ago)
+    if previewing then
+        if GetTime() > previewUntil or (IF.Menu and not IF.Menu.IsOpen()) then return Close() end
+        return Blink()
+    end
     -- Gone from under us: the chat closed, lost the pad, or combat (or the
     -- mouse taken up)
     -- (opened from the chat: while it has the pad; by the hotkey: anywhere)
@@ -782,7 +834,7 @@ function CK.Key()
 end
 
 local function Toggle()
-    if board:IsShown() then return Close() end
+    if previewing then Close() elseif board:IsShown() then return Close() end
     local CL = IF.ChatLines
     if not CK.Settings().enabled or IF.InCombat() or (CL and CL.IsOpen()) then return end
     CK.Open(nil)
@@ -822,3 +874,69 @@ IF.Binds.Add({
     reset = function() CK.Settings().openKey = nil end,
     run = function(down) if down then Toggle() end end,
 })
+
+-- The keyboard shown for the config's sliders, with a sample message, for a
+-- few seconds after the last touch (the pad is not taken, nothing is sent)
+function CK.Preview()
+    CK.Place()
+    if board:IsShown() and not previewing then return end         -- (really open: it moved)
+    if IF.InCombat() then return end
+    if not previewing then
+        chat, held, cx, cy, layer = nil, nil, 1, 2, "lower"
+        chars, caretAt, bytes = Split("Hello Azeroth"), 13, 13
+        commands, sugSel = nil, nil
+        channels = Channels(nil)
+        channelIndex = 1
+        previewing = true
+        board:Show()
+        Layout()
+        ChannelRender()
+        MessageRender()
+        SetLegends()
+    end
+    previewUntil = GetTime() + 4
+end
+
+-- Its place and layout (the Chat tab): bottom (middle), left or right of the
+-- screen; the scale in percent; the offsets in screen pixels from there,
+-- whatever the scale (up from the bottom, or from the middle on a side)
+function CK.Place()
+    local st = IF.db and CK.Settings() or DEFAULTS
+    mode = st.position == "left" and "left" or st.position == "right" and "right" or "bottom"
+    side = mode ~= "bottom"
+    local cols = side and SIDE_COLS or COLS
+    boardW = cols * (KEY_W + GAP) - GAP + PAD * 2
+    textW = boardW - PAD * 2
+    local keysH = (side and 9 or 5) * (KEY_H + GAP) - GAP
+    board:SetSize(boardW, PAD + CHANNEL_H + INPUT_H + 10 + keysH + 10 + (side and LEGEND_H * 2 + 4 or LEGEND_H) + PAD / 2)
+    input:SetSize(textW, INPUT_H)
+    keysFrame:SetSize(boardW - PAD * 2, keysH)
+    sug:SetSize(boardW, 28)
+    legend:ClearAllPoints()
+    legend2:ClearAllPoints()
+    if side then
+        legend2:SetPoint("BOTTOM", board, "BOTTOM", 0, PAD / 2)
+        legend:SetPoint("BOTTOM", legend2, "TOP", 0, 4)
+    else
+        legend:SetPoint("BOTTOM", board, "BOTTOM", 0, PAD / 2)
+    end
+    local scale = math.max(0.3, (st.scale or 100) / 100)
+    local ox, oy = st.offsetX or 0, st.offsetY or 0
+    board:SetScale(scale)
+    board:ClearAllPoints()
+    if mode == "left" then
+        board:SetPoint("LEFT", UIParent, "LEFT", (SIDE_X + ox) / scale, oy / scale)
+    elseif mode == "right" then
+        board:SetPoint("RIGHT", UIParent, "RIGHT", (-SIDE_X + ox) / scale, oy / scale)
+    else
+        board:SetPoint("BOTTOM", UIParent, "BOTTOM", ox / scale, (BOTTOM_Y + oy) / scale)
+    end
+    if board:IsShown() then
+        Layout()
+        SetLegends()
+        MessageRender()
+        SuggestRender()
+    end
+end
+CK.Place()
+IF.OnLogin(CK.Place)

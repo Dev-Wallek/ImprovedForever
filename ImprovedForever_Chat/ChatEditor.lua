@@ -5,6 +5,22 @@ local IF = ImprovedForever
 local CL = IF.ChatLines
 local Item, OnOff = IF.SettingsItem, IF.SettingsOnOff
 
+local function Slide(key, label, tip, min, max, step, format)
+    local CK = IF.ChatKeyboard
+    return {
+        key = key, group = "lines", section = "Keyboard", label = label, tip = tip,
+        slider = {
+            min = min, max = max, step = step, default = CK.DEFAULTS[key],
+            get = function() return CK.Settings()[key] end,
+            set = function(n)
+                CK.Settings()[key] = n
+                CK.Preview()
+            end,
+            format = format,
+        },
+    }
+end
+
 local ITEMS = {
     Item({
         key = "enabled", group = "lines", label = "Chat lines",
@@ -24,7 +40,7 @@ local ITEMS = {
         if not on then CL.Close() end
     end, "Chat lines")),
     Item({
-        key = "keyboard", group = "lines", label = "Inline keyboard",
+        key = "keyboard", group = "lines", section = "Keyboard", label = "Inline keyboard",
         tip = "LB + RB held, Cross (the Chat keyboard binding, Bindings tab) opens a keyboard anywhere, the chat's "
             .. "edit box not needed; so does D-pad Down while the chat has the controller. It sits low in the "
             .. "middle of the screen, laid out as the PS5's: the D-pad picks a key, Cross types it, Square "
@@ -38,6 +54,30 @@ local ITEMS = {
         IF.ChatKeyboard.Settings().enabled = on
         if not on then IF.ChatKeyboard.Close() end
     end, "Inline keyboard")),
+    {
+        key = "position", group = "lines", section = "Keyboard", label = "Keyboard position",
+        tip = "Where the keyboard sits: low in the middle of the screen, or down the left or right side (its keys "
+            .. "then in a narrower block, a taller one).",
+        value = function() return IF.ChatKeyboard.Settings().position end,
+        text = function()
+            local p = IF.ChatKeyboard.Settings().position
+            return p == "left" and "Left" or p == "right" and "Right" or "Bottom"
+        end,
+        options = function()
+            return { { action = "bottom", name = "Bottom" }, { action = "left", name = "Left" },
+                { action = "right", name = "Right" } }
+        end,
+        choose = function(action)
+            IF.ChatKeyboard.Settings().position = action
+            IF.ChatKeyboard.Preview()
+        end,
+    },
+    -- (its place: the keyboard shows while you slide, so you see where it lands)
+    Slide("scale", "Keyboard size", "How big the keyboard is, in percent.", 50, 200, 5, function(n) return n .. "%" end),
+    Slide("offsetX", "Keyboard left / right", "Moves the keyboard from the middle of the screen: left (minus) or right.",
+        -1000, 1000, 10, function(n) return n .. " px" end),
+    Slide("offsetY", "Keyboard up / down", "Moves the keyboard up (minus: down), from the bottom of the screen, or from the middle on a side.",
+        -600, 800, 10, function(n) return n .. " px" end),
 }
 
 local GROUPS = {
