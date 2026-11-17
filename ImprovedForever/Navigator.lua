@@ -222,7 +222,7 @@ local function Step(list, from, dx, dy)
         local x, y = Center(f)
         local along = (x - fx) * dx + (y - fy) * dy
         local across = math.abs((x - fx) * dy - (y - fy) * dx)
-        if f ~= from and along > 1 and across <= along * 2 then
+        if f ~= from and along > 1 and across <= along * 2 and f:IsVisible() then
             local s = along + across * 3
             if not score or s < score then best, score = f, s end
         end
@@ -333,6 +333,8 @@ function Nav:Scroll(elapsed)
     if range <= 0.01 then return end
     local speed = y * GetCVarNumberOrDefault("SmartNavigationScrollSpeed")
     box:SetScrollPercentage(Clamp((box:GetDerivedScrollOffset() - speed * elapsed) / range, 0, 1))
+    -- (other rows in view now)
+    self.list = nil
 end
 
 -- The window's search box, shown (Baganator's SearchWidget, the game's SearchBox), or nil
@@ -480,9 +482,12 @@ function Nav:Set(on)
     end
 end
 
-function Nav:Move(button)
+-- (a held repeat steps through its press's list: walking the window's tree
+-- is the cost, and the window's frames stay while held)
+function Nav:Move(button, again)
     local d = DIRS[button]
-    local list = Elements(self.win, self.root)
+    if not (again and self.list) then self.list = Elements(self.win, self.root) end
+    local list = self.list
     if not (self.sel and self.sel:IsVisible()) then return self:Select(First(list)) end
     local to = Step(list, self.sel, d[1], d[2])
     if to then self:Select(to) end
@@ -540,7 +545,7 @@ local function Tick(self, elapsed)
     if not Bound() then Bind(true) end
     if self.held and GetTime() >= self.next then
         self.next = GetTime() + REPEAT_EVERY
-        self:Move(self.held)
+        self:Move(self.held, true)
     end
     self:Scroll(elapsed)
     local f = self.sel
