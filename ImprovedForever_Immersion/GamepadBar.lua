@@ -648,6 +648,13 @@ end
 local OwnCastCooldown        -- (below: a fight's secret cooldown, from your own cast)
 local LearnLength
 
+-- A tile left without a slot: all of its cooldown state dropped, so the next slot it shows
+-- doesn't inherit the old one's timer, ring or end flash (on GB: the file is at Lua's 200 locals)
+function GB.ClearCooldown(b)
+    if b.cdStart or b.gcdStart then b.cooldown:Clear() end
+    b.cdStart, b.cdDuration, b.cdUntil, b.cdDoneAt, b.gcdStart = nil, nil, nil, nil, nil
+end
+
 local function Cooldown(b, native)
     local start, duration = SlotCooldown(native)
     -- (in a fight the game keeps it secret: your own cast of the slot's spell times it)
@@ -1129,10 +1136,7 @@ local function Mirror(b, native)
         b.flashFill:SetAlpha(0)
         b.timer:Hide()
         SetBorder(b, SLOT.normal)
-        if b.cdStart then
-            b.cooldown:Clear()
-            b.cdStart = nil
-        end
+        GB.ClearCooldown(b)
         return
     end
     local d = b.d
@@ -1337,10 +1341,7 @@ local function OursTile(b, texture, atlas)
     b.procFill:SetAlpha(0)
     b.flashFill:SetAlpha(0)
     b.timer:Hide()
-    if b.cdStart then
-        b.cooldown:Clear()
-        b.cdStart = nil
-    end
+    GB.ClearCooldown(b)
     if atlas then
         b.icon:SetAtlas(atlas)
         b.icon:SetSize(d.width * UprightFill(), d.width * UprightFill())
