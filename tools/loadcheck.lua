@@ -257,6 +257,8 @@ local function report(where, err)
     -- (the traceback's lines in the addons only)
     local lines = {}
     for line in tostring(err):gmatch("[^\n]+") do
+        -- (a check's own failure: its place in this file cut, its message kept)
+        line = line:gsub("^%S*loadcheck%.lua:%d+: ", "")
         if not line:find("loadcheck.lua") and not line:find("%[C%]") and line ~= "stack traceback:" then
             lines[#lines + 1] = line
         end
