@@ -485,9 +485,9 @@ local function Container()
     if not (AuraContainerSortMethod and AuraContainerSortDirection) then return nil end
     local ok, c = pcall(CreateFrame, "AuraContainer", "ImprovedForeverBuffList", UIParent, "CustomAuraContainerTemplate")
     if not (ok and c) then return nil end
-    -- (high, so the mouse reaches the game's own buttons, which show their own tooltip: at LOW something
-    -- lying over the row took it first)
-    c:SetFrameStrata("HIGH")
+    -- (the game's buff frame's strata: over what lies on the row, so the mouse reaches the game's own
+    -- buttons and their tooltips (at LOW something took it first), under windows such as the bags)
+    c:SetFrameStrata("MEDIUM")
     local size = Size()
     builtSize, builtSpacing = size, SPACING
     pcall(c.SetUnit, c, "player")
