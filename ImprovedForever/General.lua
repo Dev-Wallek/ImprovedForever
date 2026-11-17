@@ -52,6 +52,16 @@ local ITEMS = {
         IF.UpdateBagBinding()
     end, "L3 cleans up the bags")),
     Item({
+        key = "addonWindows", group = "gamepad", label = "Other addons' windows in L2 / R2",
+        tip = "Windows of other addons that Escape closes join L2 / R2 beside the game's windows: one opened "
+            .. "takes the controller, the D-pad moves a cursor in it, A presses, Circle closes it. Turn it off "
+            .. "if an addon's windows should leave the controller to the game. Baganator's have their own switch "
+            .. "in the Baganator tab.",
+    }, OnOff(function() return IF.AddonWindows.Scanned() end, function(on)
+        IF.db.addonWindows = on and nil or false
+        if not on then IF.AddonWindows.Refresh() end
+    end, "Other addons' windows in L2 / R2")),
+    Item({
         key = "resetBindings", group = "gamepad", label = "Reset all bindings",
         tip = "Puts every binding back to its default: the buttons and keys of the Bindings tab, the actions "
             .. "put on presses and keys, and the touchpad's corners. The crossbar's own slots stay as they are.",

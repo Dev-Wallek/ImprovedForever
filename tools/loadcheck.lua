@@ -548,6 +548,10 @@ local CHECKS = {
         check(not W.Watched(GameFrameListedByAddon), "a game frame another addon listed doesn't")
         check(not W.Watched(ImprovedForeverSpecialWindow), "ours doesn't")
         check(not (IF.Baganator and W.Watched(BaganatorSpecialWindow)), "a claimed addon's doesn't")
+        IF.db.addonWindows = false
+        local off = not W.Scanned()
+        IF.db.addonWindows = nil
+        check(off and W.Scanned(), "the General tab's switch turns them off and on")
         -- (out of the way of the checks after: closing a window hands the pad to the nearest shown)
         for _, name in ipairs(UISpecialFrames) do _G[name].__shown = false end
     end },
