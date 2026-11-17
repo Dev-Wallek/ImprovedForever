@@ -42,6 +42,10 @@ local FADED = { "ImprovedForeverGamepadBar", "ImprovedForeverRecentSlot", "Impro
     "ImprovedForeverNpcDialog", "ImprovedForeverMinimapLabels", "ImprovedForeverMinimapAlert",
     "ImprovedForeverQuestArrow", "ImprovedForeverZoneBanner", "ImprovedForeverHeaderRule",
     "ImprovedForeverTargetHeader", "ImprovedForeverLevelBanner", "ImprovedForeverQuestProgress", "MinimapCluster", "Minimap",
+    -- (the sidebar: the top left cards of Immersion)
+    "ImprovedForeverQuestPeek1", "ImprovedForeverQuestPeek2", "ImprovedForeverAuraNotice", "ImprovedForeverTooltip",
+    "ImprovedForeverSpellTracker1", "ImprovedForeverSpellTracker2", "ImprovedForeverSpellTracker3",
+    "ImprovedForeverSpellTracker4",
     -- (the tooltip: the faded HUD still takes the mouse, a buff under it
     -- shows its tooltip; any other tooltip has no place in the scene either)
     "GameTooltip" }
