@@ -115,9 +115,12 @@ local DEFAULTS = {
     headerX = 0, headerY = 0, -- the header's (target, banners, quest arrow) place, px right / up
     nameplateCast = true, -- the unit's cast under its nameplate's line (its spell's name and icon)
     nameplateDebuffs = true, -- your debuffs on the mob, under its nameplate (the game fills them, in a fight too)
+    meleeWarn = false,  -- the target header's health line turns red while the target is within melee range (TargetHeader.lua)
     castRange = true,   -- the target header greyed while an enemy is out of your reach
     hpLine = true,      -- your health as a bar over the power line
     lineHeight = 7,     -- the health and power lines' height, px (PlayerHealth.lua)
+    headerLine = 3,     -- the target header's health line height, px (TargetHeader.lua)
+    plateLine = 4,      -- a nameplate's health line height, px (Nameplates.lua)
     mpLine = true,      -- your power (mana, rage, energy...) as a bar along the screen's bottom edge
     questArrow = true,  -- the focused quest's way: its name, the yards left and a diamond arrow over its summary card (QuestPeek.lua)
     levelBanner = true, -- your level ups: ours, in the header's place and look

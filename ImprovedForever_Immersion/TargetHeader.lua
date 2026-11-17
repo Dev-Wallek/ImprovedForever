@@ -70,6 +70,12 @@ for i, reverse in ipairs({ true, false }) do
     halves[i] = { holder = holder, bar = bar }
 end
 tile:SetFrameLevel(halves[1].bar:GetFrameLevel() + 4)
+-- (the health line's thickness: the Interface tab's slider)
+function TH.ApplyLine()
+    local h = math.max(2, math.min(12, math.floor(tonumber(IN.Settings().headerLine) or LINE_H)))
+    for _, half in ipairs(halves) do half.holder:SetHeight(h) end
+end
+IF.OnLogin(function() TH.ApplyLine() end)
 -- (its raid marker over the diamond's top left: skull, cross, moon...)
 
 local function LineWidth(k)
@@ -771,10 +777,39 @@ local function Enemy()
     return ok and yes or false
 end
 
+-- Within melee range (an ability of the gamepad bar that reaches 0 is in range): the health
+-- line glows red, for a hunter keeping out of the dead zone. The answer can be secret in a
+-- fight: handed to SetAlphaFromBoolean as it is.
+local RED_ALPHA = 0.8
+for _, half in ipairs(halves) do
+    local warn = half.holder:CreateTexture(nil, "OVERLAY")
+    warn:SetAllPoints()
+    warn:SetColorTexture(1, 0.12, 0.1, 1)
+    warn:SetAlpha(0)
+    half.warn = warn
+end
+
+local function MeleeWarn()
+    local PC = IN.PlayerCast
+    local spell = IN.Settings().meleeWarn and PC and PC.MeleeSpell and PC.MeleeSpell()
+    local ok, inRange
+    if spell and Enemy() then ok, inRange = pcall(C_Spell.IsSpellInRange, spell, "target") end
+    for _, half in ipairs(halves) do
+        if not (ok and inRange ~= nil) then
+            half.warn:SetAlpha(0)
+        elseif Secret(inRange) then
+            if not Try(half.warn.SetAlphaFromBoolean, half.warn, inRange, RED_ALPHA, 0) then half.warn:SetAlpha(0) end
+        else
+            half.warn:SetAlpha(inRange and RED_ALPHA or 0)
+        end
+    end
+end
+
 local function CheckRange(elapsed)
     rangeSince = rangeSince + (elapsed or 0)
     if rangeSince < RANGE_CHECK then return end
     rangeSince = 0
+    MeleeWarn()
     local PC = IN.PlayerCast
     local spell = IN.Settings().castRange ~= false and PC and PC.RangeSpell and PC.RangeSpell()
     if not (spell and Enemy()) then return Reach(nil) end

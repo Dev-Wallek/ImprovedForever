@@ -81,7 +81,7 @@ end
 
 -- Every place and size put back to its default (the sliders' own reset buttons do one each)
 local PLACED = { "playerX", "playerY", "playerScale", "padX", "padY", "padScale", "partyX", "partyY", "headerX",
-    "headerY", "headerScale", "hudWidth", "lineHeight" }
+    "headerY", "headerScale", "hudWidth", "lineHeight", "headerLine", "plateLine" }
 local function ResetPlaces()
     local s = IN.Settings()
     for _, key in ipairs(PLACED) do s[key] = IN.DEFAULTS[key] end
@@ -89,6 +89,8 @@ local function ResetPlaces()
     ApplyBottom()
     IN.HeaderSlot.ApplyScale()
     IN.HeaderSlot.Place()
+    IN.TargetHeader.ApplyLine()
+    IN.Nameplates.ApplyLine()
     IF.Print("every place and size is back to its default.")
 end
 -- (an icon at the right end of a section's title: its first field carries it, SettingsPage's headerAction)
@@ -124,6 +126,13 @@ local ITEMS = {
         tip = "Out of reach of your longest-range harmful spell, the target's portrait turns grey and its "
             .. "health line faint.",
     }, Toggle("castRange", "Target range", function() end)),
+    Item({
+        key = "meleeWarn", group = "top", section = "Target", label = "Red line in melee range",
+        tip = "The target header's health line turns red while the target is within melee range (a melee "
+            .. "ability on your gamepad bar reaches it). For hunters: it shows when a target is too close to shoot.",
+    }, Toggle("meleeWarn", "Red line in melee range", function() end)),
+    Slide("headerLine", "top", "Target", "Target health line height", "How thick the target header's health line is, "
+        .. "in pixels.", 2, 12, 1, nil, function() IN.TargetHeader.ApplyLine() end),
     WithReset(Place("headerX", "Header: right", "Moves the header (the target, quest arrow, zone names, banners) to the "
         .. "right (left with a minus), in pixels.", -900, 900, 10)),
     Place("headerY", "Header: up", "Moves the header up (down with a minus), in pixels.", -700, 100, 10),
@@ -141,6 +150,8 @@ local ITEMS = {
             .. "colour and the level in a small circle. Your target's is full size, the others softer. Off, "
             .. "the game's own.",
     }, Toggle("nameplates", "Nameplates", function() IN.Nameplates.Apply() end)),
+    Slide("plateLine", "top", "Nameplates", "Nameplate health line height", "How thick a nameplate's health line is, "
+        .. "in pixels.", 2, 12, 1, nil, function() IN.Nameplates.ApplyLine() end),
     Item({
         key = "nameplateClassColors", group = "top", section = "Nameplates", label = "Class colours on player nameplates",
         tip = "Other players' name and health line in their class colour. Off, the name is gold like an NPC's "

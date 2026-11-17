@@ -11,6 +11,7 @@ local function Toggle(key, label)
 end
 
 local SPEEDS = { slow = "Slow", normal = "Normal", fast = "Fast" }
+local CAMERAS = { full = "Shots and pan", still = "Shots, no pan", off = "Camera stays" }
 
 local ITEMS = {
     Item({
@@ -37,6 +38,19 @@ local ITEMS = {
         tip = "In the scene, in the bottom bar: what's said and whispered near you as subtitles. Enter: a "
             .. "line to talk in (say, or /p, /g, /w name...), Enter sends, Esc drops it.",
     }, Toggle("chat", "Subtitles")),
+    Item({
+        key = "camera", group = "scene", label = "Camera",
+        tip = "What the camera does in the scene: Shots and pan (it cuts between shots round you, each held with "
+            .. "a slow pan), Shots, no pan (the cuts, each held still) or Camera stays (it doesn't move at all).",
+        value = function() return C.Settings().camera end,
+        text = function() return CAMERAS[C.Settings().camera] or CAMERAS.full end,
+        options = function()
+            local list = {}
+            for _, key in ipairs({ "full", "still", "off" }) do list[#list + 1] = { action = key, name = CAMERAS[key] } end
+            return list
+        end,
+        choose = function(action) C.Settings().camera = action end,
+    }),
     Item({
         key = "textSpeed", group = "scene", label = "Text speed",
         tip = "How fast the scene's lines come, word by word, and how long each stays: Slow, Normal or Fast.",

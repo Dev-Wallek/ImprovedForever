@@ -1168,7 +1168,8 @@ local function CameraRestore(zoomBack)
     -- (the game's dynamic pitch tilts the camera by itself while its setting is on, and what it
     -- turned stays when the setting goes back: our tally of turns can't undo it. The camera goes
     -- to its first saved view, behind you, level, and the tally starts again from there)
-    pcall(SetView, 1)
+    -- (camera off: it never moved, so it isn't put back either)
+    if C.Settings().camera ~= "off" then pcall(SetView, 1) end
     yawDeg, pitchDeg = 0, 0
     if zoomBack and saved.zoom then
         SetCVarSafe("cameraZoomSpeed", CUT_ZOOM_SPEED)
@@ -1255,7 +1256,13 @@ local function FirstShot() return OPENERS[math.random(#OPENERS)] end
 local function Shot(i)
     shot, shotT = i, 0
     local s = SHOTS[i]
+    local mode = C.Settings().camera
     Cut(function()
+        -- (camera off: it stays where it is, only the picture cuts)
+        if mode == "off" then
+            wordsX, wordsY = (s.words or 0) * WORDS_X, s.wordsY or WORDS_Y
+            return 0
+        end
         SetCVarSafe("cameraZoomSpeed", CUT_ZOOM_SPEED)
         SetCVarSafe("test_cameraOverShoulder", s.shoulder)
         SetCVarSafe("test_cameraDynamicPitchBaseFovPad", s.pad)
@@ -1264,7 +1271,8 @@ local function Shot(i)
         return TurnTo(s.yaw, s.pitch)
     end, function()
         Pitch(0)
-        Yaw(s.pan / yawRate)
+        -- (still: the shot held, no slow pan)
+        if mode == "full" or mode == nil then Yaw(s.pan / yawRate) end
     end)
 end
 

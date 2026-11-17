@@ -55,9 +55,15 @@ end
 ---------------------------------------------------------------------------
 local pool = {}
 
+-- (the line's thickness: the Interface tab's slider)
+local function LineH()
+    local s = IN.Settings and IN.Settings()
+    return math.max(2, math.min(12, math.floor(tonumber(s and s.plateLine) or LINE_H)))
+end
+
 local function Build()
     local p = CreateFrame("Frame", nil, UIParent)
-    p:SetSize(W, LINE_H)
+    p:SetSize(W, LineH())
     p:SetFrameStrata("LOW")
     p:EnableMouse(false)
     p:Hide()
@@ -593,6 +599,15 @@ local function Safe(fn, ...)
         broken = true
         for unit in pairs(active) do Release(unit) end
         IF.Print("Immersion: the nameplates stopped after an error: " .. tostring(err))
+    end
+end
+
+-- (the lines' thickness again, on the plates in use and the ones kept)
+function N.ApplyLine()
+    local h = LineH()
+    for _, p in ipairs(pool) do p:SetHeight(h) end
+    for _, a in pairs(active) do
+        if a.ours then a.ours:SetHeight(h) end
     end
 end
 

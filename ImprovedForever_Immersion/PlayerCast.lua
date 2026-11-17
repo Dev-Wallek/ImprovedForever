@@ -465,16 +465,25 @@ end
 local function PickSpell()
     local BT = IN.BuffTimeline
     if not (BT and BT.PadSlots and BT.SpellOf) or IF.InCombat() then return end
-    local best
+    local best, melee
     for _, slot in ipairs(BT.PadSlots()) do
         local id = BT.SpellOf(slot.storage)
         local ok, harmful = pcall(C_Spell.IsSpellHarmful, id or 0)
         if id and ok and harmful == true then
             local reach = Reach(id)
             if reach and (not best or reach > best.reach) then best = { id = id, reach = reach } end
+            -- (a melee ability reaches 0: in its range the target is within a few yards)
+            if reach == 0 and not melee then melee = id end
         end
     end
     range.spell = best
+    range.melee = melee
+end
+
+-- A harmful melee ability of the gamepad bar (its ID), or nil: the target is within melee range
+-- while it is in range (hunters' dead zone)
+function PlayerCast.MeleeSpell()
+    return range.melee
 end
 
 -- The spell whose range is your reach (its ID), or nil

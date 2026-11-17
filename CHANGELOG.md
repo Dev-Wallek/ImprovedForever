@@ -1,5 +1,18 @@
 # Changelog
 
+## Immersion (next)
+
+- Settings: "Target health line height" and "Nameplate health line height" sliders make the target header's and the nameplates' health lines thicker (Target and Nameplates sections); the reset-all button puts them back.
+- Settings: "Red line in melee range" (Target section, off by default): the target header's health line turns red while the target is within melee range, for hunters keeping out of the dead zone. It needs a melee ability on your gamepad bar.
+
+## Vibration (next)
+
+- New event "Quest turned in" (Progress): a triple tick when you hand in a quest.
+
+## Camp (next)
+
+- Settings: "Camera" picks what the scene's camera does: shots with a slow pan (as before), shots held still, or the camera staying where it is.
+
 ## Core (next)
 
 - `/if report`: when the game blocks an action ("forbidden", "blocked"), a window with a text to copy and paste in a comment or an issue: the action and addon the game named, where it happened (instance, zone, combat), and the Improved Forever and other addons loaded. Every blocked action is logged for it; the chat tells you once to use it. `/if clearreport` empties the log.

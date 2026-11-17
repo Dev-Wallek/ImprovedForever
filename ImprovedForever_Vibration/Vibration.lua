@@ -263,6 +263,8 @@ V.EVENTS = {
             .. " D-pad or a new page)." },
     { key = "levelUp", group = "progress", label = "Level up", icon = EVENT_ICONS .. "levelup", on = true,
         pattern = "rise", tip = "You reach a new level." },
+    { key = "questDone", group = "progress", label = "Quest turned in", icon = EVENT_ICONS .. "levelup", on = true,
+        pattern = "triple", tip = "You hand in a quest." },
 }
 local EVENT = {}
 for _, e in ipairs(V.EVENTS) do EVENT[e.key] = e end
@@ -1489,6 +1491,7 @@ local CAST_HANDLERS = {
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_LEVEL_UP")
+events:RegisterEvent("QUEST_TURNED_IN")
 -- (melee auto-attack starting; ranged's is START_AUTOREPEAT_SPELL)
 events:RegisterEvent("PLAYER_ENTER_COMBAT")
 events:RegisterEvent("START_AUTOREPEAT_SPELL")
@@ -1503,6 +1506,8 @@ events:SetScript("OnEvent", function(_, event, ...)
     if not IF.db then return end
     if event == "PLAYER_LEVEL_UP" then
         V.Fire("levelUp")
+    elseif event == "QUEST_TURNED_IN" then
+        V.Fire("questDone")
     elseif event == "PLAYER_ENTER_COMBAT" then
         -- (started by an ability: its own feel just played, kept)
         if last.instant and GetTime() - last.instant < 0.3 then return end
