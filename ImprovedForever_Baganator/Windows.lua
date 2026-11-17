@@ -219,10 +219,10 @@ local function Watch(win, close, root)
             if BG.Settings().switch then v.sw:Update() end
         end
         -- (the legend's L2 / R2 entry follows the game's windows coming and going)
+        -- (the switch hands out the same table while its entry stays the same)
         local hint = v.nav.hint()
-        local hintId = hint and hint[1] .. hint[3]
-        if hintId ~= v.hintId then
-            v.hintId = hintId
+        if hint ~= v.hint then
+            v.hint = hint
             v.nav:ShowLegend()
         end
         local binding = IF.BindPanel.Shown()

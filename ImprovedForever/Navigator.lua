@@ -62,9 +62,8 @@ use:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -20, 20)
 use:RegisterForClicks("AnyDown", "AnyUp")
 use:SetAttribute("useOnKeyDown", false)
 local BINDS = { PAD1 = "LeftButton", PAD3 = "RightButton" }
-local function Action(key)
-    return "CLICK " .. use:GetName() .. ":" .. BINDS[key]
-end
+local ACTIONS = {}
+for key, mouse in pairs(BINDS) do ACTIONS[key] = "CLICK " .. use:GetName() .. ":" .. mouse end
 
 local function Merchant()
     return _G.MerchantFrame and MerchantFrame:IsShown() or false
@@ -92,10 +91,17 @@ local function Wanted(f)
     return { type1 = "click", clickbutton1 = f }
 end
 
--- (what the secure button is set to: changed out of combat only)
+-- (what the secure button is set to: changed out of combat only, and only
+-- when its element, item slot or the merchant's being open changed)
 local set = {}
+local aimed = {}
 local function Aim(f)
     if InCombatLockdown() then return end
+    local merchant = Merchant()
+    local bag, slot
+    if f then bag, slot = Slot(f) end
+    if aimed.f == f and aimed.bag == bag and aimed.slot == slot and aimed.merchant == merchant then return end
+    aimed.f, aimed.bag, aimed.slot, aimed.merchant = f, bag, slot, merchant
     local want = Wanted(f)
     for key, value in pairs(set) do
         if want[key] ~= value then use:SetAttribute(key, nil) end
@@ -132,7 +138,7 @@ end
 local function Bound()
     for key in pairs(BINDS) do
         local ok, now = pcall(GetBindingAction, key, true)
-        if not (ok and now == Action(key)) then return false end
+        if not (ok and now == ACTIONS[key]) then return false end
     end
     return true
 end
@@ -230,7 +236,14 @@ local SCROLL = { "PADRSTICK", "RS", "Scroll" }
 local SEARCH = { "PADBACK", "BACK", "Search" }
 local MORE = { "PAD4", "Y", "More" }
 local LEGENDS = {}
+-- (the last call's, so the key is built only when an entry changes: asked every frame)
+local last = {}
 local function Entries(scroll, a, x, b, search, more, hint)
+    if last.defs and last.scroll == scroll and last.a == a and last.x == x and last.b == b
+        and last.search == search and last.more == more and last.hint == hint then
+        return last.defs
+    end
+    last.scroll, last.a, last.x, last.b, last.search, last.more, last.hint = scroll, a, x, b, search, more, hint
     local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b .. "|" .. tostring(search) .. "|" .. tostring(more)
         .. "|" .. (hint and hint[1] .. hint[3] or "")
     if not LEGENDS[key] then
@@ -244,7 +257,8 @@ local function Entries(scroll, a, x, b, search, more, hint)
         defs[#defs + 1] = { "PAD2", "B", b }
         LEGENDS[key] = defs
     end
-    return LEGENDS[key]
+    last.defs = LEGENDS[key]
+    return last.defs
 end
 
 -- (typing: an edit box of the window has the keyboard, B leaves it)
@@ -290,8 +304,9 @@ end
 
 -- The box the right stick scrolls: the chosen element's, else the first that can
 function Nav:Box()
+    if not self.boxes then return nil end
     local first
-    for _, box in ipairs(self.boxes or {}) do
+    for _, box in ipairs(self.boxes) do
         if box:IsVisible() and box:HasScrollableExtent() then
             if Holds(box, self.sel) then return box end
             first = first or box
@@ -424,7 +439,7 @@ function Nav:Select(f)
         return self:ShowLegend()
     end
     self.x, self.y = Center(f)
-    self.slotKey = table.concat({ Slot(f) }, " ")
+    self.bag, self.slot = Slot(f)
     self.cursor:Point(f)
     Hover(f, true)
     Aim(f)
@@ -536,9 +551,9 @@ local function Tick(self, elapsed)
         if self.menu then self.menu:Close() end
         return self:Select((self.x and Nearest(list, self.x, self.y)) or First(list))
     end
-    local key = table.concat({ Slot(f) }, " ")
-    if key ~= self.slotKey then
-        self.slotKey = key
+    local bag, slot = Slot(f)
+    if bag ~= self.bag or slot ~= self.slot then
+        self.bag, self.slot = bag, slot
         if self.menu then self.menu:Close() end
         Hover(f, true)
     end

@@ -473,6 +473,21 @@ local CHECKS = {
             "the menu has the item's title and entries: " .. table.concat(kinds, ","))
         nav.menu:Close()
     end },
+    -- (a switch's legend entry: the same table while it stays the same, a new one when it changes)
+    { name = "switch hint kept", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Focus and IF.Focus.Switch) then return end
+        local label = "Character"
+        local sw = IF.Focus.Switch(CreateFrame("Frame"), { label = function() return label end })
+        -- (never holding the pad, which the other checks look at)
+        sw.focus = "game"
+        sw.Behind = function() return label, "LT" end
+        local first = sw:Hint()
+        if sw:Hint() ~= first then error("a new table for the same entry", 0) end
+        label = "Bank"
+        local second = sw:Hint()
+        if second == first or second[3] ~= "Bank" then error("the old table for a changed entry", 0) end
+    end },
     -- (the navigator's legend names the window switch's L2 / R2 just before B, while nav.hint gives one)
     { name = "navigator legend switch", fn = function()
         local IF = rawget(_G, "ImprovedForever")
