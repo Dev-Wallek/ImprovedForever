@@ -99,8 +99,9 @@ end
 local stickCapture = CreateFrame("Frame", nil, ring)
 stickCapture:SetAllPoints(ring)
 if stickCapture.EnableGamePadStick then
-    stickCapture:EnableGamePadStick(true)
     stickCapture:SetScript("OnGamePadStick", function() end)
+    -- (setting a handler turns the capture on by itself: off until the aim stick is pushed, below)
+    stickCapture:EnableGamePadStick(false)
 end
 
 -- After the ring closes (a slot used, Circle) the right stick is often
@@ -123,6 +124,31 @@ local function AimStickPushed()
     local stick = state and state.sticks and state.sticks[ring:GetAttribute("ic-stick") or 0]
     return stick and stick.x and stick.y and stick.x * stick.x + stick.y * stick.y > RELEASE_SQ or false
 end
+
+-- The sticks are taken only while the aim (right) stick is pushed. A frame taking the sticks stops a
+-- character already walking for as long as it is shown (the left stick then reaches the game only as
+-- keys, past a threshold it has already crossed), so with the wheel up and the aim stick still the
+-- character keeps walking; pushing the aim stick takes both, as before.
+local AIM_ON_SQ, AIM_OFF_SQ = 0.3 * 0.3, 0.2 * 0.2
+local capturing = false
+local function SetCapture(on)
+    if on == capturing then return end
+    capturing = on
+    if stickCapture.EnableGamePadStick then stickCapture:EnableGamePadStick(on) end
+end
+local aimWatch = CreateFrame("Frame", nil, ring)
+aimWatch:SetScript("OnUpdate", function()
+    local state
+    if C_GamePad and C_GamePad.GetDeviceMappedState then
+        local ok, result = pcall(C_GamePad.GetDeviceMappedState, C_GamePad.GetActiveDeviceID())
+        if ok then state = result end
+    end
+    local stick = type(state) == "table" and state.sticks and state.sticks[ring:GetAttribute("ic-stick") or 0]
+    local lengthSq = stick and type(stick.x) == "number" and type(stick.y) == "number"
+        and stick.x * stick.x + stick.y * stick.y or 0
+    SetCapture(lengthSq > (capturing and AIM_OFF_SQ or AIM_ON_SQ))
+end)
+aimWatch:SetScript("OnHide", function() SetCapture(false) end)
 
 afterCapture:SetScript("OnUpdate", function(self, elapsed)
     self.held = (self.held or 0) + elapsed

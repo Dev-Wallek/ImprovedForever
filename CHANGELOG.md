@@ -19,6 +19,7 @@
 
 ## Wheel (next)
 
+- Fixed: opening a wheel no longer stops a character that is already walking with the left stick. The wheel takes the sticks only while you push the right stick to pick a slot (the left stick pauses then, as before) and lets go of them when it is back in the middle.
 - Fixed: the item tooltip no longer stays in the middle of the screen after you use an item from a wheel.
 
 ## Immersion 0.13.0
