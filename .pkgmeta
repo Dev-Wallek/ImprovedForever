@@ -27,4 +27,3 @@ ignore:
   - .github
   - .gitignore
   - .env
-  - tpl.lua

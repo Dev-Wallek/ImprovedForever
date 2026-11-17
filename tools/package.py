@@ -7,8 +7,8 @@ each on its own version, its TOC's):
 
 Each addon folder holds what the game loads: its TOC and the files it lists,
 its Bindings.xml, the licence; the core also the TGA textures (every module's
-too), the EasyController licence, README and CHANGELOG. Tools, icon sources
-and tpl.lua (a dev reference) are left out.
+too), the EasyController licence, README and CHANGELOG. Tools (tpl.lua among
+them, a dev reference) and icon sources are left out.
 
 Usage:
     python tools/package.py              every addon, and the All zip
