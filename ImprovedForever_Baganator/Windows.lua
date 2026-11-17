@@ -175,6 +175,7 @@ local function Watch(win, close, root)
     -- (holding nothing till it shows)
     v.sw.focus = "game"
     v.nav.onAway = function() Away(win) end
+    v.nav.hint = function() return BG.Settings().switch and v.sw:Hint() or nil end
     -- (A and X go on to the navigator's bindings: a use is protected)
     -- (the press first: it forgets a stale release to swallow, which Passes reads)
     catcher:SetScript("OnGamePadButtonDown", function(self, button)
@@ -205,6 +206,13 @@ local function Watch(win, close, root)
         else
             Hush(v, false)
             if BG.Settings().switch then v.sw:Update() end
+        end
+        -- (the legend's L2 / R2 entry follows the game's windows coming and going)
+        local hint = v.nav.hint()
+        local hintId = hint and hint[1] .. hint[3]
+        if hintId ~= v.hintId then
+            v.hintId = hintId
+            v.nav:ShowLegend()
         end
         local binding = IF.BindPanel.Shown()
         if binding ~= v.binding then

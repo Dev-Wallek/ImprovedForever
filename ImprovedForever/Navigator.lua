@@ -25,6 +25,8 @@
 --     (all its shown ones, wherever they sit), else those of win inside it
 --   nav:Set(on): on while win has the pad (IF.Focus), never in combat
 --   nav.onAway: set by the caller, run on the Select that lets the pad go
+--   nav.hint: set by the caller, returns the window switch's legend entry
+--     (IF.Focus.Switch's Hint) or nil; call nav:ShowLegend() when it changes
 --   nav:Press(button, down) -> true when it took the press (the D-pad,
 --     Select, Y, B while typing, any while the menu is up, the release of
 --     one held as the navigator came on or the menu took it)
@@ -228,8 +230,9 @@ local SCROLL = { "PADRSTICK", "RS", "Scroll" }
 local SEARCH = { "PADBACK", "BACK", "Search" }
 local MORE = { "PAD4", "Y", "More" }
 local LEGENDS = {}
-local function Entries(scroll, a, x, b, search, more)
+local function Entries(scroll, a, x, b, search, more, hint)
     local key = tostring(scroll) .. "|" .. a .. "|" .. (x or "") .. "|" .. b .. "|" .. tostring(search) .. "|" .. tostring(more)
+        .. "|" .. (hint and hint[1] .. hint[3] or "")
     if not LEGENDS[key] then
         local defs = { MOVE }
         if scroll then defs[#defs + 1] = SCROLL end
@@ -237,6 +240,7 @@ local function Entries(scroll, a, x, b, search, more)
         if x then defs[#defs + 1] = { "PAD3", "X", x } end
         if more then defs[#defs + 1] = MORE end
         if search then defs[#defs + 1] = SEARCH end
+        if hint then defs[#defs + 1] = hint end
         defs[#defs + 1] = { "PAD2", "B", b }
         LEGENDS[key] = defs
     end
@@ -244,14 +248,15 @@ local function Entries(scroll, a, x, b, search, more)
 end
 
 -- (typing: an edit box of the window has the keyboard, B leaves it)
-local function Legend(f, scroll, search, typing)
+-- (hint: the window switch's entry, IF.Focus.Switch's Hint, or nil)
+local function Legend(f, scroll, search, typing, hint)
     local b = typing and "Back" or CursorHasItem() and "Put back" or "Close"
     search = search and not typing
-    if not f then return Entries(scroll, "Select", nil, b, search) end
-    if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b, search) end
-    if not Slot(f) then return Entries(scroll, "Select", nil, b, search) end
+    if not f then return Entries(scroll, "Select", nil, b, search, nil, hint) end
+    if f:GetObjectType() == "EditBox" then return Entries(scroll, "Edit", nil, b, search, nil, hint) end
+    if not Slot(f) then return Entries(scroll, "Select", nil, b, search, nil, hint) end
     local held = CursorHasItem()
-    return Entries(scroll, held and "Place" or "Pick up", Merchant() and "Sell" or "Use", b, search, not (held or typing))
+    return Entries(scroll, held and "Place" or "Pick up", Merchant() and "Sell" or "Use", b, search, not (held or typing), hint)
 end
 
 -- The scroll boxes under f (the game's ScrollBox, Baganator's lists and views)
@@ -398,7 +403,8 @@ end
 
 -- Beside the window, on the side toward the screen's centre, bottoms level
 function Nav:ShowLegend()
-    local defs = self.on and not self:MenuShown() and Legend(self.sel, self:Box() ~= nil, self:SearchBox() ~= nil, self:Typing() ~= nil) or nil
+    local defs = self.on and not self:MenuShown() and Legend(self.sel, self:Box() ~= nil, self:SearchBox() ~= nil,
+        self:Typing() ~= nil, self.hint and self.hint()) or nil
     if defs == self.legend.defs then return end
     self.legend:Set(defs)
     if not defs then return end

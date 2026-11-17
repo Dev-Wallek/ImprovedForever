@@ -461,6 +461,23 @@ local CHECKS = {
             "the menu has the item's title and entries: " .. table.concat(kinds, ","))
         nav.menu:Close()
     end },
+    -- (the navigator's legend names the window switch's L2 / R2 just before B, while nav.hint gives one)
+    { name = "navigator legend switch", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Navigator and IF.InputLegend) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local nav = IF.Navigator.New(CreateFrame("Frame"))
+        nav.on = true
+        local hint = { "PADRTRIGGER", "RT", "Character", pad = true }
+        nav.hint = function() return hint end
+        nav:ShowLegend()
+        local defs = nav.legend.defs
+        check(defs and defs[#defs - 1] == hint and defs[#defs][1] == "PAD2", "the switch's entry just before B")
+        hint = nil
+        nav:ShowLegend()
+        defs = nav.legend.defs
+        check(defs and defs[#defs - 1][1] ~= "PADRTRIGGER", "no switch: no entry")
+    end },
     -- (Baganator's backpack and bank open beside an unseen game window (the
     -- game's bank, Baganator hides it): closing the backpack with B hands
     -- the pad straight to the bank, and one B then closes that)
