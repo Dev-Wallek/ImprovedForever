@@ -20,6 +20,13 @@
   "seen": 8733405,
   "status": "resolved"
  },
+ "8665086": {
+  "date": "2026-11-17",
+  "note": "Use on release exists (Wheel 0.13.0)",
+  "project": "improved-forever-wheel",
+  "seen": 8665086,
+  "status": "resolved"
+ },
  "8669934": {
   "date": "2026-11-17",
   "note": "players chatting about download numbers",
@@ -27,9 +34,23 @@
   "seen": 8686983,
   "status": "resolved"
  },
+ "8671679": {
+  "date": "2026-11-17",
+  "note": "Forever blocks the minimap; labels return when it answers",
+  "project": "improved-forever-minimap",
+  "seen": 8734847,
+  "status": "resolved"
+ },
+ "8673636": {
+  "date": "2026-11-17",
+  "note": "player comment about the Party casting idea, nothing asked",
+  "project": "improved-forever",
+  "seen": 8681191,
+  "status": "ignore"
+ },
  "8676474": {
   "date": "2026-11-17",
-  "note": "R3 ping workaround given, they confirmed (lock/unlock cursor key still on the list)",
+  "note": "R3 ping workaround given, they confirmed",
   "project": "improved-forever",
   "seen": 8679986,
   "status": "resolved"
@@ -48,6 +69,13 @@
   "seen": 8733443,
   "status": "resolved"
  },
+ "8679218": {
+  "date": "2026-11-17",
+  "note": "asked: which keys stop, other addons; /if report after release",
+  "project": "improved-forever",
+  "seen": 8734850,
+  "status": "noted"
+ },
  "8680308": {
   "date": "2026-11-17",
   "note": "Camp 0.1.3",
@@ -55,11 +83,32 @@
   "seen": 8733459,
   "status": "resolved"
  },
+ "8680322": {
+  "date": "2026-11-17",
+  "note": "no fish-bite event in Forever",
+  "project": "improved-forever-fishing",
+  "seen": 8734846,
+  "status": "resolved"
+ },
+ "8680588": {
+  "date": "2026-11-17",
+  "note": "many layout asks; Action bar toggle + sliders exist",
+  "project": "improved-forever-immersion",
+  "seen": 8734864,
+  "status": "noted"
+ },
  "8681402": {
   "date": "2026-11-17",
   "note": "thicker header/nameplate bars + HP numbers",
   "project": "improved-forever-immersion",
   "seen": 8733450,
+  "status": "noted"
+ },
+ "8682231": {
+  "date": "2026-11-17",
+  "note": "Use on release exists; touchpad corners flaky + focus switch lost noted (Chinese)",
+  "project": "improved-forever",
+  "seen": 8734845,
   "status": "noted"
  },
  "8682570": {
@@ -111,6 +160,13 @@
   "seen": 8734758,
   "status": "fixed"
  },
+ "8688885": {
+  "date": "2026-11-17",
+  "note": "they found the workaround themselves (Hide Blizzard Tooltips off)",
+  "project": "improved-forever-auction",
+  "seen": 8699716,
+  "status": "resolved"
+ },
  "8688925": {
   "date": "2026-11-17",
   "note": "NPC reticle + portrait over action bar",
@@ -139,6 +195,20 @@
   "seen": 8733402,
   "status": "resolved"
  },
+ "8693345": {
+  "date": "2026-11-17",
+  "note": "nameplate distance; red line in melee range next update",
+  "project": "improved-forever-immersion",
+  "seen": 8734863,
+  "status": "noted"
+ },
+ "8693942": {
+  "date": "2026-11-17",
+  "note": "category-sorted bag layout",
+  "project": "improved-forever-junk",
+  "seen": 8734866,
+  "status": "noted"
+ },
  "8694218": {
   "date": "2026-11-17",
   "note": "Map bind: single button only",
@@ -153,6 +223,13 @@
   "seen": 8734757,
   "status": "fixed"
  },
+ "8695811": {
+  "date": "2026-11-17",
+  "note": "map size on Steam Deck",
+  "project": "improved-forever-map",
+  "seen": 8734867,
+  "status": "noted"
+ },
  "8697171": {
   "date": "2026-11-17",
   "note": "camp: switch off camera panning",
@@ -165,6 +242,13 @@
   "note": "all 4 bars, L3/R3/Start, bottom middle",
   "project": "improved-forever",
   "seen": 8733466,
+  "status": "noted"
+ },
+ "8698916": {
+  "date": "2026-11-17",
+  "note": "bag list sorted by price",
+  "project": "improved-forever-junk",
+  "seen": 8734865,
   "status": "noted"
  },
  "8700384": {
@@ -181,6 +265,13 @@
   "seen": 8733464,
   "status": "resolved"
  },
+ "8707613": {
+  "date": "2026-11-17",
+  "note": "asked: quest, tracker, version",
+  "project": "improved-forever-quest-tracker",
+  "seen": 8734851,
+  "status": "noted"
+ },
  "8707782": {
   "date": "2026-11-17",
   "note": "auction search with the pad",
@@ -193,6 +284,13 @@
   "note": "arrow overlap header, distance marker",
   "project": "improved-forever-immersion",
   "seen": 8733452,
+  "status": "noted"
+ },
+ "8708941": {
+  "date": "2026-11-17",
+  "note": "asked: which wheel/buttons, version; dependency link 404 noted",
+  "project": "improved-forever-wheel",
+  "seen": 8734856,
   "status": "noted"
  },
  "8709166": {
@@ -230,6 +328,13 @@
   "seen": 8733465,
   "status": "noted"
  },
+ "8712792": {
+  "date": "2026-11-17",
+  "note": "asked: Use on release on?, version, which wheel",
+  "project": "improved-forever-wheel",
+  "seen": 8734852,
+  "status": "noted"
+ },
  "8712952": {
   "date": "2026-11-17",
   "note": "R3 ping",
@@ -244,6 +349,13 @@
   "seen": 8733397,
   "status": "resolved"
  },
+ "8715957": {
+  "date": "2026-11-17",
+  "note": "all quest rewards when more than 2 (Steam Deck)",
+  "project": "improved-forever-immersion",
+  "seen": 8734859,
+  "status": "noted"
+ },
  "8717307": {
   "date": "2026-11-17",
   "note": "wheel item tooltip stuck (8ce26af)",
@@ -257,6 +369,20 @@
   "project": "improved-forever-camp",
   "seen": 8733461,
   "status": "noted"
+ },
+ "8718316": {
+  "date": "2026-11-17",
+  "note": "more customization; line thickness sliders next update",
+  "project": "improved-forever-immersion",
+  "seen": 8734862,
+  "status": "noted"
+ },
+ "8718662": {
+  "date": "2026-11-17",
+  "note": "cards: focused + group card, Body > Sidebar size",
+  "project": "improved-forever-immersion",
+  "seen": 8734848,
+  "status": "resolved"
  },
  "8719599": {
   "date": "2026-11-17",
@@ -292,6 +418,20 @@
   "project": "improved-forever-quest-tracker",
   "seen": 8733407,
   "status": "fixed"
+ },
+ "8725498": {
+  "date": "2026-11-17",
+  "note": "asked: popup text, addon name, other bag addon; /if report after release",
+  "project": "improved-forever",
+  "seen": 8734849,
+  "status": "noted"
+ },
+ "8726360": {
+  "date": "2026-11-17",
+  "note": "plain touchpad bind with corners on; healer party frames",
+  "project": "improved-forever",
+  "seen": 8734857,
+  "status": "noted"
  },
  "8726799": {
   "date": "2026-11-17",
@@ -330,9 +470,30 @@
  },
  "8730103": {
   "date": "2026-11-17",
-  "note": "Quest cards hides tracker",
+  "note": "game's own tracker hidden by Immersion when QuestTracker is absent (6ff97cc); totem bar noted",
   "project": "improved-forever-immersion",
-  "seen": 8733453,
-  "status": "resolved"
+  "seen": 8734842,
+  "status": "fixed"
+ },
+ "8730116": {
+  "date": "2026-11-17",
+  "note": "shaman weapon buffs in the buff row",
+  "project": "improved-forever-immersion",
+  "seen": 8734861,
+  "status": "noted"
+ },
+ "8732757": {
+  "date": "2026-11-17",
+  "note": "Spoken after quest pickup; nameplate opacity",
+  "project": "improved-forever-immersion",
+  "seen": 8734860,
+  "status": "noted"
+ },
+ "8733747": {
+  "date": "2026-11-17",
+  "note": "General switch for the double tap of Menu (a4112b9)",
+  "project": "improved-forever",
+  "seen": 8734843,
+  "status": "fixed"
  }
 }
