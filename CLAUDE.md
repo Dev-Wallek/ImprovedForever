@@ -23,7 +23,8 @@ focus the way Forever's native windows do. The shared code is
 - Never set a property of the game's frames (`SetAlpha`, `Hide`, `SetPoint`...)
   from addon code: it taints them, and closing a gamepad-focused window later
   gets `SetPreferredGamepadInteractTarget` forbidden. To hide one, use
-  `IF.Focus.Fade(region, true)` (an animation of ours aimed at it).
+  `IF.Focus.Fade(region, true)` (an animation of ours aimed at it). Only the
+  exceptions in `docs/taint.md` may break this.
 - Never add our frames to the game's managed frames
   (`RightManagedFrameContainer:AddManagedFrame`): it lays them out tainted and
   resizes the objective tracker from addon code.
@@ -43,7 +44,8 @@ focus the way Forever's native windows do. The shared code is
 - Never call the frame manager's `Focus*` / `FrameShown` / `ShowUIPanel` from
   addon code. Only read `GamepadMode.FrameControlsManager`
   (`shownFrames`, `focusedFrame`, `isUIFocused`). Calling them taints window
-  closing (ADDON_ACTION_BLOCKED on SetPreferredGamepadInteractTarget).
+  closing (ADDON_ACTION_BLOCKED on SetPreferredGamepadInteractTarget). Only
+  the exceptions in `docs/taint.md` may break this.
 - Take the pad with a catcher frame (`EnableGamePadButton`). Call
   `EnableGamePadButton(false)` right after `SetScript`, because setting the
   handler turns input on.
@@ -158,7 +160,7 @@ variables instead of the chat, then read the file:
 - The game writes it to disk only on `/reload` or logout. Ask the user to run
   the probe, `/reload`, and say when it's done.
 - Read it from
-  `/Applications/World of Warcraft/_classic_era_/WTF/Account/<account>/SavedVariables/ImprovedForever.lua`
+  `World of Warcraft/_forever_/WTF/Account/<account>/SavedVariables/ImprovedForever.lua`
   (per-character data: `ImprovedForeverCharDB` under
   `WTF/Account/<account>/<realm>/<character>/SavedVariables/`).
 - To find which event comes with something, log every event while it
@@ -171,29 +173,11 @@ variables instead of the chat, then read the file:
   `IF.db.fishLog = nil` in the module's `Settings()`), so the saved variables
   stay small.
 
-## Debugging a taint error
-For `ADDON_ACTION_FORBIDDEN` / blocked (e.g. `SetPreferredGamepadInteractTarget()`
-when a gamepad-focused window closes):
-- Note the addon the error names each time: several modules can taint the
-  same game state, and the name changes as one is fixed.
-- Repeat each test 3+ times: the error can be intermittent.
-- Taint log: `/console taintLog 1`, reproduce, `/console taintLog 0`, then
-  `/reload`, and read `_classic_era_/Logs/taint.log`. It restarts on every
-  `/reload` while on. Don't use level 2: it can flood and freeze the game.
-- Taint sources found so far:
-  - our code filling the game's shared caches first (`QuestCache:Get`,
-    `QuestUtil.CanCreateQuestGroup`) or adding to its shared async listeners
-    (`QuestEventListener:AddCallback`): keep our own copies
-  - the game's `EventRegistry` frame events (`EventUtil.ContinueAfterAllEvents`,
-    `RegisterFrameEventAndCallback`): their counts live in attributes of one
-    shared frame, ours writes them tainted, and the game's own waiter (the
-    objective tracker's `Init`) then runs tainted, in sessions where ours ran
-    first. Wait on our own frame
-  - setting properties of the game's frames: use `IF.Focus.Fade`
-  - `AddManagedFrame` into the game's columns
-  - taking, passing on or binding the game's pad buttons while its window has
-    focus
-  - calling the game's window code that drives SmartNavigation
+## Taint
+Before setting anything on a game frame, calling the game's window, frame
+manager or SmartNavigation code, or debugging `ADDON_ACTION_BLOCKED` /
+forbidden, read `docs/taint.md`: how to debug one, the taint sources found
+so far, and the only exceptions to the rules above.
 
 ## Checks
 - `luajit -bl <file>` for syntax.
