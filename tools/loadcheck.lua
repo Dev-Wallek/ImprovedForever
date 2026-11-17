@@ -417,8 +417,8 @@ local CHECKS = {
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
     end },
-    -- (the Immersion module: its settings filled once, /if perf timing a handler and saving its log)
-    { name = "immersion settings and perf", fn = function()
+    -- (the Immersion module: its settings filled once)
+    { name = "immersion settings", fn = function()
         local IF = rawget(_G, "ImprovedForever")
         local IN = IF and IF.Interface
         if not IN then return end
@@ -426,32 +426,47 @@ local CHECKS = {
         IF.db.plateLog = {}
         assert(s.player == true and IN.Settings() == s and IF.db.plateLog, "Settings: not filled once")
         IF.db.plateLog = nil
+    end },
+    -- (/if perf: a handler timed, a focus change and the events since in the timeline, every
+    -- addon's spikes and each of ours, all in the saved log)
+    { name = "perf", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local function check(ok, msg) if not ok then error(msg, 0) end end
         -- (each metric read counts up, so every loaded addon gains frames over 5 ms during the run)
         local reads, profiler = 0, rawget(_G, "C_AddOnProfiler")
         C_AddOnProfiler = { IsEnabled = function() return true end,
             GetAddOnMetric = function() reads = reads + 1; return reads end }
         local addOns = C_AddOns
-        C_AddOns = setmetatable({ GetNumAddOns = function() return 1 end, IsAddOnLoaded = function() return true end,
-            GetAddOnInfo = function() return "Spiky" end }, { __index = addOns })
+        local names = { "Spiky", "ImprovedForever" }
+        C_AddOns = setmetatable({ GetNumAddOns = function() return 2 end, IsAddOnLoaded = function() return true end,
+            GetAddOnInfo = function(i) return names[i] end }, { __index = addOns })
         local after = C_Timer.After
         local report
         C_Timer.After = function(_, fn) report = fn end
         IF.RunCommand("perf 2")
         C_Timer.After = after
-        IN.Prof("check", function() end)()
+        IF.Prof("check", function() end)()
+        fire("UPDATE_BINDINGS")
+        fire("CVAR_UPDATE", "GamePadEmulateShift", "PADLSHOULDER")
+        IF.Binds.FocusChanged()
         report()
         C_AddOns = addOns
         rawset(_G, "C_AddOnProfiler", profiler)
-        local log = IF.db.perfLog
         local has = {}
-        for _, line in ipairs(log or {}) do
+        for _, line in ipairs(IF.db.perfLog or {}) do
             if line:find("^check: .*slowest call") then has.row = true end
-            if line:find("^  check: ") then has.slowest = true end
-            if line:find("^module: ") then has.module = true end
-            if line:find("^addons with frames over 5 ms: Spiky %d") then has.spikes = true end
+            -- (every call takes 0 here: any handler may head the slowest)
+            if line == "slowest single calls:" then has.slowest = true end
+            if line:find("^addon ImprovedForever: ") then has.addon = true end
+            if line:find("^addons with frames over 5 ms: .*Spiky %d") then has.spikes = true end
+            if line:find("^focus: overrides: ") then has.part = true end
+            if line:find("focus changed, in game .* ms %(since last: CVAR_UPDATE GamePadEmulateShift 1, UPDATE_BINDINGS 1%)") then
+                has.note = true
+            end
         end
-        assert(has.row and has.slowest and has.module and has.spikes,
-            "perf: a row, the slowest calls, the module or the addons' spikes missing")
+        check(has.row and has.slowest, "perf: a handler's row or its slowest call missing")
+        check(has.addon and has.spikes, "perf: our addon's figure or the addons' spikes missing")
+        check(has.part and has.note, "perf: the focus change's parts or its timeline line missing")
     end },
 }
 

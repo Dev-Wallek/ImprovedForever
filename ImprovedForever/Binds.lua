@@ -376,12 +376,17 @@ function B.PadOverrides()
 end
 
 -- The focus moved: every world binding re-applied (each one checks B.InGame)
+local function ApplyAll()
+    if IF.ApplyRingBindings then IF.Run("focus: ring bindings", IF.ApplyRingBindings) end
+    if IF.MyWheels then IF.Run("focus: wheel keys", IF.MyWheels.ApplyWheelKeys) end
+    if IF.Override then IF.Run("focus: overrides", IF.Override.Apply) end
+    if IF.Touch then IF.Run("focus: touchpad", IF.Touch.Apply) end
+end
+
 function B.FocusChanged()
     if IF.InCombat() or not IF.db then return end
-    if IF.ApplyRingBindings then IF.ApplyRingBindings() end
-    if IF.MyWheels then IF.MyWheels.ApplyWheelKeys() end
-    if IF.Override then IF.Override.Apply() end
-    if IF.Touch then IF.Touch.Apply() end
+    local took = IF.Run("focus changed", ApplyAll)
+    if took then IF.Note(("focus changed, in game %s: %.2f ms"):format(tostring(B.InGame()), took)) end
 end
 
 local focus = CreateFrame("Frame")
