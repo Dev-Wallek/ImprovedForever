@@ -305,19 +305,26 @@ function Switch:Behind()
     if not f then return nil end
     local key = self:LeftOfUs(f) and "LT" or "RT"
     local label = self.opts.label and self.opts.label(f)
-    if not label then
-        local ok, l = pcall(function() return f.GetJumpHintLabel and f:GetJumpHintLabel() end)
+    local get = not label and f.GetJumpHintLabel
+    if get then
+        local ok, l = pcall(get, f)
         label = ok and l or nil
     end
     if not label then label = key == "LT" and (_G.PREVIOUS or "Previous") or (_G.NEXT or "Next") end
     return label, key
 end
 
--- The legend's entry for it ({ button, key, label }), or nil
+-- The legend's entry for it ({ button, key, label }), or nil; the same table
+-- while it stays the same (legends ask every frame)
 function Switch:Hint()
     local label, key = self:Behind()
     if not label then return nil end
-    return { key == "LT" and "PADLTRIGGER" or "PADRTRIGGER", key, label, pad = true }
+    local hint = self.hint
+    if not (hint and hint[2] == key and hint[3] == label) then
+        hint = { key == "LT" and "PADLTRIGGER" or "PADRTRIGGER", key, label, pad = true }
+        self.hint = hint
+    end
+    return hint
 end
 
 -- (ours took the pad: every other of ours holding it lets go to it, the last one opened wins)
