@@ -184,16 +184,21 @@ function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
 -- (hooks on a table's function kept, for the checks to call them as the game would, and run
--- after a function the table has itself; the game's globals and stubs are left as they are)
+-- after a function the table has itself; a hook on a global function runs after it)
 local tableHooks = {}
 function hooksecurefunc(t, name, fn)
-    if not (type(t) == "table" and fn) then return end
-    tableHooks[#tableHooks + 1] = { name = name, fn = fn }
-    local old = rawget(t, name)
-    if type(old) ~= "function" then return end
-    rawset(t, name, function(...)
-        local r = { old(...) }
-        fn(...)
+    local target, key, hook = _G, t, name
+    if type(t) == "table" and fn then
+        tableHooks[#tableHooks + 1] = { name = name, fn = fn }
+        if type(rawget(t, name)) ~= "function" then return end
+        target, key, hook = t, name, fn
+    elseif type(t) ~= "string" then
+        return
+    end
+    local orig = target[key]
+    rawset(target, key, function(...)
+        local r = { orig(...) }
+        hook(...)
         return unpack(r)
     end)
 end
