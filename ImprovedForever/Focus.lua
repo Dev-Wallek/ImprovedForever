@@ -289,6 +289,10 @@ function Switch:Other()
     if self.front then return self.front end
     local mine = self.opts.other and Shown(self.opts.other())
     if mine then return mine end
+    -- (one of ours that let go to this one)
+    for sw in pairs(switches) do
+        if sw.front == self.win and Shown(sw.win) then return sw.win end
+    end
     return F.GameWindow(self.win)
 end
 
@@ -338,7 +342,10 @@ function Switch:Set(focus)
     -- (handed to another of ours: that one has it)
     local to = focus == "game" and self:Other()
     for sw in pairs(switches) do
-        if to and sw.win == to then sw:Set("ours") end
+        if to and sw.win == to then
+            self.front = to
+            sw:Set("ours")
+        end
     end
 end
 

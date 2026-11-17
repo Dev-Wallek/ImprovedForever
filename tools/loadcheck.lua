@@ -420,6 +420,36 @@ local CHECKS = {
         end
         M.Close()
     end },
+    -- (two of ours: the one opened last holds the pad, both name the other in
+    -- their legend, and L2 / R2 moves the pad either way)
+    { name = "focus switch between two of ours", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Focus and IF.Focus.Switch) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local function Window(x)
+            local w = CreateFrame("Frame")
+            w.__shown = true
+            function w:GetCenter() return x, 300 end
+            function w:GetEffectiveScale() return 1 end
+            return w
+        end
+        local scale = rawget(UIParent, "GetEffectiveScale")
+        rawset(UIParent, "GetEffectiveScale", function() return 1 end)
+        local left, right = Window(100), Window(500)
+        local a, b = F.Switch(left), F.Switch(right)
+        a:Take()
+        b:Take()
+        check(F.Holding() == right and a.focus == "game", "the last opened holds the pad")
+        local hint = b:Hint()
+        check(hint and hint[2] == "LT", "its legend names L2 to the other")
+        check(b:Press("LT") and F.Holding() == left, "L2 hands the pad over")
+        hint = a:Hint()
+        check(hint and hint[2] == "RT", "the other's legend names R2 back")
+        check(a:Press("RT") and F.Holding() == right, "R2 hands it back")
+        left.__shown, right.__shown = false, false
+        rawset(UIParent, "GetEffectiveScale", scale)
+    end },
     -- (the core's dropdown: an action closes it and runs; a hold entry runs
     -- only when Cross is let go after its hold, whatever else is let go)
     { name = "dropdown actions", fn = function()
