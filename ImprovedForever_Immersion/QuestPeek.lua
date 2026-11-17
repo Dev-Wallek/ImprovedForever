@@ -543,6 +543,28 @@ local function HideOld(hide)
     old:SetAlpha(hide and 0 or 1)
 end
 
+-- The game's own tracker (the box under the minimap) out of sight while the cards show, for whoever has no
+-- QuestTracker (it hides the game's tracker for its own, and the old one above is its). Never by its alpha: a
+-- property of the game's frames set from addon code taints its gamepad focus; IF.Focus.Fade, an animation of
+-- ours, draws its header, box and modules at 0 (the game's tracker keeps running unseen, as QuestTracker has it).
+-- Not in Edit Mode, where the game's shows to be placed.
+local gameFaded, gameSince = false, 1
+local function HideGameTracker(hide, elapsed)
+    if _G.IFObjectiveTrackerFrame then return end
+    local native = _G.ObjectiveTrackerFrame
+    if not native then return end
+    gameSince = gameSince + (elapsed or 0)
+    if hide == gameFaded and gameSince < 0.25 then return end
+    if not hide and not gameFaded then return end
+    gameSince = 0
+    local edit = EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive() or false
+    local want = hide and not edit
+    local parts = { native.Header, native.NineSlice }
+    for _, module in ipairs(native.modules or {}) do parts[#parts + 1] = module end
+    for _, part in ipairs(parts) do IF.Focus.Fade(part, want) end
+    gameFaded = want
+end
+
 ---------------------------------------------------------------------------
 -- The mouse: a click on a quest's lines makes it the focused quest (again: opens / shuts it in full),
 -- a right click gives its menu (QuestTracker's list, as the game's tracker). Hit areas of ours over
@@ -646,6 +668,7 @@ ticker:SetScript("OnUpdate", function(_, elapsed)
     local on = IF.db and IN.Settings().questPeek ~= false
     if on then WatchSwipe() else expanded = nil end
     HideOld(on and true or false)
+    HideGameTracker(on and true or false, elapsed)
     local id = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID()
     local focus = id ~= 0 and id or nil
     WatchPad(on and true or false)

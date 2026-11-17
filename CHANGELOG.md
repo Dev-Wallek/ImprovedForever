@@ -2,6 +2,7 @@
 
 ## Immersion (next)
 
+- Fixed: with the quest cards on and no Quest Tracker module, the game's own tracker no longer stays on screen: Immersion hides it too (not in Edit Mode), and it shows again when the cards are off.
 - Settings: "Target health line height" and "Nameplate health line height" sliders make the target header's and the nameplates' health lines thicker (Target and Nameplates sections); the reset-all button puts them back.
 - Settings: "Red line in melee range" (Target section, off by default): the target header's health line turns red while the target is within melee range, for hunters keeping out of the dead zone. It needs a melee ability on your gamepad bar.
 
