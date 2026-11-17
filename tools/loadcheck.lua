@@ -423,9 +423,11 @@ local CHECKS = {
         local IN = IF and IF.Interface
         if not IN then return end
         local s = IN.Settings()
-        assert(s.player == true and IN.Settings() == s, "Settings: not filled once")
+        IF.db.plateLog = {}
+        assert(s.player == true and IN.Settings() == s and IF.db.plateLog, "Settings: not filled once")
+        IF.db.plateLog = nil
         -- (each metric read counts up, so every loaded addon gains frames over 5 ms during the run)
-        local reads = 0
+        local reads, profiler = 0, rawget(_G, "C_AddOnProfiler")
         C_AddOnProfiler = { IsEnabled = function() return true end,
             GetAddOnMetric = function() reads = reads + 1; return reads end }
         local addOns = C_AddOns
@@ -439,6 +441,7 @@ local CHECKS = {
         IN.Prof("check", function() end)()
         report()
         C_AddOns = addOns
+        rawset(_G, "C_AddOnProfiler", profiler)
         local log = IF.db.perfLog
         local has = {}
         for _, line in ipairs(log or {}) do
