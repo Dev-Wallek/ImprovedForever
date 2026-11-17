@@ -240,9 +240,10 @@ end)
 --   opts.onChange(focus): after the pad moved ("ours" / "game")
 -- sw.focus: "ours" or "game"; sw:Behind() -> label, key ("LT" / "RT");
 -- sw:Press(key): a trigger pressed on ours (true: handled);
--- sw:Update(): from ours' OnUpdate; sw:Set(focus)
+-- sw:Update(): from ours' OnUpdate; sw:Set(focus); sw:Take(): on opening ours
 -- With several of ours up (an addon's windows: ImprovedForever_Baganator), one holds
--- the pad at a time; a switch whose other is another of ours watches only
+-- the pad at a time: the last one opened, or the one L2 / R2 moved it to; the others
+-- get it back as it closes. A switch whose other is another of ours watches only
 -- while that one holds it. F.Holding(except): the one holding it;
 -- F.GameWindow(except): the game's window the pad goes to.
 ---------------------------------------------------------------------------
@@ -284,8 +285,14 @@ function F.GameWindow(except)
 end
 
 function Switch:Other()
+    -- (one of ours opened over this one: set before it shows, so not checked shown; Update drops it)
+    if self.front then return self.front end
     local mine = self.opts.other and Shown(self.opts.other())
     if mine then return mine end
+    -- (one of ours that let go to this one)
+    for sw in pairs(switches) do
+        if sw.front == self.win and Shown(sw.win) then return sw.win end
+    end
     return F.GameWindow(self.win)
 end
 
@@ -313,13 +320,39 @@ function Switch:Hint()
     return { key == "LT" and "PADLTRIGGER" or "PADRTRIGGER", key, label, pad = true }
 end
 
+-- (ours took the pad: every other of ours holding it lets go to it, the last one opened wins)
+local function TakeFrom(self)
+    self.front = nil
+    for sw in pairs(switches) do
+        if sw ~= self and sw.focus == "ours" and Shown(sw.win) then
+            sw.front = self.win
+            sw:Set("game")
+        end
+    end
+end
+
 function Switch:Set(focus)
     if focus == self.focus or IF.InCombat() then return end
     if focus == "game" and not self:Other() then return end
     self.focus = focus
     self.held.LT, self.held.RT = true, true
     self.before = nil
+    if focus == "ours" then TakeFrom(self) end
     if self.opts.onChange then self.opts.onChange(focus) end
+    -- (handed to another of ours: that one has it)
+    local to = focus == "game" and self:Other()
+    for sw in pairs(switches) do
+        if to and sw.win == to then
+            self.front = to
+            sw:Set("ours")
+        end
+    end
+end
+
+-- Opening ours: it has the pad (set up by its opener, no onChange), taken from any other of ours
+function Switch:Take()
+    self.focus = "ours"
+    TakeFrom(self)
 end
 
 function Switch:Press(key)
@@ -348,6 +381,11 @@ local TRIGGERS = { LT = "PADLTRIGGER", RT = "PADRTRIGGER" }
 
 function Switch:Update()
     if self.focus ~= "game" then return end
+    -- (the one of ours opened over this one closed: the pad back here, unless another of ours has it)
+    if self.front and not Shown(self.front) then
+        self.front = F.Holding(self.win)
+        if not self.front then return self:Set("ours") end
+    end
     -- (no window left to have the pad: back to ours)
     local other = self:Other()
     if not other then return self:Set("ours") end

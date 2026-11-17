@@ -341,7 +341,7 @@ panel:SetScript("OnUpdate", function()
 end)
 panel:SetScript("OnShow", function()
     -- (R2 that opened it is still down: its release comes here, harmless)
-    TC.switch.focus = "ours"
+    TC.switch:Take()
     TakePad(true)
     IF.Focus.DimNative(panel, true)
 end)

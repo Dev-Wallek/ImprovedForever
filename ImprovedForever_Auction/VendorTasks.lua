@@ -399,7 +399,7 @@ function VT.Open()
     -- (where: beside the merchant's window, as the game's panels: IF.Focus.Dock)
     VT.sel, VT.column = 1, "items"
     holding = nil
-    VT.switch.focus = "ours"
+    VT.switch:Take()
     panel:Show()
     TakePad(true)
     IF.Focus.DimNative(panel, true)

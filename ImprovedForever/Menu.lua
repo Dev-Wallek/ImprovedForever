@@ -457,7 +457,8 @@ function menu.OnUpdate(elapsed)
         end
     end
     if menu.Behind() then
-        if IF.Focus.Shown(menu.behind) then menu.sw:Update() else menu.sw:Set("ours") end
+        -- (behind one of ours opened over it, or a game's window)
+        if menu.sw.front or IF.Focus.Shown(menu.behind) then menu.sw:Update() else menu.sw:Set("ours") end
         return
     end
     if menu.heldKeys and next(menu.heldKeys) and not InCombatLockdown() then
@@ -513,7 +514,7 @@ function menu.Open(tab)
     frame:Show()
     PageOf(CurrentTab()):Show()
     -- (it has the pad while up: the game's cursor and focus dimmed)
-    menu.sw.focus = "ours"
+    menu.sw:Take()
     menu.HavePad(true)
     PlaySound(SOUNDKIT.IG_MAINMENU_OPEN)
 end
