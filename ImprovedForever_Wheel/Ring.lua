@@ -994,18 +994,13 @@ end
 -- an emote, an item not in the bags or that does nothing when used: the
 -- game offers "Bind to Action Bar" for those only, PaperDollFrame's check)
 function IF.RingBindAction(entry)
-    if not (entry and IF.WheelBindPanel and IF.Native and IF.Native.Available())
+    if not (entry and IF.Native and IF.Native.Available())
         or IF.InCombat() or (CursorHasItem and CursorHasItem()) then
         return nil
     end
     if entry.type == "item" then
         local itemID = tonumber(tostring(entry.value):match("item:(%d+)"))
-        local getSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
-        local equippable = (C_Item and C_Item.IsEquippableItem) or IsEquippableItem
-        if itemID and ItemCount(itemID) > 0
-            and ((getSpell and getSpell(itemID)) or (equippable and equippable(itemID))) then
-            return "item:" .. itemID
-        end
+        if itemID and ItemCount(itemID) > 0 then return IF.BindPanel.ItemAction(itemID) end
     elseif entry.type == "spell" and entry.spellID then
         local known = IsPlayerSpell or IsSpellKnown
         if not known or known(entry.spellID) then
@@ -1269,7 +1264,7 @@ function IF.RingBindPicked()
     local action = IF.RingBindAction(highlighted and entries[highlighted])
     if not action then return end
     ring:Hide()
-    IF.WheelBindPanel.Open(action)
+    IF.BindPanel.Open(action)
 end
 ring:HookScript("OnShow", function()
     RefreshVisuals()

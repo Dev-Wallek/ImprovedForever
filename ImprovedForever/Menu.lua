@@ -7,6 +7,10 @@
 -- The legend under the window shows what the pad does there. While it is
 -- open the pad is bound to hidden buttons of ours, out of combat only, and
 -- released when it closes (or combat starts).
+-- A window the game's frame manager shows while it is open gets the pad:
+-- the panel stays open behind it, without the pad (menu.Behind), and takes
+-- it back when that window closes, by L2 / R2 from it (Focus.lua's switch)
+-- or by opening the panel again.
 -- Open it with /if, the key binding, the AddOns options, or Menu pressed
 -- twice.
 local _, IF = ...
@@ -33,7 +37,8 @@ local STEP_DELAY, STEP_EVERY = 0.35, 0.2
 -- optionally OnStick(stick, x, y, len) -> true (it takes that stick), StickStep(dir)
 -- (the left stick up / down: -1 up, 1 down, repeating while held),
 -- StickSide(dir) (the left stick left / right: once a tilt), OnTouch() (the
--- touchpad clicked).
+-- touchpad clicked), PadButton(key) -> the name of a button of its own the
+-- key is bound to instead (a secure one: menu.Rebind(key) after it changes).
 ---------------------------------------------------------------------------
 menu.TABS = {}
 
@@ -42,7 +47,9 @@ function menu.AddTab(def)
     -- now; an old Gather beside Minimap: its tab is Minimap's, Core.lua)
     if def.key == "controller" or (IF.oldGather and def.key == "gather") then return def end
     def.order = def.order or 50
-    if not def.icon and def.module and IF.Module(def.module) then def.icon = IF.Module(def.module).icon end
+    if not def.icon and def.module and IF.Module(def.module) then
+        def.icon, def.badge = IF.Module(def.module).icon, IF.Module(def.module).badge
+    end
     for i, other in ipairs(menu.TABS) do
         if other.key == def.key then
             menu.TABS[i] = def
@@ -110,6 +117,11 @@ function menu.IsOpen()
     return frame ~= nil and frame:IsShown()
 end
 
+-- Open behind a window of the game's, which has the pad
+function menu.Behind()
+    return menu.IsOpen() and menu.sw.focus == "game"
+end
+
 local function CurrentTab()
     return Tab(menu.tab) or menu.TABS[1]
 end
@@ -142,6 +154,11 @@ local function Build()
     IF.Focus.Glow(f, true)
     f.onClose = function() menu.Close() end
     frame = f
+    -- (behind the window the hook below saw shown; back by L2 / R2 from it)
+    menu.sw = IF.Focus.Switch(f, {
+        other = function() return menu.behind end,
+        onChange = function(focus) menu.HavePad(focus == "ours") end,
+    })
 
     -- The stage: the window under its title; the body in its middle
     local stage = K.NewFrame("Frame", nil, f)
@@ -207,6 +224,7 @@ function menu.SetTab(key)
     menu.tab = key
     IF.db.menuTab = key
     PageOf(def):Show()
+    menu.Rebind()
     PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_TAB or 841)
     menu.Render()
 end
@@ -235,7 +253,7 @@ function menu.Render()
     -- (with the mouse: none on a page whose presses all have a click, as
     -- the game's mouse windows have none)
     local mouseless = not IF.Input.Pad() and page.mouseLegend == false
-    f.legend:SetShown(not mouseless)
+    f.legend:SetShown(not (mouseless or menu.Behind()))
     if mouseless then hints = {} end
     local x = 0
     for i, hint in ipairs(hints) do
@@ -333,7 +351,8 @@ function menu.CreateInput()
 end
 
 local function BindKey(key)
-    local name = "ImprovedForeverConfigPad" .. key
+    local page = CurrentPage()
+    local name = page and page.PadButton and page:PadButton(key) or "ImprovedForeverConfigPad" .. key
     if key == "ESCAPE" then
         SetOverrideBindingClick(frame, true, key, name)
     else
@@ -359,6 +378,27 @@ end
 function menu.UnbindPad()
     menu.heldKeys = nil
     if frame and not InCombatLockdown() then ClearOverrideBindings(frame) end
+end
+
+-- A key bound again as the page wants it now (nil: every key), while the
+-- pad is bound (heldKeys set) and the key not held
+function menu.Rebind(key)
+    if InCombatLockdown() or not menu.heldKeys then return end
+    for k in pairs(NAV) do
+        if (not key or k == key) and not menu.heldKeys[k] then BindKey(k) end
+    end
+end
+
+-- The pad the panel's (on) or the window's in front of it
+function menu.HavePad(on)
+    if on then menu.behind = nil end
+    IF.Focus.Glow(frame, on)
+    IF.Focus.DimNative(frame, on)
+    if frame.EnableGamePadStick then frame:EnableGamePadStick(on) end
+    menu.rightY, menu.leftX, menu.leftY = 0, 0, 0
+    menu.repeatName = nil
+    if on then menu.BindPad() else menu.UnbindPad() end
+    menu.Render()
 end
 
 -- The sticks, as the auction window reads them: the right one tilted up /
@@ -416,6 +456,10 @@ function menu.OnUpdate(elapsed)
             frame:SetAlpha(want)
         end
     end
+    if menu.Behind() then
+        if IF.Focus.Shown(menu.behind) then menu.sw:Update() else menu.sw:Set("ours") end
+        return
+    end
     if menu.heldKeys and next(menu.heldKeys) and not InCombatLockdown() then
         for key in pairs(menu.heldKeys) do
             if not IsKeyDown(key) then
@@ -457,6 +501,7 @@ function menu.Open(tab)
     Build()
     if menu.IsOpen() then
         if tab then menu.SetTab(tab) end
+        menu.sw:Set("ours")
         return
     end
     local key = tab or IF.db.menuTab
@@ -468,14 +513,14 @@ function menu.Open(tab)
     frame:Show()
     PageOf(CurrentTab()):Show()
     -- (it has the pad while up: the game's cursor and focus dimmed)
-    IF.Focus.DimNative(frame, true)
-    menu.BindPad()
-    menu.Render()
+    menu.sw.focus = "ours"
+    menu.HavePad(true)
     PlaySound(SOUNDKIT.IG_MAINMENU_OPEN)
 end
 
 function menu.Close()
     if not menu.IsOpen() then return end
+    menu.behind = nil
     menu.Disarm()
     CurrentPage():Hide()
     menu.UnbindPad()
@@ -486,7 +531,7 @@ function menu.Close()
 end
 
 function menu.Toggle()
-    if menu.IsOpen() then
+    if menu.IsOpen() and not menu.Behind() then
         menu.Close()
     else
         menu.Open()
@@ -512,6 +557,21 @@ events:SetScript("OnEvent", function(_, event)
     menu.Render()
 end)
 
+-- A window the game's frame manager shows and focuses while the panel has
+-- the pad: the panel behind it (the manager only hooked, never called: one of
+-- the exceptions in docs/taint.md)
+IF.OnLogin(function()
+    local m = IF.Focus.Manager()
+    if not m then return end
+    hooksecurefunc(m, "FrameShown", function(_, shown)
+        if not menu.IsOpen() or menu.Behind() or shown == frame then return end
+        local now = IF.Focus.Manager()
+        if not (now and now.isUIFocused and now.focusedFrame == shown) then return end
+        menu.behind = shown
+        menu.sw:Set("game")
+    end)
+end)
+
 -- Another controller in hand (or /if buttons): its buttons
 IF.OnPadStyleChanged(function() menu.Render() end)
 
@@ -529,7 +589,7 @@ menuKey:SetScript("OnUpdate", function()
         local now = GetTime()
         if now - lastPress <= DOUBLE then
             lastPress = 0
-            if IF.db and IF.db.menuDouble ~= false and not InCombatLockdown() and not menu.IsOpen() then
+            if IF.db and IF.db.menuDouble ~= false and not InCombatLockdown() and not (menu.IsOpen() and not menu.Behind()) then
                 -- (on the next frame: the game handles the press first)
                 C_Timer.After(0, function()
                     local radial = _G.GamepadRadial

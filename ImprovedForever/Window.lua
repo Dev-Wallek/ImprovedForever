@@ -136,7 +136,8 @@ end
 -- character window's), the right stick's glyph above them (tilted up /
 -- down it moves through them; opts.keys = { above, below }: those glyphs
 -- instead, one above the tabs and one below, as the Legacy window's L1 /
--- R1). tabs:Render(list, selected): list = { { key, label, icon } };
+-- R1). tabs:Render(list, selected): list = { { key, label, icon, badge } }
+-- (badge: a small texture over the icon's lower-right corner);
 -- onSelect(key) as one is clicked.
 ---------------------------------------------------------------------------
 function UI.SideTabs(win, onSelect, opts)
@@ -267,6 +268,15 @@ function UI.SideTabs(win, onSelect, opts)
                 K.SetIcon(b.Icon, t.icon or 134400)
                 b.Icon:SetSize(32, 32)
                 if type(t.icon) == "string" and t.icon:find(IF.TEX, 1, true) == 1 then b.Icon:SetTexCoord(0, 1, 0, 1) end
+                if t.badge and not b.badge then
+                    b.badge = b:CreateTexture(nil, "OVERLAY")
+                    b.badge:SetSize(12, 12)
+                    b.badge:SetPoint("BOTTOMRIGHT", b.Icon)
+                end
+                if b.badge then
+                    b.badge:SetTexture(t.badge)
+                    b.badge:SetShown(t.badge ~= nil)
+                end
                 b:ClearAllPoints()
                 if previous then
                     b:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -TAB_GAP)

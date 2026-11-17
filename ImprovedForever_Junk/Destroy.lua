@@ -74,33 +74,6 @@ function DS.Scan()
 end
 
 ---------------------------------------------------------------------------
--- Destroying (from a button press; never in combat)
----------------------------------------------------------------------------
-local blocked = false
-
-local function DestroyOne(entry)
-    local info = SlotInfo(entry.bag, entry.slot)
-    if not info or info.itemID ~= entry.itemID or info.isLocked then return false end
-    ClearCursor()
-    C_Container.PickupContainerItem(entry.bag, entry.slot)
-    if not CursorHasItem() then return false end
-    blocked = false
-    DeleteCursorItem()
-    if CursorHasItem() then ClearCursor() end
-    return not blocked
-end
-
-local watch = CreateFrame("Frame")
-watch:RegisterEvent("ADDON_ACTION_BLOCKED")
-watch:RegisterEvent("ADDON_ACTION_FORBIDDEN")
-watch:SetScript("OnEvent", function(_, _, addon, fn)
-    -- (named after the module whose code it is: ImprovedForever_Junk)
-    if type(addon) == "string" and addon:find("^ImprovedForever") and tostring(fn):find("DeleteCursorItem") then
-        blocked = true
-    end
-end)
-
----------------------------------------------------------------------------
 -- The panel: Forever's loot window (its flat panel, item cards, rarity
 -- tag, the gamepad focus glow and arrow) with a button legend under it
 ---------------------------------------------------------------------------
@@ -765,24 +738,21 @@ function DS.SellAll()
     IF.Junk.Sell(list, { bulk = true, done = function() DS.Refresh() end })
 end
 
--- noLoot: from the loot window, destroy only (no swap)
+-- noLoot: from the loot window, destroy only (no swap); the core's
+-- destroying (Bags.lua)
 function DS.Destroy(e, noLoot)
     if IF.InCombat() then return end
-    local name = e.link or "item"
-    if DestroyOne(e) then
-        IF.Print("destroyed " .. name .. (e.count > 1 and (" x" .. e.count) or ""))
-        if not noLoot then DS.LootAfter("one") end
-    elseif blocked then
-        IF.Print("the game doesn't let addons destroy items here.")
-    end
+    if IF.DestroyItem(e.bag, e.slot, e.itemID, true) and not noLoot then DS.LootAfter("one") end
     C_Timer.After(0.2, DS.Refresh)
 end
 
 function DS.DestroyAll()
     if IF.InCombat() then return end
-    local done = 0
+    local done, blocked = 0, false
     for _, e in ipairs(DS.items) do
-        if DestroyOne(e) then
+        local ok
+        ok, blocked = IF.DestroyItem(e.bag, e.slot, e.itemID)
+        if ok then
             done = done + 1
         elseif blocked then
             break

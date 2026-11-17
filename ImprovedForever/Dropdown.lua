@@ -9,8 +9,11 @@
 --     each pick (a choice may bring others): { kind = "title", text },
 --     { kind = "radio" | "checkbox", text, selected, select(), key (the
 --     focus kept on it as entries change) },
+--     { kind = "action", text, run(), hold (seconds: Cross held that long,
+--     then let go) }: the menu closes, then run() (which may open another),
 --     { kind = "divider" }
---   menu:Press(name) -> true: taken;  menu:Close();  menu:IsShown()
+--   menu:Press(name, down) -> true: taken (down nil: a press with no
+--     release to come, which no hold entry takes);  menu:Close();  menu:IsShown()
 -- Placed by the caller (menu.frame). Never in combat.
 local IF = ImprovedForever
 
@@ -27,7 +30,7 @@ local function Atlas(tex, name)
 end
 
 local function Selectable(e)
-    return e and (e.kind == "radio" or e.kind == "checkbox")
+    return e and (e.kind == "radio" or e.kind == "checkbox" or e.kind == "action")
 end
 
 local function Sound()
@@ -68,6 +71,11 @@ function IF.Dropdown(parent, opts)
         row.highlight:SetBlendMode("ADD")
         row.highlight:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
         row.highlight:Hide()
+        -- (a hold under way: filling as the Destroy panel's cards do)
+        row.fill = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+        row.fill:SetPoint("TOPLEFT")
+        row.fill:SetPoint("BOTTOMLEFT")
+        row.fill:Hide()
         row.divider = row:CreateTexture(nil, "ARTWORK")
         row.divider:SetPoint("LEFT")
         row.divider:SetPoint("RIGHT")
@@ -94,10 +102,23 @@ function IF.Dropdown(parent, opts)
         row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         row.text:SetJustifyH("LEFT")
         row:SetScript("OnClick", function(self)
-            if self.index and Selectable(menu.entries[self.index]) then
+            local e = self.index and menu.entries[self.index]
+            if Selectable(e) and not e.hold then
                 menu.focus = self.index
                 menu:Pick()
             end
+        end)
+        -- (a hold entry: the mouse button held as Cross is)
+        row:SetScript("OnMouseDown", function(self)
+            local e = self.index and menu.entries[self.index]
+            if Selectable(e) and e.hold then
+                menu.focus = self.index
+                menu:Press("A", true)
+            end
+        end)
+        row:SetScript("OnMouseUp", function(self)
+            local e = self.index and menu.entries[self.index]
+            if Selectable(e) and e.hold then menu:Press("A", false) end
         end)
         row:SetScript("OnEnter", function(self)
             if self.index and Selectable(menu.entries[self.index]) and not IF.Input.Pad() then
@@ -113,22 +134,28 @@ function IF.Dropdown(parent, opts)
     local function Fill(row, e)
         local choice = Selectable(e)
         local radio = e.kind == "radio"
+        local action = e.kind == "action"
+        local tick = choice and not action
         row:SetHeight(e.kind == "divider" and DIVIDER or ROW)
         row.divider:SetShown(e.kind == "divider")
         row.title:SetShown(e.kind == "title")
         row.title:SetText(e.kind == "title" and e.text or "")
         row.radio:SetShown(radio)
-        row.square:SetShown(choice and not radio)
+        row.square:SetShown(tick and not radio)
         row.radioCheck:SetShown(radio and e.selected and true or false)
-        row.squareCheck:SetShown(choice and not radio and e.selected and true or false)
+        row.squareCheck:SetShown(tick and not radio and e.selected and true or false)
         row.text:SetShown(choice)
         row:EnableMouse(choice and true or false)
         if not choice then
             return e.kind == "title" and row.title:GetStringWidth() or 0
         end
         row.text:ClearAllPoints()
-        row.text:SetPoint("LEFT", radio and row.radio or row.square, "RIGHT", radio and 1 or 7, radio and 0 or 1)
         row.text:SetText(e.text or "")
+        if action then
+            row.text:SetPoint("LEFT", 0, 0)
+            return row.text:GetStringWidth()
+        end
+        row.text:SetPoint("LEFT", radio and row.radio or row.square, "RIGHT", radio and 1 or 7, radio and 0 or 1)
         return 16 + 7 + row.text:GetStringWidth()
     end
 
@@ -238,17 +265,42 @@ function IF.Dropdown(parent, opts)
         menu.focus = found
     end
 
+    -- A hold entry's row filling till full; Hold(i): the hold on entry i
+    -- begun (nil: none)
+    local function ShowHold()
+        local e = menu.holdStart and menu.entries[menu.holdIndex]
+        for i, row in ipairs(rows) do
+            local p = e and i == menu.holdIndex and math.min(1, (GetTime() - menu.holdStart) / e.hold)
+            row.fill:SetShown(p and true or false)
+            if p then
+                row.fill:SetWidth(math.max(1, row:GetWidth() * p))
+                -- (full: brighter, let go now)
+                row.fill:SetColorTexture(p >= 1 and 1 or 0.85, p >= 1 and 0.35 or 0.2, 0.1, p >= 1 and 0.6 or 0.45)
+            end
+        end
+    end
+    local function Hold(i)
+        menu.holdIndex, menu.holdStart = i, i and GetTime() or nil
+        ShowHold()
+    end
+    f:SetScript("OnUpdate", function()
+        if menu.holdStart then ShowHold() end
+    end)
+
     function menu:Open(build, how)
         self.build, self.how = build, how or {}
         self.focus = nil
-        f:Show()
+        Hold(nil)
+        -- (built first: a build that errors leaves no empty menu taking the pad)
         Rebuild()
+        f:Show()
         Sound()
         self:Render()
     end
 
     function menu:Close()
         if not f:IsShown() then return end
+        Hold(nil)
         f:Hide()
         local onClose = self.how and self.how.onClose
         self.how = nil
@@ -257,10 +309,16 @@ function IF.Dropdown(parent, opts)
 
     function menu:IsShown() return f:IsShown() end
 
-    -- The focused choice picked: its select(), the entries again
+    -- The focused choice picked: its select(), the entries again; an
+    -- action: the menu closed, then its run()
     function menu:Pick()
         local e = self.entries[self.focus or 0]
         if not Selectable(e) then return end
+        if e.kind == "action" then
+            Sound()
+            self:Close()
+            return e.run()
+        end
         if e.select then e.select() end
         Sound()
         Rebuild()
@@ -299,13 +357,25 @@ function IF.Dropdown(parent, opts)
         if best then menu.focus = best end
     end
 
-    function menu:Press(name)
+    function menu:Press(name, down)
         if not f:IsShown() then return false end
+        -- (a release: a hold entry run once full, nothing else)
+        if down == false then
+            if name ~= "A" then return true end
+            local e = self.holdStart and self.focus == self.holdIndex and self.entries[self.focus]
+            local full = e and GetTime() - self.holdStart >= e.hold
+            Hold(nil)
+            if full then self:Pick() end
+            return true
+        end
         if name == "UP" or name == "DOWN" or name == "LEFT" or name == "RIGHT" then
+            Hold(nil)
             Move(name)
             self:Render()
         elseif name == "A" then
-            self:Pick()
+            local e = self.entries[self.focus or 0]
+            if not (e and e.hold) then self:Pick()
+            elseif down then Hold(self.focus) end
         elseif name == "B" or name == "LS" then
             self:Close()
         end

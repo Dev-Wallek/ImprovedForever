@@ -240,8 +240,8 @@ end
 -- press-and-hold ring round it, in legend.rings; pad = true: no button
 -- for it with the mouse), or { glyph = "DPAD_LR",
 -- text } (one glyph for a pair: the D-pad's left / right, up / down).
--- Placed by the caller.
-local LEGEND_PAD, PROMPT_GAP = 10, 15
+-- Placed by the caller. legend.vertical = true stacks the prompts, one a line.
+local LEGEND_PAD, PROMPT_GAP, LINE_GAP = 10, 15, 4
 local legends = setmetatable({}, { __mode = "k" })
 function IF.InputLegend(parent)
     local legend = CreateFrame("Frame", nil, nil)
@@ -429,6 +429,17 @@ function IF.InputLegend(parent)
         list = Build(defs)
         for set, ps in pairs(built) do
             for _, p in ipairs(ps) do p:SetShown(set == defs) end
+        end
+        if self.vertical then
+            local y, width = LEGEND_PAD, 0
+            for _, p in ipairs(list) do
+                p:ClearAllPoints()
+                p:SetPoint("TOPLEFT", self, "TOPLEFT", LEGEND_PAD, -y)
+                y = y + p:GetHeight() + LINE_GAP
+                width = math.max(width, p:GetWidth())
+            end
+            self:SetSize(width + 2 * LEGEND_PAD, y - LINE_GAP + LEGEND_PAD)
+            return self:Show()
         end
         local x, height = LEGEND_PAD, 0
         for _, p in ipairs(list) do

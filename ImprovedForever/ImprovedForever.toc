@@ -22,9 +22,11 @@ WandShoot.lua
 Probe.lua
 Binds.lua
 Native.lua
+BindPanel.lua
 ConfigKit.lua
 Window.lua
 Focus.lua
+Navigator.lua
 Dropdown.lua
 Book.lua
 Menu.lua
