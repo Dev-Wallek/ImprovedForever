@@ -537,7 +537,7 @@ local function ShowBuffs(on)
             local shown = builtSize + spacing >= TIME_ROOM
             if shown ~= timesShown then
                 timesShown = shown
-                for _, t in ipairs(times) do pcall(t.SetShown, t, shown) end
+                for _, t in ipairs(times) do t:SetShown(shown) end
             end
         end
     end
