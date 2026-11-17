@@ -28,7 +28,7 @@ IF.AddonWindows = W
 
 local F = IF.Focus
 
-local places = {}   -- win -> { sw, catcher, nav, opts }
+local places = {}   -- win -> { sw, catcher, nav, enabled, ... }
 
 local function X(f)
     return f:GetCenter() * f:GetEffectiveScale()
@@ -307,7 +307,9 @@ local function Take(name, addon)
         return
     end
     waiting[name] = nil
-    if not places[win] and Watchable(win, addon) then W.Watch(win) end
+    -- (an addon may list a game frame for Escape: the frame's own name must be an addon's too)
+    if places[win] or issecurevariable(name) then return end
+    if Watchable(win, addon) then W.Watch(win) end
 end
 
 local function Scan()

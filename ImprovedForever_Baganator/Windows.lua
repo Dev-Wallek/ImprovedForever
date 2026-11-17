@@ -84,8 +84,3 @@ Baganator.API.Skins.RegisterListener(Seen)
 function BG.Back()
     return W.Back(function(win) return mine[win] end)
 end
-
--- The setting switched off: they let the pad go
-function BG.SwitchOff()
-    W.Refresh()
-end
