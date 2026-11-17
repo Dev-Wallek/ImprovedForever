@@ -213,13 +213,18 @@ function W.Watch(win, opts)
     catcher:EnableGamePadButton(false)
     catcher:EnableGamePadStick(false)
     v.stick = false
-    catcher:SetScript("OnUpdate", function()
+    local since = 0
+    catcher:SetScript("OnUpdate", function(_, elapsed)
         if v.away then
             WhileAway(win, v)
         else
             Hush(v, false)
             if v.enabled() then v.sw:Update() end
         end
+        -- (the rest ten times a second: what it follows changes rarely)
+        since = since + elapsed
+        if since < 0.1 then return end
+        since = 0
         -- (the legend's L2 / R2 entry follows the game's windows coming and going;
         -- the switch hands out the same table while its entry stays the same)
         local hint = v.nav.hint()
