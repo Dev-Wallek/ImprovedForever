@@ -462,6 +462,16 @@ local CHECKS = {
         end)
         for k in pairs(stubs) do rawset(_G, k, saved[k]) end
         check(ok, err)
+        -- (Spoken_Quests' Contribute button faded with the game's window, also without its Listen button)
+        local FadeSubtitle = Up(Tick, "FadeSubtitle", 0)
+        local F, contribute, faded = ImprovedForever.Focus, Frame(), false
+        local fade = F.Fade
+        F.Fade = function(region, on) if region == contribute then faded = on end end
+        rawset(_G, "VoiceOver", { ContributeButton = { button = contribute } })
+        FadeSubtitle(true)
+        F.Fade = fade
+        rawset(_G, "VoiceOver", nil)
+        check(faded, "Contribute not faded without the Listen button")
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()

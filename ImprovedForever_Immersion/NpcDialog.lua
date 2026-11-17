@@ -1311,7 +1311,8 @@ local function FadeSubtitle(on)
     -- its secure helper, refused in combat))
     local vo = rawget(_G, "VoiceOver")
     if type(vo) ~= "table" then return end
-    for _, owner in ipairs({ rawget(vo, "DialogPlayButton"), rawget(vo, "ContributeButton") }) do
+    for i = 1, 2 do
+        local owner = rawget(vo, i == 1 and "DialogPlayButton" or "ContributeButton")
         local b = type(owner) == "table" and owner.button
         if b and (buttonsFaded[b] or false) ~= on then
             buttonsFaded[b] = on
