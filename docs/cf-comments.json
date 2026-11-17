@@ -106,10 +106,10 @@
  },
  "8688777": {
   "date": "2026-11-17",
-  "note": "walk while wheel open",
+  "note": "same fix; walking+aiming at once not possible yet (af4b55e); tell them at release",
   "project": "improved-forever",
-  "seen": 8733467,
-  "status": "noted"
+  "seen": 8734758,
+  "status": "fixed"
  },
  "8688925": {
   "date": "2026-11-17",
@@ -145,6 +145,13 @@
   "project": "improved-forever-map",
   "seen": 8733404,
   "status": "resolved"
+ },
+ "8694896": {
+  "date": "2026-11-17",
+  "note": "wheel no longer stops a walking character (af4b55e); waiting for the Wheel release, then tell them",
+  "project": "improved-forever-wheel",
+  "seen": 8734757,
+  "status": "fixed"
  },
  "8697171": {
   "date": "2026-11-17",
