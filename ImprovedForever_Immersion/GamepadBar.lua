@@ -1494,8 +1494,9 @@ do
     end
 
     local hooked = {}
+    local NAMES = { "GamepadPetActionFlyout", "GamepadPetSpellFlyout" }
     IN.Watcher("pet flyouts", 0.05, function()
-        for _, name in ipairs({ "GamepadPetActionFlyout", "GamepadPetSpellFlyout" }) do
+        for _, name in ipairs(NAMES) do
             local flyout = _G[name]
             if flyout then
                 if not hooked[flyout] then
@@ -1506,7 +1507,8 @@ do
                         if flyout:IsShown() then DrawPetRing(flyout) end
                     end)
                 end
-                Sync(flyout)
+                -- (closed and ours hidden: nothing to follow, most of the time and for every class without a pet)
+                if flyout:IsShown() or Ring(flyout):IsShown() then Sync(flyout) end
             end
         end
     end)
