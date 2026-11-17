@@ -343,10 +343,9 @@ end)
 IF.OnLogin(O.Apply)
 owner:RegisterEvent("PLAYER_REGEN_ENABLED")
 owner:RegisterEvent("CVAR_UPDATE")
-owner:SetScript("OnEvent", function(_, event)
+owner:SetScript("OnEvent", function(_, event, cvar)
     if not IF.db then return end
-    -- (CVAR_UPDATE: which buttons are Shift / Ctrl / Alt may have changed)
-    if pending or event == "CVAR_UPDATE" then
+    if pending or (event == "CVAR_UPDATE" and IF.KeysCVar(cvar)) then
         O.Apply()
         O.ApplyKeys()
     end

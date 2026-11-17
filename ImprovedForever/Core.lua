@@ -27,6 +27,14 @@ function IF.InCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown()
 end
 
+-- Whether a CVAR_UPDATE's CVar changes the keys a press binds or when it
+-- fires (which buttons are Shift / Ctrl / Alt; press or release), true when unnamed
+function IF.KeysCVar(name)
+    if type(name) ~= "string" then return true end
+    name = name:lower():gsub("_", "")
+    return name:find("^gamepademulate") ~= nil or name == "actionbuttonusekeydown"
+end
+
 -- Called after anything that changes what the rings hold (the Wheel
 -- module answers it)
 function IF.RefreshRings()

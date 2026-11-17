@@ -369,8 +369,8 @@ end
 keyOwner:RegisterEvent("PLAYER_REGEN_ENABLED")
 keyOwner:RegisterEvent("PLAYER_ENTERING_WORLD")
 keyOwner:RegisterEvent("CVAR_UPDATE")
-keyOwner:SetScript("OnEvent", function(_, event)
-    -- (CVAR_UPDATE: which buttons are Shift / Ctrl / Alt may have changed)
+keyOwner:SetScript("OnEvent", function(_, event, cvar)
+    if event == "CVAR_UPDATE" and not IF.KeysCVar(cvar) then return end
     if IF.db and (keysPending or event ~= "PLAYER_REGEN_ENABLED") then MW.ApplyWheelKeys() end
 end)
 
