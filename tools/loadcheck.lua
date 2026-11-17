@@ -382,6 +382,17 @@ local function allFolders()
 end
 
 -- After loading: open each panel the modules give (what a player does first)
+-- (a Baganator window, hidden, skinned as Baganator hands its windows to skins)
+local function BaganatorWindow(tag)
+    local w = CreateFrame("Frame")
+    w.BagSlots, w.Character = false, false
+    function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+    function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+    w.__shown = false
+    for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
+    return w
+end
+
 local CHECKS = {
     { name = "config panel", fn = function()
         local IF = rawget(_G, "ImprovedForever")
@@ -494,15 +505,6 @@ local CHECKS = {
         local gamepadMode, isKeyDown = GamepadMode, IsKeyDown
         local manager = { shownFrames = {}, isUIFocused = false }
         GamepadMode = { FrameControlsManager = manager }
-        local function Window(tag)
-            local w = CreateFrame("Frame")
-            w.BagSlots, w.Character = false, false
-            function w:Show() self.__shown = true self.__scripts.OnShow(self) end
-            function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
-            w.__shown = false
-            for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
-            return w
-        end
         local function Catcher(w)
             for _, f in ipairs(frames) do
                 if f.__parent == w and f.__scripts.OnGamePadButtonDown then return f end
@@ -513,7 +515,7 @@ local CHECKS = {
             c.__scripts.OnGamePadButtonDown(c, "PAD2")
             c.__scripts.OnGamePadButtonUp(c, "PAD2")
         end
-        local backpack, bank = Window("backpack"), Window("bank")
+        local backpack, bank = BaganatorWindow("backpack"), BaganatorWindow("bank")
         backpack:Show()
         bank:Show()
         check(F.Holding() == backpack, "the backpack opened first holds the pad")
@@ -529,6 +531,32 @@ local CHECKS = {
         B(bank)
         GamepadMode = gamepadMode
         check(not bank:IsShown(), "one B then closes the bank")
+    end },
+    -- (a Baganator window opened from the panel (its Addons tab): the last one opened has the
+    -- pad, the panel behind it; the pad back on the panel once it closes)
+    { name = "baganator over the panel", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and IF.Menu and #IF.Menu.TABS > 0 and #skinListeners > 0) then return end
+        local F, M = IF.Focus, IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode = GamepadMode
+        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
+        M.Open()
+        local bags = BaganatorWindow("backpack")
+        bags:Show()
+        M.OnUpdate(0)
+        check(F.Holding() == bags and M.Behind(), "the bags opened over the panel have the pad, the panel behind")
+        -- (L2 there, the triggers up first: back on the panel, the bags letting go)
+        local isKeyDown = IsKeyDown
+        IsKeyDown = function(key) return key == "PADLTRIGGER" end
+        M.OnUpdate(0)
+        IsKeyDown = isKeyDown
+        check(not M.Behind() and F.Holding() ~= bags, "L2 on the bags gives the panel the pad, the bags let go")
+        bags:Hide()
+        M.OnUpdate(0)
+        GamepadMode = gamepadMode
+        check(M.IsOpen() and not M.Behind() and F.Holding() ~= bags, "the bags closing give the panel the pad back")
+        M.Close()
     end },
     -- (the bag slots bar open above the backpack: closing the backpack with
     -- B leaves the bar shown under it, unseen; the pad must not go to it)
