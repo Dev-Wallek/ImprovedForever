@@ -49,17 +49,26 @@ frameMeta.__index = function(t, k)
     return s
 end
 function frameMeta.SetScript(self, name, fn) self.__scripts[name] = fn end
-function frameMeta.HookScript(self, name, fn) self.__scripts[name] = self.__scripts[name] or fn end
+function frameMeta.HookScript(self, name, fn)
+    local old = self.__scripts[name]
+    self.__scripts[name] = old and function(...) old(...) fn(...) end or fn
+end
 function frameMeta.GetScript(self, name) return self.__scripts[name] end
 function frameMeta.RegisterEvent(self, e) self.__events[e] = true end
 function frameMeta.UnregisterEvent(self, e) self.__events[e] = nil end
 function frameMeta.RegisterUnitEvent(self, e) self.__events[e] = true end
 function frameMeta.IsEventRegistered(self, e) return self.__events[e] == true end
 function frameMeta.Show(self) self.__shown = true end
-function frameMeta.Hide(self) self.__shown = false end
+function frameMeta.Hide(self)
+    self.__shown = false
+    for _, g in ipairs(rawget(self, "__groups") or {}) do g.__playing = false end
+end
 function frameMeta.SetShown(self, on) self.__shown = on and true or false end
 function frameMeta.IsShown(self) return self.__shown end
-function frameMeta.IsVisible(self) return self.__shown end
+function frameMeta.IsVisible(self)
+    local parent = self.__parent
+    return self.__shown and (getmetatable(parent) ~= frameMeta or parent:IsVisible())
+end
 function frameMeta.GetWidth(self) return self.__w or 100 end
 function frameMeta.GetHeight(self) return self.__h or 20 end
 function frameMeta.SetWidth(self, w) self.__w = w end
@@ -98,7 +107,22 @@ function frameMeta.CreateTexture(self) return Frame(nil, self) end
 function frameMeta.CreateFontString(self) return Frame(nil, self) end
 function frameMeta.CreateMaskTexture(self) return Frame(nil, self) end
 function frameMeta.CreateLine(self) return Frame(nil, self) end
-function frameMeta.CreateAnimationGroup(self) return Frame(nil, self) end
+-- (animation groups play and stop; hiding a region stops those playing on it, its own and the
+-- ones aimed at it, as in game)
+local function PlaysOn(region, group)
+    local list = rawget(region, "__groups") or {}
+    rawset(region, "__groups", list)
+    list[#list + 1] = group
+end
+function frameMeta.CreateAnimationGroup(self)
+    local g = Frame(nil, self)
+    PlaysOn(self, g)
+    return g
+end
+function frameMeta.SetTarget(self, region) PlaysOn(region, self.__parent) end
+function frameMeta.Play(self) self.__playing = true end
+function frameMeta.Stop(self) self.__playing = false end
+function frameMeta.IsPlaying(self) return self.__playing == true end
 function frameMeta.CreateAnimation(self)
     local a = Frame(nil, self)
     self.__anim = self.__anim or a
@@ -177,7 +201,25 @@ function GetInventoryItemID() return nil end
 function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
-function hooksecurefunc() end
+-- (hooks on a table's function kept, for the checks to call them as the game would, and run
+-- after a function the table has itself; a hook on a global function runs after it)
+local tableHooks = {}
+function hooksecurefunc(t, name, fn)
+    local target, key, hook = _G, t, name
+    if type(t) == "table" and fn then
+        tableHooks[#tableHooks + 1] = { name = name, fn = fn }
+        if type(rawget(t, name)) ~= "function" then return end
+        target, key, hook = t, name, fn
+    elseif type(t) ~= "string" then
+        return
+    end
+    local orig = target[key]
+    rawset(target, key, function(...)
+        local r = { orig(...) }
+        hook(...)
+        return unpack(r)
+    end)
+end
 function issecurevariable() return true end
 function securecall(fn, ...) return fn(...) end
 function SetOverrideBinding() end
@@ -207,11 +249,17 @@ function GetNumQuestLeaderBoards() return 0 end
 function GetNumQuestWatches() return 0 end
 C_Texture = { GetAtlasInfo = function() return nil end }
 C_CVar = { GetCVar = function() return "1" end, GetCVarBool = function() return false end, SetCVar = function() end }
-C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end }
+C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end,
+    GetNumAddOns = function() return 0 end }
 C_GamePad = { IsEnabled = function() return true end, GetActiveDeviceID = function() return 1 end,
     GetDeviceMappedState = function() return nil end, GetDeviceRawState = function() return nil end,
     GetCombinedDeviceID = function() return 1 end, GetPowerLevel = function() return nil end,
     SetVibration = function() end, StopVibration = function() end, ButtonIndexToBinding = function() return nil end }
+-- (Baganator's skins: the listeners kept, for the checks to hand them windows)
+local skinListeners = {}
+Baganator = Frame("Baganator")
+Baganator.API.Skins = { GetAllFrames = function() return {} end,
+    RegisterListener = function(fn) skinListeners[#skinListeners + 1] = fn end }
 
 -- Lua helpers the game adds
 function strsplit(sep, s, n)
@@ -371,6 +419,17 @@ local function allFolders()
 end
 
 -- After loading: open each panel the modules give (what a player does first)
+-- (a Baganator window, hidden, skinned as Baganator hands its windows to skins)
+local function BaganatorWindow(tag)
+    local w = CreateFrame("Frame")
+    w.BagSlots, w.Character = false, false
+    function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+    function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+    w.__shown = false
+    for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
+    return w
+end
+
 local CHECKS = {
     { name = "config panel", fn = function()
         local IF = rawget(_G, "ImprovedForever")
@@ -414,6 +473,446 @@ local CHECKS = {
         end
         M.Close()
     end },
+    -- (Immersion's quest page: every reward the game's window lists, in its
+    -- order (choices, spells, items, currencies), one not loaded yet kept in
+    -- its place, each one ours for the game's button the pad is on)
+    { name = "immersion quest rewards", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        if not (IN and IN.NpcDialog) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        -- (a local of the dialog's, by the upvalues from its ticker down)
+        local function Up(fn, want, depth)
+            for i = 1, 200 do
+                local name, value = debug.getupvalue(fn, i)
+                if not name then break end
+                if name == want then return value end
+                if type(value) == "function" and depth > 0 then
+                    local found = Up(value, want, depth - 1)
+                    if found then return found end
+                end
+            end
+        end
+        local Tick
+        for _, f in ipairs(frames) do
+            local fn = f.__scripts.OnUpdate
+            Tick = Tick or (fn and Up(fn, "Tick", 2))
+        end
+        check(Tick, "the dialog's Tick is found")
+        local Detail, Build, KeyOf = Up(Tick, "Detail", 2), Up(Tick, "Build", 0), Up(Tick, "KeyOf", 0)
+        local saved = {}
+        local stubs = {
+            GetNumQuestChoices = function() return 1 end,
+            GetNumQuestRewards = function() return 2 end,
+            GetQuestItemInfo = function(kind, i)
+                if kind == "reward" and i == 2 then return nil end
+                return kind .. i, 100 + i, 1
+            end,
+            GetQuestItemInfoLootType = function() return 0 end,
+            GetQuestID = function() return 5 end,
+            GetRewardTitle = function() return "the Brave" end,
+            C_QuestInfoSystem = {
+                GetQuestRewardSpells = function() return { 123 } end,
+                GetQuestRewardSpellInfo = function() return { texture = 7, name = "Mining", isTradeskillSpell = true } end,
+                GetQuestRewardCurrencies = function() return { { texture = 8, name = "Mark", totalRewardAmount = 3, currencyID = 1 } } end,
+            },
+            C_SpellBook = { IsSpellInSpellBook = function() return false end },
+            C_QuestOffer = { GetQuestOfferMajorFactionReputationRewards = function() return nil end },
+            CurrencyContainerUtil = { GetCurrencyContainerInfo = function(_, amount, name, texture) return name, texture, amount end },
+        }
+        for k, v in pairs(stubs) do saved[k] = rawget(_G, k) rawset(_G, k, v) end
+        local ok, err = pcall(function()
+            local d = Detail()
+            local keys = {}
+            for _, it in ipairs(d.items) do keys[#keys + 1] = it.key end
+            check(table.concat(keys, ",") == "choice:1,spell:123,reward:1,reward:2,reward:c1",
+                "the rewards in the game's order: " .. table.concat(keys, ","))
+            check(d.pending and d.lines[1] == "Title: the Brave", "a reward waits for its data; the title a line")
+            Build(d)
+            local byKey = Up(Build, "byKey", 0)
+            local spell = byKey[KeyOf({ rewardSpellID = 123 })]
+            local currency = byKey[KeyOf({ type = "reward", objectType = "currency", GetID = function() return 1 end })]
+            local item = byKey[KeyOf({ type = "reward", objectType = "item", GetID = function() return 2 end })]
+            check(spell and spell.spellID == 123, "the game's spell button is our spell")
+            check(currency and currency.currency and currency.index == 1, "the game's currency button is our currency")
+            -- (rawget: the stand-in's frames answer any unset field)
+            check(item and not rawget(item, "currency") and item.index == 2, "the game's item button is our item, not the currency")
+        end)
+        for k in pairs(stubs) do rawset(_G, k, saved[k]) end
+        check(ok, err)
+        -- (Spoken_Quests' Contribute button faded with the game's window, also without its Listen button)
+        local FadeSubtitle = Up(Tick, "FadeSubtitle", 0)
+        local F, contribute, faded = ImprovedForever.Focus, Frame(), false
+        local fade = F.Fade
+        F.Fade = function(region, on) if region == contribute then faded = on end end
+        rawset(_G, "VoiceOver", { ContributeButton = { button = contribute } })
+        FadeSubtitle(true)
+        F.Fade = fade
+        rawset(_G, "VoiceOver", nil)
+        check(faded, "Contribute not faded without the Listen button")
+    end },
+    -- (two of ours: the one opened last holds the pad, both name the other in
+    -- their legend, and L2 / R2 moves the pad either way)
+    { name = "focus switch between two of ours", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Focus and IF.Focus.Switch) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local function Window(x)
+            local w = CreateFrame("Frame")
+            w.__shown = true
+            function w:GetCenter() return x, 300 end
+            function w:GetEffectiveScale() return 1 end
+            return w
+        end
+        local scale = rawget(UIParent, "GetEffectiveScale")
+        rawset(UIParent, "GetEffectiveScale", function() return 1 end)
+        local left, right = Window(100), Window(500)
+        local a, b = F.Switch(left), F.Switch(right)
+        a:Take()
+        b:Take()
+        check(F.Holding() == right and a.focus == "game", "the last opened holds the pad")
+        local hint = b:Hint()
+        check(hint and hint[2] == "LT", "its legend names L2 to the other")
+        check(b:Press("LT") and F.Holding() == left, "L2 hands the pad over")
+        hint = a:Hint()
+        check(hint and hint[2] == "RT", "the other's legend names R2 back")
+        check(a:Press("RT") and F.Holding() == right, "R2 hands it back")
+        left.__shown, right.__shown = false, false
+        rawset(UIParent, "GetEffectiveScale", scale)
+    end },
+    -- (the core's dropdown: an action closes it and runs; a hold entry runs
+    -- only when Cross is let go after its hold, whatever else is let go)
+    { name = "dropdown actions", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Dropdown) then return end
+        local now, ran, getTime = 1000, {}, GetTime
+        GetTime = function() return now end
+        local menu = IF.Dropdown(CreateFrame("Frame"))
+        local function build()
+            return {
+                { kind = "action", text = "go", run = function() ran[#ran + 1] = "go" end },
+                { kind = "action", text = "hold", hold = 1, run = function() ran[#ran + 1] = "hold" end },
+            }
+        end
+        menu:Open(build)
+        menu:Press("A", true)
+        assert(ran[1] == "go" and not menu:IsShown(), "an action runs and closes the menu")
+        menu:Open(build)
+        menu:Press("DOWN", true)
+        menu:Press("A", true)
+        now = now + 0.5
+        menu:Press("A", false)
+        assert(#ran == 1 and menu:IsShown(), "a hold let go early runs nothing")
+        menu:Press("A", true)
+        now = now + 2
+        menu:Press("DOWN", false)
+        menu:Press("A", false)
+        assert(ran[2] == "hold" and not menu:IsShown(), "a full hold runs and closes the menu")
+        GetTime = getTime
+    end },
+    -- (the navigator's Y on an item: the menu shown on the press, with the
+    -- item's entries; the game errors on a nil bag or slot)
+    { name = "navigator item menu", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Navigator and IF.Dropdown) then return end
+        local getInfo = C_Container.GetContainerItemInfo
+        -- (level 0: a message without a place, which the report would drop)
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        C_Container.GetContainerItemInfo = function(bag, slot)
+            check(type(bag) == "number" and type(slot) == "number", "the item's bag and slot reach the game")
+            return { itemID = 25, stackCount = 5, hyperlink = "[Sword]", quality = 1 }
+        end
+        local nav = IF.Navigator.New(CreateFrame("Frame"))
+        local item = CreateFrame("Button")
+        item.GetBagID = function() return 0 end
+        item.GetID = function() return 3 end
+        nav.on, nav.sel = true, item
+        local ok, err = pcall(nav.Press, nav, "PAD4", true)
+        C_Container.GetContainerItemInfo = getInfo
+        check(ok, err)
+        check(nav:MenuShown(), "Y opens the menu on the press")
+        local kinds = {}
+        for _, e in ipairs(nav.menu.entries) do kinds[#kinds + 1] = e.kind end
+        check(nav.menu.entries[1].text == "[Sword]" and #kinds >= 3,
+            "the menu has the item's title and entries: " .. table.concat(kinds, ","))
+        nav.menu:Close()
+    end },
+    -- (the navigator's legend names the window switch's L2 / R2 just before B, while nav.hint gives one)
+    { name = "navigator legend switch", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Navigator and IF.InputLegend) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local nav = IF.Navigator.New(CreateFrame("Frame"))
+        nav.on = true
+        local hint = { "PADRTRIGGER", "RT", "Character", pad = true }
+        nav.hint = function() return hint end
+        nav:ShowLegend()
+        local defs = nav.legend.defs
+        check(defs and defs[#defs - 1] == hint and defs[#defs][1] == "PAD2", "the switch's entry just before B")
+        hint = nil
+        nav:ShowLegend()
+        defs = nav.legend.defs
+        check(defs and defs[#defs - 1][1] ~= "PADRTRIGGER", "no switch: no entry")
+    end },
+    -- (our auction window on: the backpack Baganator opens with the auction
+    -- house, before or after its event, closes again; one opened later stays;
+    -- its Auto Open checkbox shows off and disabled)
+    { name = "baganator auto open at the auction house", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local auction, after, getTime, kinds = rawget(IF, "Auction"), C_Timer.After, GetTime, rawget(Enum, "PlayerInteractionType")
+        local now = 1000
+        GetTime = function() return now end
+        C_Timer.After = function(_, fn) fn() end
+        rawset(Enum, "PlayerInteractionType", { Auctioneer = 21 })
+        IF.Auction = { Settings = function() return { buy = true } end, Available = function() return true end }
+        local w = CreateFrame("Frame")
+        function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+        function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+        w.BagSlots, w.Character = false, false
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { "backpack" } }) end
+        local holder = CreateFrame("Frame")
+        local box = CreateFrame("Frame", nil, holder)
+        rawset(holder, "checkBox", box)
+        holder.option = "auto_open.auction_house"
+        local checked, enabled, text = true, true, "Auction House"
+        function box:GetText() return text end
+        function box:SetText(t) text = t end
+        function box:SetEnabled(on) enabled = on end
+        function box:SetChecked(on) checked = on end
+        function box:GetParent() return holder end
+        function holder:SetValue(v) checked = v end
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "CheckBox", region = box }) end
+        local function open(first)
+            now = now + 10
+            if first then w:Show() end
+            fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 21)
+            if not first then w:Show() end
+        end
+        open(true)
+        check(not w:IsShown(), "opened before the event: closed")
+        open(false)
+        check(not w:IsShown(), "opened after the event: closed")
+        now = now + 1
+        w:Show()
+        check(w:IsShown(), "opened later: stays")
+        holder:SetValue(true)
+        local greyed = not checked and not enabled and text:find("auction window")
+        w:Hide()
+        IF.Auction, C_Timer.After, GetTime = auction, after, getTime
+        rawset(Enum, "PlayerInteractionType", kinds)
+        check(greyed, "the checkbox off, disabled, with the reason")
+    end },
+    -- (the Baganator module's settings filled once, not on every read)
+    { name = "baganator settings", fn = function()
+        local BG = rawget(_G, "ImprovedForever") and ImprovedForever.Baganator
+        if not BG then return end
+        local s = BG.Settings()
+        ImprovedForever.db.bagsLog = {}
+        local kept = BG.Settings() == s and ImprovedForever.db.bagsLog
+        ImprovedForever.db.bagsLog = nil
+        if not (kept and s.switch == true) then error("Settings: not filled once", 0) end
+    end },
+    -- (Baganator's backpack and bank open beside an unseen game window (the
+    -- game's bank, Baganator hides it): closing the backpack with B hands
+    -- the pad straight to the bank, and one B then closes that)
+    { name = "baganator close hands the pad on", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode, isKeyDown = GamepadMode, IsKeyDown
+        local manager = { shownFrames = {}, isUIFocused = false }
+        GamepadMode = { FrameControlsManager = manager }
+        local function Catcher(w)
+            for _, f in ipairs(frames) do
+                if f.__parent == w and f.__scripts.OnGamePadButtonDown then return f end
+            end
+        end
+        local function B(w)
+            local c = Catcher(w)
+            c.__scripts.OnGamePadButtonDown(c, "PAD2")
+            c.__scripts.OnGamePadButtonUp(c, "PAD2")
+        end
+        local backpack, bank = BaganatorWindow("backpack"), BaganatorWindow("bank")
+        backpack:Show()
+        bank:Show()
+        check(F.Holding() == backpack, "the backpack opened first holds the pad")
+        local game = CreateFrame("Frame")
+        manager.shownFrames, manager.focusedFrame, manager.isUIFocused = { game }, game, true
+        -- (B still down as the backpack hides on its release)
+        IsKeyDown = function(key) return key == "PAD2" end
+        B(backpack)
+        IsKeyDown = isKeyDown
+        local c = Catcher(bank)
+        c.__scripts.OnUpdate(c)
+        check(not backpack:IsShown() and F.Holding() == bank, "closing the backpack hands the pad to the bank")
+        B(bank)
+        GamepadMode = gamepadMode
+        check(not bank:IsShown(), "one B then closes the bank")
+    end },
+    -- (a Baganator window opened from the panel (its Addons tab): the last one opened has the
+    -- pad, the panel behind it; the pad back on the panel once it closes)
+    { name = "baganator over the panel", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and IF.Menu and #IF.Menu.TABS > 0 and #skinListeners > 0) then return end
+        local F, M = IF.Focus, IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode = GamepadMode
+        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
+        M.Open()
+        local bags = BaganatorWindow("backpack")
+        bags:Show()
+        M.OnUpdate(0)
+        check(F.Holding() == bags and M.Behind(), "the bags opened over the panel have the pad, the panel behind")
+        -- (L2 there, the triggers up first: back on the panel, the bags letting go)
+        local isKeyDown = IsKeyDown
+        IsKeyDown = function(key) return key == "PADLTRIGGER" end
+        M.OnUpdate(0)
+        IsKeyDown = isKeyDown
+        check(not M.Behind() and F.Holding() ~= bags, "L2 on the bags gives the panel the pad, the bags let go")
+        bags:Hide()
+        M.OnUpdate(0)
+        GamepadMode = gamepadMode
+        check(M.IsOpen() and not M.Behind() and F.Holding() ~= bags, "the bags closing give the panel the pad back")
+        M.Close()
+    end },
+    -- (the bag slots bar open above the backpack: closing the backpack with
+    -- B leaves the bar shown under it, unseen; the pad must not go to it)
+    { name = "baganator close skips the hidden bag slots bar", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode = GamepadMode
+        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
+        local backpack = CreateFrame("Frame")
+        backpack.__shown = false
+        local slots = CreateFrame("Frame", nil, backpack)
+        backpack.BagSlots = slots
+        slots.liveBagSlots = { CreateFrame("Button", nil, slots) }
+        function backpack:ToggleBagSlots() end
+        function backpack:Show() self.__shown = true self.__scripts.OnShow(self) end
+        function backpack:Hide() self.__shown = false self.__scripts.OnHide(self) end
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = backpack, tags = { "backpack" } }) end
+        local catcher
+        for _, f in ipairs(frames) do
+            if f.__parent == backpack and f.__scripts.OnGamePadButtonUp then catcher = f end
+        end
+        backpack:Show()
+        check(F.Holding() == backpack, "the backpack holds the pad")
+        catcher.__scripts.OnGamePadButtonDown(catcher, "PAD2")
+        catcher.__scripts.OnGamePadButtonUp(catcher, "PAD2")
+        GamepadMode = gamepadMode
+        check(not backpack:IsShown() and F.Holding() == nil, "closing the backpack leaves the pad to no window of ours")
+    end },
+    -- (a window the frame manager shows and focuses while the panel is up:
+    -- the panel stays open behind it; in front again when it closes, or on
+    -- opening or toggling the panel)
+    { name = "panel behind a game window", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Menu and #IF.Menu.TABS > 0) then return end
+        local M = IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local shown
+        for _, h in ipairs(tableHooks) do
+            if h.name == "FrameShown" then shown = h.fn end
+        end
+        check(shown, "the panel hooks the frame manager's FrameShown")
+        local gamepadMode = GamepadMode
+        local game = CreateFrame("Frame")
+        local manager = { shownFrames = { game }, focusedFrame = game, isUIFocused = true }
+        GamepadMode = { FrameControlsManager = manager }
+        M.Open()
+        shown(manager, game)
+        check(M.IsOpen() and M.Behind(), "a window shown takes the pad, the panel stays open behind it")
+        M.Open()
+        check(not M.Behind(), "opening the panel again brings it to front")
+        shown(manager, game)
+        M.Toggle()
+        check(M.IsOpen() and not M.Behind(), "the toggle brings it to front, not closed")
+        shown(manager, game)
+        game:Hide()
+        M.OnUpdate(0)
+        check(M.IsOpen() and not M.Behind(), "the window closing brings the panel to front")
+        GamepadMode = gamepadMode
+        M.Close()
+    end },
+    -- (the Addons tab: /if addons opens on it; L1 / R1 jump between addons;
+    -- A runs a command (by the secure button on the pad) or opens a page)
+    { name = "addons tab", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Addons and IF.Menu) then return end
+        local M, AD = IF.Menu, IF.Addons
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local commands, ran = AD.Commands, nil
+        SlashCmdList.ALPHA = function(msg) ran = msg end
+        AD.Commands = function()
+            return {
+                { title = "Alpha", entries = { { kind = "slash", text = "/al", key = "ALPHA", aliases = { "/al" } },
+                    { kind = "settings", text = "Alpha", id = 7, openable = true } } },
+                { title = "Beta", entries = { { kind = "ldb", text = "Beta" } } },
+            }
+        end
+        IF.RunCommand("addons")
+        check(M.IsOpen() and M.tab == "addons", "/if addons opens the panel on the Addons tab")
+        local page
+        for _, tab in ipairs(M.TABS) do
+            if tab.key == "addons" then page = tab.page end
+        end
+        local function verb()
+            for _, h in ipairs(page:Help()) do
+                if h.press == "A" then return h.verb end
+            end
+        end
+        check(verb() == "Run" and page:PadButton("PAD1") == "ImprovedForeverAddonsRun"
+            and ImprovedForeverAddonsRun:GetAttribute("macrotext") == "/al", "A on a command runs it by the secure button")
+        M.Press("A")
+        check(ran == "", "A clicked runs the command without arguments")
+        M.Press("DOWN")
+        check(verb() == "Open" and page:PadButton("PAD1") == nil, "A on a settings page opens it")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 jumps to the next addon")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 on the last addon stays")
+        M.Press("LB")
+        check(page:Entry().text == "/al", "L1 jumps to the previous addon's first entry")
+        AD.Commands, SlashCmdList.ALPHA = commands, nil
+        M.Close()
+    end },
+    -- (the Immersion module: the party cards on a target change, previewed and back)
+    { name = "party cards", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local PC = IF and IF.Interface and IF.Interface.PartyCards
+        if not PC then return end
+        -- (your target's card marked in gold, unmarked once you target another)
+        local card, isUnit = _G.ImprovedForeverPartyCard1, UnitIsUnit
+        -- (no preview: the stand-in's frames answer an unset field)
+        card.sample = false
+        UnitIsUnit = function(a, b) return a == card.unit and b == "target" end
+        fire("PLAYER_TARGET_CHANGED")
+        local marked = card.targetMark:IsShown()
+        UnitIsUnit = function() return false end
+        fire("PLAYER_TARGET_CHANGED")
+        UnitIsUnit = isUnit
+        rawset(card, "sample", nil)
+        assert(marked and not card.targetMark:IsShown(), "the target's party card not marked, or kept marked")
+        PC.TogglePreview()
+        PC.TogglePreview("off")
+        -- (the raid-style party's target boxes faded, the player's and a fifth pet's, and the
+        -- player's again after the game hides and shows it on a target change)
+        local party = Frame("CompactPartyFrame")
+        local me, pet = Frame("CompactPartyFrameMember1", party), Frame("CompactPartyFramePet5", party)
+        me.selectionHighlight, pet.selectionHighlight = Frame(nil, me), Frame(nil, pet)
+        party.memberUnitFrames, party.petUnitFrames = { me }, { pet }
+        PC.Apply()
+        assert(IF.Focus.Faded(pet.selectionHighlight), "a fifth pet's target box not faded")
+        me.selectionHighlight:Hide()
+        me.selectionHighlight:Show()
+        CompactUnitFrame_UpdateSelectionHighlight(me)
+        assert(IF.Focus.Faded(me.selectionHighlight), "the player's target box shown again unfaded")
+    end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()
         local IF = rawget(_G, "ImprovedForever")
@@ -434,6 +933,139 @@ local CHECKS = {
         end
         if KD.Equip then KD.Equip({ item = 1, slot = 13 }) end
         M.Close()
+    end },
+    -- (Immersion's buff row: no caps, its icons pushed together (overlapping at most) when all the
+    -- auras don't fit in 3 lines at the size they were built with, their times hidden while too
+    -- close; its lane from after the minion card (else the player frame) to the shown party cards,
+    -- wrapping upward; the cooldowns' lane from the shown party cards' right edge)
+    { name = "immersion buff row", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        if not (IN and IN.BuffTimeline and IN.PartyCards and IN.HudLayout and IN.PartyPad) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local function Up(fn, want)
+            for i = 1, 200 do
+                local name, value = debug.getupvalue(fn, i)
+                if not name then return end
+                if name == want then return value, i end
+            end
+        end
+        local ShowBuffs = Up(Up(IN.BuffTimeline.Apply, "Watch"), "ShowBuffs")
+        local Container = Up(ShowBuffs, "Container")
+        -- (made afresh, wherever login placed it)
+        debug.setupvalue(Container, select(2, Up(Container, "container")), nil)
+        debug.setupvalue(ShowBuffs, select(2, Up(ShowBuffs, "placedAt")), nil)
+        local HL, s = IN.HudLayout, IN.Settings()
+        local saved = { CreateFrame = CreateFrame, C_UnitAuras = rawget(_G, "C_UnitAuras"), UnitExists = UnitExists,
+            size = HL.CooldownIconSize, w = rawget(UIParent, "__w"), partyX = s.partyX }
+        local rec, measured, auras = { caps = {}, spacing = {} }, nil, { HELPFUL = 0, HARMFUL = 0 }
+        CreateFrame = function(kind, ...)
+            if kind ~= "AuraContainer" then return saved.CreateFrame(kind, ...) end
+            local c = saved.CreateFrame("Frame", ...)
+            c.AddAuraGroup = function(_, key, _, o)
+                rec.caps[key], rec.size, rec.spacing[key] = o.maxFrameCount or "none", o.layout.elementWidth, o.layout.elementSpacing
+                local b = saved.CreateFrame("Frame")
+                local made = b.CreateFontString
+                -- (the first a button makes: its time)
+                b.CreateFontString = function(...)
+                    local t = made(...)
+                    rec.time = rec.time or t
+                    return t
+                end
+                o.initializeFrame(b)
+            end
+            c.SetAuraGroupLayout = function(_, key, o) rec.spacing[key] = o.elementSpacing end
+            c.SetFlowLayoutMaximumLineSize = function(_, n) rec.line = n end
+            c.SetFlowLayoutGrowthDirection = function(_, _, v) rec.up = v == AnchorUtil.FlowDirection.Up end
+            c.SetPoint = function(_, _, _, _, x) rec.x = x end
+            return c
+        end
+        C_UnitAuras = { GetUnitAuraInstanceIDs = function(_, filter)
+            if auras == "secret" then error("secret") end
+            local ids = {}
+            for i = 1, auras[filter] do ids[i] = i end
+            return ids
+        end }
+        -- (the spacing both groups got, the same, or nil)
+        local function spacing()
+            return rec.spacing.buffs == rec.spacing.debuffs and rec.spacing.buffs or nil
+        end
+        HL.CooldownIconSize = function() return measured end
+        UnitExists = function(unit) return unit == "party1" or unit == "party2" end
+        UIParent.__w = 1920
+        local minion, cards = _G.ImprovedForeverMinionCard1, {}
+        for i = 1, 4 do
+            local b = _G["ImprovedForeverPartyCard" .. i]
+            b.SetPoint = function(self, _, _, _, x) self.__x = x end
+            b.GetLeft = function(self) return UIParent:GetWidth() / 2 + self.__x end
+            b.GetRight = function(self) return self:GetLeft() + self.cardW end
+            b.__shown = false
+            cards[i] = b
+        end
+        minion.__shown = false
+        minion.GetRight = function() return 177 end
+        s.partyX = 0
+        -- (the cooldowns' lane: its near end, the party spells' diamond hidden)
+        local cooldowns = Up(IN.BuffTimeline.Apply, "cooldowns")
+        -- (the row's OnUpdate, or IN.Prof's wrapper round it)
+        local onUpdate = cooldowns.holder:GetScript("OnUpdate")
+        local Lane = (Up(onUpdate, "source") or Up(Up(onUpdate, "fn"), "source")).Lane
+        local PP = IN.PartyPad
+        saved.ppShown, PP.Shown = PP.Shown, function() return false end
+        local ok, err = pcall(function()
+            check(Lane() == 1152, "no cards: the cooldowns after a full row's half 164 + 28: " .. tostring(Lane()))
+            -- (lane: the player frame's right 100 + 20 to 960 - a full row's half 164 - 28: 648)
+            ShowBuffs(true)
+            check(rec.size == 24 and rec.x == 120 and rec.line == 648 and rec.up, "the row built at 24, lane 120 + 648, wrapping up")
+            check(rec.caps.buffs == "none" and rec.caps.debuffs == "none", "no caps: " .. tostring(rec.caps.buffs))
+            check(spacing() == 10 and rec.time.__shown, "no auras: the normal spacing, times shown")
+            -- (3 lines of 19 at 24 + 10: 57 fit; 60 make 20 a line: (648 - 480) / 19 = 8)
+            auras.HELPFUL = 57
+            ShowBuffs(true)
+            check(spacing() == 10, "57 buffs fit 3 lines: the normal spacing: " .. tostring(spacing()))
+            auras.HELPFUL = 60
+            ShowBuffs(true)
+            check(spacing() == 8 and rec.time.__shown, "60 buffs: pushed together to 8: " .. tostring(spacing()))
+            measured = 55
+            ShowBuffs(true)
+            check(spacing() == 8, "the spacing follows the built size, not the measured one: " .. tostring(spacing()))
+            -- (30 and 30: the line holding the gap 636 wide, still 20 a line)
+            auras.HELPFUL, auras.HARMFUL = 30, 30
+            ShowBuffs(true)
+            check(spacing() == 8, "30 debuffs and 30 buffs: the gap between them counted: " .. tostring(spacing()))
+            -- (40 a line: (648 - 960) / 39 = -8, the icons overlapping, their times hidden)
+            auras.HELPFUL, auras.HARMFUL = 120, 0
+            ShowBuffs(true)
+            check(spacing() == -8 and not rec.time.__shown, "120 buffs: overlapping by 8, times hidden: " .. tostring(spacing()))
+            auras.HELPFUL = 1000
+            ShowBuffs(true)
+            check(spacing() == -16, "far too many: two thirds of an icon hidden at most: " .. tostring(spacing()))
+            auras = "secret"
+            ShowBuffs(true)
+            check(spacing() == -16, "auras unreadable: the last count kept: " .. tostring(spacing()))
+            auras = { HELPFUL = 3, HARMFUL = 2 }
+            ShowBuffs(true)
+            check(spacing() == 10 and rec.time.__shown, "few again: the normal spacing, times back: " .. tostring(spacing()))
+            minion.__shown = true
+            ShowBuffs(true)
+            check(rec.x == 197 and rec.line == 571, "a minion: the lane after its card: " .. tostring(rec.x))
+            -- (two cards, 160 wide, centred 200 left: their left 680, the lane to 652)
+            s.partyX = -200
+            IN.PartyCards.Layout()
+            cards[1].__shown, cards[2].__shown = true, true
+            ShowBuffs(true)
+            check(rec.line == 455, "two party cards moved left: the lane to their left edge: " .. tostring(rec.line))
+            check(Lane() == 868, "two party cards moved left: the cooldowns from their right edge 840: " .. tostring(Lane()))
+            UnitExists = function() return true end
+            IN.PartyCards.Layout()
+            cards[3].__shown, cards[4].__shown = true, true
+            ShowBuffs(true)
+            check(rec.line == 371, "four party cards: the lane shorter: " .. tostring(rec.line))
+            check(Lane() == 952, "four party cards: the cooldowns from their right edge 924: " .. tostring(Lane()))
+        end)
+        CreateFrame, C_UnitAuras, UnitExists, HL.CooldownIconSize = saved.CreateFrame, saved.C_UnitAuras, saved.UnitExists, saved.size
+        PP.Shown = saved.ppShown
+        UIParent.__w, s.partyX = saved.w, saved.partyX
+        check(ok, err)
     end },
     -- (the Immersion module: its settings filled once)
     { name = "immersion settings", fn = function()
@@ -485,6 +1117,18 @@ local CHECKS = {
         check(has.row and has.slowest, "perf: a handler's row or its slowest call missing")
         check(has.addon and has.spikes, "perf: our addon's figure or the addons' spikes missing")
         check(has.part and has.note, "perf: the focus change's parts or its timeline line missing")
+    end },
+    -- (Immersion's pad bar: a tile left empty drops its whole cooldown, the global one's too)
+    { name = "immersion pad tile cooldown cleared", fn = function()
+        local IN = rawget(_G, "ImprovedForever") and ImprovedForever.Interface
+        local GB = IN and IN.GamepadBar
+        if not GB then return end
+        local cleared = false
+        local b = { gcdStart = 5, cdDuration = 2, cdUntil = 3, cdDoneAt = 4,
+            cooldown = { Clear = function() cleared = true end } }
+        GB.ClearCooldown(b)
+        assert(cleared and not (b.gcdStart or b.cdDuration or b.cdUntil or b.cdDoneAt),
+            "an emptied tile kept a cooldown")
     end },
 }
 

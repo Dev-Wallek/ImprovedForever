@@ -1,13 +1,15 @@
 -- Two rows along the bottom, either side of the party cards, each icon as
 -- the game's buff frame draws them (square, a debuff in its kind's border,
 -- its time over it in the game's yellow):
--- * left: your buffs and debuffs, from after the minion card toward the
---   party's row: the game's aura container (Blizzard_AuraContainer's
+-- * left: your buffs and debuffs, from after the minion card (else the
+--   player frame) to the party's cards, a full line wrapping upward,
+--   three lines at most, then the icons pushed together (overlapping) so all show:
+--   the game's aura container (Blizzard_AuraContainer's
 --   CustomAuraContainerTemplate), filled by the game itself, in a fight
 --   too, when it hides auras from addons: which auras, their icons,
---   stacks, time left and tooltips, sorted by time left (the soonest gone
---   nearest the middle, debuffs nearest). Ours only styles each button and
---   places the row; it never sees an aura.
+--   stacks, time left and tooltips, your own first, then by time left (the
+--   soonest gone nearest the middle, debuffs nearest). Ours only styles each button and
+--   places the row; it only counts the auras (out of a fight) to space them.
 -- * right: the cooldowns of what's on your gamepad bar (every slot of the
 --   crossbar's page shown) and your on-use trinkets, from the party
 --   spells' diamond (PartyPad.lua) toward the spell diamonds; only while
@@ -16,8 +18,9 @@
 --   comes ready, then gone. In a fight the game keeps their times secret:
 --   each is timed from your cast, by the length it had out of one.
 -- The cooldowns' end by the middle is marked with a short black line cut
--- into the power line. The middle is kept for the party cards (a full
--- party's row, its spells' diamond, MIDDLE_GAP).
+-- into the power line. The middle is kept for the party cards (the
+-- cooldowns: the cards shown, else a full party's row, then its spells'
+-- diamond, MIDDLE_GAP; the buffs: the same without the diamond).
 -- The game's buffs, debuffs and Cooldown Manager are drawn at 0
 -- (IF.Focus.Fade), the mouse they'd still get taken over where they are
 -- (UnitFrames.lua's Cover).
@@ -33,8 +36,7 @@ local function Secret(v)
 end
 
 local LINE_H = IN.MP_H          -- (the power line, PlayerHealth.lua)
-local START_GAP = 20            -- (after the minion card)
-local MINION_W = 61             -- (a minion's card, PartyCards.lua)
+local START_GAP = 20            -- (after the minion card or the player frame)
 local MIDDLE_GAP = 28           -- (kept clear by the party's row)
 local PAD_GAP = 12              -- (the party spells' diamond after the cards, PartyCards.lua)
 local DIAMOND_GAP = 40          -- (before the spell diamonds)
@@ -391,7 +393,12 @@ end
 -- by the game too)
 ---------------------------------------------------------------------------
 local GROUP_GAP = 12            -- (between the buffs and the debuffs)
-local DEBUFF_MAX = 8
+local LINES = 3                 -- (the row's lines at most, wrapping upward)
+local MAX_OVERLAP = 2 / 3       -- (of an icon, hidden under its neighbour at most)
+local TIME_ROOM = 24            -- (an icon step narrower than this: neighbouring times, "59m", would overlap)
+
+-- (the buttons' time texts, shown while the icons have room for them)
+local times, timesShown = {}, true
 
 local function StyleButton(b, harmful, size)
     b:SetSize(size, size)
@@ -400,6 +407,8 @@ local function StyleButton(b, harmful, size)
 
     local time = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     time:SetPoint("BOTTOM", b, "TOP", 0, 1)
+    time:SetShown(timesShown)
+    times[#times + 1] = time
     local count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
     count:SetPoint("BOTTOMRIGHT", -2, 2)
 
@@ -432,62 +441,104 @@ local function StyleButton(b, harmful, size)
     end
 end
 
--- (the buffs' lane: after the minion card, to the party's row)
+-- (the buffs' lane: after the minion card, else after the player frame, to the shown party cards,
+-- else to a full party's row around the middle)
 local function BuffLane()
-    local start = (UF.PlayerRight() or 140) + 16 + MINION_W + START_GAP
-    local stop = UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) - (IN.PartyCards.ROW_HALF or 164) - MIDDLE_GAP
-    return start, math.max(start + 1, stop)
+    local PC = IN.PartyCards
+    local start = (PC.MinionRight() or UF.PlayerRight() or 140) + START_GAP
+    local stop = PC.RowLeft() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) - PC.ROW_HALF)
+    return start, math.max(start + 1, stop - MIDDLE_GAP)
+end
+
+-- (your buffs or debuffs now; the last count kept while the game keeps them from addons: a fight)
+local auraCounts = { HELPFUL = 0, HARMFUL = 0 }
+local function AuraCount(filter)
+    local ok, ids = pcall(C_UnitAuras and C_UnitAuras.GetUnitAuraInstanceIDs, "player", filter)
+    if ok and type(ids) == "table" and not Secret(#ids) then auraCounts[filter] = #ids end
+    return auraCounts[filter]
+end
+
+-- The space between two icons: the normal one while every aura fits in LINES lines of the lane,
+-- else less, down to icons overlapping (one line also holding the gap between the groups). The
+-- row never drops an aura for room.
+local function Spacing(width, size)
+    local buffs, debuffs = AuraCount("HELPFUL"), AuraCount("HARMFUL")
+    if buffs > 0 and debuffs > 0 then width = width - GROUP_GAP end
+    local perLine = math.ceil((buffs + debuffs) / LINES)
+    if perLine < 2 then return SPACING end
+    local fit = math.floor((width - perLine * size) / (perLine - 1))
+    return math.max(-math.floor(size * MAX_OVERLAP), math.min(SPACING, fit))
+end
+
+local function GroupLayout(spacing, size)
+    return { elementSpacing = spacing, lineSpacing = ROW_GAP, groupSpacing = GROUP_GAP,
+        elementWidth = size, elementHeight = size }
 end
 
 -- The container, made the first time it's shown (nil: this client has
--- none); its row's start, kept
-local container, placedAt
+-- none); its row's start, its icons' size and their spacing, kept (its
+-- buttons are styled once, by the game's code)
+local container, placedAt, builtSize, builtSpacing
 local function Container()
     if container ~= nil then return container or nil end
     container = false
     if not (AuraContainerSortMethod and AuraContainerSortDirection) then return nil end
     local ok, c = pcall(CreateFrame, "AuraContainer", "ImprovedForeverBuffList", UIParent, "CustomAuraContainerTemplate")
     if not (ok and c) then return nil end
-    -- (high, so the mouse reaches the game's own buttons, which show their own tooltip: at LOW something
-    -- lying over the row took it first)
-    c:SetFrameStrata("HIGH")
+    -- (the game's buff frame's strata: over what lies on the row, so the mouse reaches the game's own
+    -- buttons and their tooltips (at LOW something took it first), under windows such as the bags)
+    c:SetFrameStrata("MEDIUM")
     local size = Size()
-    local start, stop = BuffLane()
-    local fits = math.max(1, math.floor((stop - start - GROUP_GAP + SPACING) / (size + SPACING)))
+    builtSize, builtSpacing = size, SPACING
     pcall(c.SetUnit, c, "player")
-    -- (the buffs, then the debuffs nearest the middle; each sorted by time
-    -- left, the soonest gone last: nearest the middle)
-    local function Group(key, filter, harmful, max)
+    -- (the game's order: your own first, then the soonest gone, the permanent last; laid out right
+    -- to left, so the soonest gone sit nearest the middle, a full line wrapping onto one over it;
+    -- no cap: the game makes buttons for the auras on you only)
+    pcall(c.SetFlowLayoutAnchorPoint, c, "BOTTOMRIGHT")
+    pcall(c.SetFlowLayoutGrowthDirection, c, AnchorUtil.FlowDirection.Left, AnchorUtil.FlowDirection.Up)
+    local function Group(key, filter, harmful)
         pcall(c.AddAuraGroup, c, key, filter, {
-            maxFrameCount = max,
             sortMethod = AuraContainerSortMethod.Expiration,
-            sortDirection = AuraContainerSortDirection.Reverse,
-            layout = { elementSpacing = SPACING, groupSpacing = GROUP_GAP, elementWidth = size, elementHeight = size },
+            sortDirection = AuraContainerSortDirection.Normal,
+            layout = GroupLayout(SPACING, size),
             initializeFrame = function(b) StyleButton(b, harmful, size) end,
         })
     end
-    -- (the debuffs keep a third of the row at most: a short row (a small screen, a low UI scale) left the
-    -- buffs only what DEBUFF_MAX did not take, two icons)
-    local debuffs = math.max(1, math.min(DEBUFF_MAX, math.floor(fits / 3)))
-    Group("buffs", "HELPFUL", false, math.max(1, fits - debuffs))
-    Group("debuffs", "HARMFUL", true, debuffs)
+    -- (the debuffs first: right to left, nearest the middle)
+    Group("debuffs", "HARMFUL", true)
+    Group("buffs", "HELPFUL", false)
     c:Hide()
     container = c
     return c
 end
 
--- (shown or not; its row placed: its top left, the row's foot on
--- IN.BOTTOM)
+-- (shown or not; its row placed: its bottom left at the lane's start
+-- on IN.BOTTOM; its line width and spacing following the lane and the
+-- auras on you, the game's line setter doing nothing while unchanged)
 local function ShowBuffs(on)
     local c = (on or container) and Container()
     if not c then return end
     if on then
-        local start = BuffLane()
+        local start, stop = BuffLane()
         local at = math.floor(start + 0.5)
         if at ~= placedAt then
             placedAt = at
             c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM + Size())
+            c:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", at, IN.BOTTOM)
+        end
+        local width = math.floor(stop - start)
+        pcall(c.SetFlowLayoutMaximumLineSize, c, width)
+        local spacing = Spacing(width, builtSize)
+        if spacing ~= builtSpacing then
+            builtSpacing = spacing
+            pcall(c.SetAuraGroupLayout, c, "debuffs", GroupLayout(spacing, builtSize))
+            pcall(c.SetAuraGroupLayout, c, "buffs", GroupLayout(spacing, builtSize))
+            -- (ponytail: all hidden at once while the icons are too close, not per overlapping neighbour)
+            local shown = builtSize + spacing >= TIME_ROOM
+            if shown ~= timesShown then
+                timesShown = shown
+                for _, t in ipairs(times) do t:SetShown(shown) end
+            end
         end
     end
     if c:IsShown() ~= on then
@@ -916,8 +967,9 @@ end)
 
 local cooldowns = Timeline("ImprovedForeverCooldownTimeline", {
     Lane = function()
-        local middle = UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0)
-        local near = middle + (IN.PartyCards.ROW_HALF or 164) + MIDDLE_GAP
+        local PC = IN.PartyCards
+        local near = (PC.RowRight() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) + PC.ROW_HALF))
+            + MIDDLE_GAP
         local PP = IN.PartyPad
         if PP and PP.Shown and PP.Shown() then near = near + PAD_GAP + PP.Width() end
         local GB = IN.GamepadBar

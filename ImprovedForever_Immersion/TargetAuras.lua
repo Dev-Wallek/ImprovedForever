@@ -47,7 +47,8 @@ local function Container()
         pcall(c.AddAuraGroup, c, key, filter, {
             maxFrameCount = MAX_EACH,
             sortMethod = AuraContainerSortMethod.Expiration,
-            sortDirection = AuraContainerSortDirection.Reverse,
+            -- (the game's order: your own, then the soonest gone first, so a full row drops others' and permanent ones)
+            sortDirection = AuraContainerSortDirection.Normal,
             layout = { elementSpacing = GAP, groupSpacing = GROUP_GAP, elementWidth = SIZE, elementHeight = SIZE },
             initializeFrame = Style,
         })

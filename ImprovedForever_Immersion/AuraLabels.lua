@@ -80,9 +80,9 @@ local function Effect(id, index, harmful)
         end
         return ""
     end)
-    -- (a read refused (a fight): tried again later)
+    -- (a read refused (a fight) or no effect found (the tooltip maybe not loaded yet): tried again later)
     if not ok then return "" end
-    known[id] = text
+    if text ~= "" then known[id] = text end
     return text
 end
 

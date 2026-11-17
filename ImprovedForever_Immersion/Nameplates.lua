@@ -197,7 +197,8 @@ local function AuraList(p)
     pcall(c.AddAuraGroup, c, "debuffs", "HARMFUL|PLAYER", {
         maxFrameCount = DEBUFF_MAX,
         sortMethod = AuraContainerSortMethod.Expiration,
-        sortDirection = AuraContainerSortDirection.Reverse,
+        -- (the soonest gone first, so a full row drops the permanent ones)
+        sortDirection = AuraContainerSortDirection.Normal,
         layout = { elementSpacing = DEBUFF_GAP, groupSpacing = 0, elementWidth = DEBUFF_SIZE, elementHeight = DEBUFF_SIZE },
         initializeFrame = StyleDebuff,
     })
