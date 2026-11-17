@@ -773,7 +773,7 @@ function DS.Open(origin)
     DS.items, DS.index, DS.top, DS.hover = DS.Scan(), 1, 1, nil
     DS.CancelPress()
     DS.focus = "panel"
-    DS.switch.focus = "ours"
+    DS.switch:Take()
     DS.origin = origin or "bags"
     DS.TakePad(true)
     -- (where: beside the loot window or the bags: IF.Focus.Dock above)

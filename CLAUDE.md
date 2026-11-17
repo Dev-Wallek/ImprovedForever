@@ -34,6 +34,9 @@ focus the way Forever's native windows do. The shared code is
   - Call `sw:Press(key)` for LT/RT on our catcher.
   - Call `sw:Update()` from `OnUpdate`.
   - Use `sw:Set("ours" | "game")` to switch.
+  - Call `sw:Take()` on opening the window: the last of ours opened has the
+    pad, the others of ours let go and get it back as it closes. A window
+    opened together with the game's (bags at a vendor) leaves the pad there.
 - The direction follows the screen side. The pad goes to the game window that
   still has the game's focus (the one ours was opened from): L2 if that window
   is on our left, R2 if on our right. The other trigger, pressed on that window

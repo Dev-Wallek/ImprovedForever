@@ -1,0 +1,13 @@
+## Interface: 16001, 16002, 16003, 16100, 16101, 16200
+## Title: Improved Forever: Addons
+## Notes: Every installed addon with the controller: its commands, settings and launchers in one list.
+## Version: 0.1.0
+## X-Website: https://github.com/markgravity/ImprovedForever
+## X-License: MIT
+## IconTexture: Interface\AddOns\ImprovedForever\textures\ic_mod_addons
+## Group: ImprovedForever
+## Dependencies: ImprovedForever
+
+Module.lua
+Commands.lua
+Page.lua

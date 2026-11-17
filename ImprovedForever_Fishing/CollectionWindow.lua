@@ -549,7 +549,7 @@ win:SetScript("OnEvent", function() win:Hide() end)
 function B.Open(itemID)
     if IF.InCombat() then return IF.Print("Not in combat.") end
     view.tab, view.sel, view.focus = 1, 1, "ours"
-    switch.focus = "ours"
+    switch:Take()
     local item = itemID and B.Index().items[itemID]
     if item then
         for i, t in ipairs(TABS) do if t.kinds[item.kind] then view.tab = i end end

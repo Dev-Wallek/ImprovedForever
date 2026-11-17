@@ -183,9 +183,13 @@ function GetInventoryItemID() return nil end
 function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
--- (a table's own function hooked; the game's globals and stubs are left as they are)
+-- (hooks on a table's function kept, for the checks to call them as the game would, and run
+-- after a function the table has itself; the game's globals and stubs are left as they are)
+local tableHooks = {}
 function hooksecurefunc(t, name, fn)
-    local old = type(t) == "table" and rawget(t, name)
+    if not (type(t) == "table" and fn) then return end
+    tableHooks[#tableHooks + 1] = { name = name, fn = fn }
+    local old = rawget(t, name)
     if type(old) ~= "function" then return end
     rawset(t, name, function(...)
         local r = { old(...) }
@@ -222,7 +226,8 @@ function GetNumQuestLeaderBoards() return 0 end
 function GetNumQuestWatches() return 0 end
 C_Texture = { GetAtlasInfo = function() return nil end }
 C_CVar = { GetCVar = function() return "1" end, GetCVarBool = function() return false end, SetCVar = function() end }
-C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end }
+C_AddOns = { IsAddOnLoaded = function() return false end, GetAddOnMetadata = function() return "0.3.0" end,
+    GetNumAddOns = function() return 0 end }
 C_GamePad = { IsEnabled = function() return true end, GetActiveDeviceID = function() return 1 end,
     GetDeviceMappedState = function() return nil end, GetDeviceRawState = function() return nil end,
     GetCombinedDeviceID = function() return 1 end, GetPowerLevel = function() return nil end,
@@ -389,6 +394,17 @@ local function allFolders()
 end
 
 -- After loading: open each panel the modules give (what a player does first)
+-- (a Baganator window, hidden, skinned as Baganator hands its windows to skins)
+local function BaganatorWindow(tag)
+    local w = CreateFrame("Frame")
+    w.BagSlots, w.Character = false, false
+    function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+    function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+    w.__shown = false
+    for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
+    return w
+end
+
 local CHECKS = {
     { name = "config panel", fn = function()
         local IF = rawget(_G, "ImprovedForever")
@@ -415,6 +431,36 @@ local CHECKS = {
             if page.StickSide then page:StickSide(1) M.Render() end
         end
         M.Close()
+    end },
+    -- (two of ours: the one opened last holds the pad, both name the other in
+    -- their legend, and L2 / R2 moves the pad either way)
+    { name = "focus switch between two of ours", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Focus and IF.Focus.Switch) then return end
+        local F = IF.Focus
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local function Window(x)
+            local w = CreateFrame("Frame")
+            w.__shown = true
+            function w:GetCenter() return x, 300 end
+            function w:GetEffectiveScale() return 1 end
+            return w
+        end
+        local scale = rawget(UIParent, "GetEffectiveScale")
+        rawset(UIParent, "GetEffectiveScale", function() return 1 end)
+        local left, right = Window(100), Window(500)
+        local a, b = F.Switch(left), F.Switch(right)
+        a:Take()
+        b:Take()
+        check(F.Holding() == right and a.focus == "game", "the last opened holds the pad")
+        local hint = b:Hint()
+        check(hint and hint[2] == "LT", "its legend names L2 to the other")
+        check(b:Press("LT") and F.Holding() == left, "L2 hands the pad over")
+        hint = a:Hint()
+        check(hint and hint[2] == "RT", "the other's legend names R2 back")
+        check(a:Press("RT") and F.Holding() == right, "R2 hands it back")
+        left.__shown, right.__shown = false, false
+        rawset(UIParent, "GetEffectiveScale", scale)
     end },
     -- (the core's dropdown: an action closes it and runs; a hold entry runs
     -- only when Cross is let go after its hold, whatever else is let go)
@@ -576,15 +622,6 @@ local CHECKS = {
         local gamepadMode, isKeyDown = GamepadMode, IsKeyDown
         local manager = { shownFrames = {}, isUIFocused = false }
         GamepadMode = { FrameControlsManager = manager }
-        local function Window(tag)
-            local w = CreateFrame("Frame")
-            w.BagSlots, w.Character = false, false
-            function w:Show() self.__shown = true self.__scripts.OnShow(self) end
-            function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
-            w.__shown = false
-            for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
-            return w
-        end
         local function Catcher(w)
             for _, f in ipairs(frames) do
                 if f.__parent == w and f.__scripts.OnGamePadButtonDown then return f end
@@ -595,7 +632,7 @@ local CHECKS = {
             c.__scripts.OnGamePadButtonDown(c, "PAD2")
             c.__scripts.OnGamePadButtonUp(c, "PAD2")
         end
-        local backpack, bank = Window("backpack"), Window("bank")
+        local backpack, bank = BaganatorWindow("backpack"), BaganatorWindow("bank")
         backpack:Show()
         bank:Show()
         check(F.Holding() == backpack, "the backpack opened first holds the pad")
@@ -611,6 +648,32 @@ local CHECKS = {
         B(bank)
         GamepadMode = gamepadMode
         check(not bank:IsShown(), "one B then closes the bank")
+    end },
+    -- (a Baganator window opened from the panel (its Addons tab): the last one opened has the
+    -- pad, the panel behind it; the pad back on the panel once it closes)
+    { name = "baganator over the panel", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and IF.Menu and #IF.Menu.TABS > 0 and #skinListeners > 0) then return end
+        local F, M = IF.Focus, IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local gamepadMode = GamepadMode
+        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
+        M.Open()
+        local bags = BaganatorWindow("backpack")
+        bags:Show()
+        M.OnUpdate(0)
+        check(F.Holding() == bags and M.Behind(), "the bags opened over the panel have the pad, the panel behind")
+        -- (L2 there, the triggers up first: back on the panel, the bags letting go)
+        local isKeyDown = IsKeyDown
+        IsKeyDown = function(key) return key == "PADLTRIGGER" end
+        M.OnUpdate(0)
+        IsKeyDown = isKeyDown
+        check(not M.Behind() and F.Holding() ~= bags, "L2 on the bags gives the panel the pad, the bags let go")
+        bags:Hide()
+        M.OnUpdate(0)
+        GamepadMode = gamepadMode
+        check(M.IsOpen() and not M.Behind() and F.Holding() ~= bags, "the bags closing give the panel the pad back")
+        M.Close()
     end },
     -- (the bag slots bar open above the backpack: closing the backpack with
     -- B leaves the bar shown under it, unseen; the pad must not go to it)
@@ -640,6 +703,80 @@ local CHECKS = {
         catcher.__scripts.OnGamePadButtonUp(catcher, "PAD2")
         GamepadMode = gamepadMode
         check(not backpack:IsShown() and F.Holding() == nil, "closing the backpack leaves the pad to no window of ours")
+    end },
+    -- (a window the frame manager shows and focuses while the panel is up:
+    -- the panel stays open behind it; in front again when it closes, or on
+    -- opening or toggling the panel)
+    { name = "panel behind a game window", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Menu and #IF.Menu.TABS > 0) then return end
+        local M = IF.Menu
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local shown
+        for _, h in ipairs(tableHooks) do
+            if h.name == "FrameShown" then shown = h.fn end
+        end
+        check(shown, "the panel hooks the frame manager's FrameShown")
+        local gamepadMode = GamepadMode
+        local game = CreateFrame("Frame")
+        local manager = { shownFrames = { game }, focusedFrame = game, isUIFocused = true }
+        GamepadMode = { FrameControlsManager = manager }
+        M.Open()
+        shown(manager, game)
+        check(M.IsOpen() and M.Behind(), "a window shown takes the pad, the panel stays open behind it")
+        M.Open()
+        check(not M.Behind(), "opening the panel again brings it to front")
+        shown(manager, game)
+        M.Toggle()
+        check(M.IsOpen() and not M.Behind(), "the toggle brings it to front, not closed")
+        shown(manager, game)
+        game:Hide()
+        M.OnUpdate(0)
+        check(M.IsOpen() and not M.Behind(), "the window closing brings the panel to front")
+        GamepadMode = gamepadMode
+        M.Close()
+    end },
+    -- (the Addons tab: /if addons opens on it; L1 / R1 jump between addons;
+    -- A runs a command (by the secure button on the pad) or opens a page)
+    { name = "addons tab", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Addons and IF.Menu) then return end
+        local M, AD = IF.Menu, IF.Addons
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local commands, ran = AD.Commands, nil
+        SlashCmdList.ALPHA = function(msg) ran = msg end
+        AD.Commands = function()
+            return {
+                { title = "Alpha", entries = { { kind = "slash", text = "/al", key = "ALPHA", aliases = { "/al" } },
+                    { kind = "settings", text = "Alpha", id = 7, openable = true } } },
+                { title = "Beta", entries = { { kind = "ldb", text = "Beta" } } },
+            }
+        end
+        IF.RunCommand("addons")
+        check(M.IsOpen() and M.tab == "addons", "/if addons opens the panel on the Addons tab")
+        local page
+        for _, tab in ipairs(M.TABS) do
+            if tab.key == "addons" then page = tab.page end
+        end
+        local function verb()
+            for _, h in ipairs(page:Help()) do
+                if h.press == "A" then return h.verb end
+            end
+        end
+        check(verb() == "Run" and page:PadButton("PAD1") == "ImprovedForeverAddonsRun"
+            and ImprovedForeverAddonsRun:GetAttribute("macrotext") == "/al", "A on a command runs it by the secure button")
+        M.Press("A")
+        check(ran == "", "A clicked runs the command without arguments")
+        M.Press("DOWN")
+        check(verb() == "Open" and page:PadButton("PAD1") == nil, "A on a settings page opens it")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 jumps to the next addon")
+        M.Press("RB")
+        check(page:Entry().text == "Beta", "R1 on the last addon stays")
+        M.Press("LB")
+        check(page:Entry().text == "/al", "L1 jumps to the previous addon's first entry")
+        AD.Commands, SlashCmdList.ALPHA = commands, nil
+        M.Close()
     end },
     -- (the Wheel module: a wheel of each kind made, built and shown)
     { name = "wheel kinds", fn = function()

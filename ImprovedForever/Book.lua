@@ -1465,6 +1465,7 @@ function BK.New(opts)
         self.dim = how.dim ~= false
         self.extra = how.extra
         Ours()
+        switch:Take()
         if not window:IsShown() then Sound("IG_SPELLBOOK_OPEN") end
         window:Show()
         TakePad(true)
@@ -1491,6 +1492,7 @@ function BK.New(opts)
         suspended = false
         if IF.InCombat() or #self.stack == 0 then return wipe(self.stack) end
         Ours()
+        switch:Take()
         window:Show()
         TakePad(true)
         BindEscape(true)

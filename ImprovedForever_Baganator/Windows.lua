@@ -235,10 +235,12 @@ local function Watch(win, close, root)
     end)
     win:HookScript("OnShow", function()
         if not BG.Settings().switch then return end
-        -- (the pad stays where it is when a window has it: the game's or another of ours)
-        local free = not (IF.InCombat() or F.GameWindow(win) or F.Holding(win))
+        -- (opened together with the game's window that has the pad, or with another of these
+        -- windows: the pad stays there; opened from another window of ours: the pad is this one's)
+        local holder = F.Holding(win)
+        local free = not IF.InCombat() and (holder and not places[holder] or not (holder or F.GameWindow(win)))
         v.away = false
-        v.sw.focus = free and "ours" or "game"
+        if free then v.sw:Take() else v.sw.focus = "game" end
         Apply(win)
     end)
     win:HookScript("OnHide", function()
