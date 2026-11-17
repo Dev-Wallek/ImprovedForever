@@ -22,7 +22,7 @@ local ITEMS = {
             .. " glows; Circle closes it. A window opened while another has the controller waits for L2 / R2.",
     }, OnOff(function() return BG.Settings().switch end, function(on)
         BG.Settings().switch = on
-        if not on then BG.SwitchOff() end
+        if not on then IF.AddonWindows.Refresh() end
     end, "Windows in L2 / R2")),
 }
 

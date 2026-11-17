@@ -199,11 +199,15 @@ function hooksecurefunc(t, name, fn)
 end
 -- (UISpecialFrames: a game window, one of another addon's, one of ours, one of
 -- Baganator's; an entry an addon put there is tainted by it)
-UISpecialFrames = { "GameSpecialWindow", "OtherAddonWindow", "ImprovedForeverSpecialWindow", "BaganatorSpecialWindow" }
-local specialBy = { [2] = "OtherAddon", [3] = "ImprovedForever_Wiki", [4] = "Baganator" }
+-- (and a game frame another addon listed: its entry tainted, its global not)
+UISpecialFrames = { "GameSpecialWindow", "OtherAddonWindow", "ImprovedForeverSpecialWindow", "BaganatorSpecialWindow",
+    "GameFrameListedByAddon" }
+local specialBy = { [2] = "OtherAddon", [3] = "ImprovedForever_Wiki", [4] = "Baganator", [5] = "OtherAddon" }
+local addonGlobals = { OtherAddonWindow = true, ImprovedForeverSpecialWindow = true, BaganatorSpecialWindow = true }
 for _, name in ipairs(UISpecialFrames) do Frame(name) end
 function issecurevariable(t, key)
     if t == UISpecialFrames and specialBy[key] then return false, specialBy[key] end
+    if type(t) == "string" and addonGlobals[t] then return false, "OtherAddon" end
     return true
 end
 function securecall(fn, ...) return fn(...) end
@@ -536,6 +540,7 @@ local CHECKS = {
         local function check(ok, msg) if not ok then error(msg, 0) end end
         check(W.Watched(OtherAddonWindow), "another addon's window joins")
         check(not W.Watched(GameSpecialWindow), "the game's doesn't")
+        check(not W.Watched(GameFrameListedByAddon), "a game frame another addon listed doesn't")
         check(not W.Watched(ImprovedForeverSpecialWindow), "ours doesn't")
         check(not (IF.Baganator and W.Watched(BaganatorSpecialWindow)), "a claimed addon's doesn't")
         -- (out of the way of the checks after: closing a window hands the pad to the nearest shown)

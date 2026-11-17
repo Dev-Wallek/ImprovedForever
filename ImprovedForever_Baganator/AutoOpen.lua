@@ -37,7 +37,9 @@ local function SeenCheckbox(box)
     end)
 end
 
--- The bags, opened in the same frame as the auction house: closed again
+-- The bags, opened in the same frame as the auction house: closed again.
+-- Baganator still takes them as auto-opened, so bags opened by hand there
+-- close as the auction house does, as after its own Auto Open.
 local shownAt, openedAt
 local function Close(win)
     if Active() and win:IsShown() and shownAt == openedAt then win:Hide() end
