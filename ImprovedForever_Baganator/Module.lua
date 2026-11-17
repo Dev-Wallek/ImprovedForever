@@ -1,6 +1,7 @@
 -- Improved Forever: Baganator. Baganator's windows with the controller: it
 -- opens wherever the game's bags would (Bags.lua), L2 / R2 reach them
--- (Windows.lua), set up in its tab (BaganatorEditor.lua), its junk is the
+-- (Windows.lua), its Auto Open left out at the auction house while our
+-- auction window is on (AutoOpen.lua), set up in its tab (BaganatorEditor.lua), its junk is the
 -- core's verdict. Loaded only with
 -- Baganator (its TOC's dependency).
 local IF = ImprovedForever

@@ -49,7 +49,10 @@ frameMeta.__index = function(t, k)
     return s
 end
 function frameMeta.SetScript(self, name, fn) self.__scripts[name] = fn end
-function frameMeta.HookScript(self, name, fn) self.__scripts[name] = self.__scripts[name] or fn end
+function frameMeta.HookScript(self, name, fn)
+    local old = self.__scripts[name]
+    self.__scripts[name] = old and function(...) old(...) fn(...) end or fn
+end
 function frameMeta.GetScript(self, name) return self.__scripts[name] end
 function frameMeta.RegisterEvent(self, e) self.__events[e] = true end
 function frameMeta.UnregisterEvent(self, e) self.__events[e] = nil end
@@ -180,7 +183,16 @@ function GetInventoryItemID() return nil end
 function GetNumSpellTabs() return 0 end
 function GetMoney() return 0 end
 function PlaySound() end
-function hooksecurefunc() end
+-- (a table's own function hooked; the game's globals and stubs are left as they are)
+function hooksecurefunc(t, name, fn)
+    local old = type(t) == "table" and rawget(t, name)
+    if type(old) ~= "function" then return end
+    rawset(t, name, function(...)
+        local r = { old(...) }
+        fn(...)
+        return unpack(r)
+    end)
+end
 function issecurevariable() return true end
 function securecall(fn, ...) return fn(...) end
 function SetOverrideBinding() end
@@ -477,6 +489,56 @@ local CHECKS = {
         nav:ShowLegend()
         defs = nav.legend.defs
         check(defs and defs[#defs - 1][1] ~= "PADRTRIGGER", "no switch: no entry")
+    end },
+    -- (our auction window on: the backpack Baganator opens with the auction
+    -- house, before or after its event, closes again; one opened later stays;
+    -- its Auto Open checkbox shows off and disabled)
+    { name = "baganator auto open at the auction house", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        if not (IF and IF.Baganator and #skinListeners > 0) then return end
+        local function check(ok, msg) if not ok then error(msg, 0) end end
+        local auction, after, getTime, kinds = rawget(IF, "Auction"), C_Timer.After, GetTime, rawget(Enum, "PlayerInteractionType")
+        local now = 1000
+        GetTime = function() return now end
+        C_Timer.After = function(_, fn) fn() end
+        rawset(Enum, "PlayerInteractionType", { Auctioneer = 21 })
+        IF.Auction = { Settings = function() return { buy = true } end, Available = function() return true end }
+        local w = CreateFrame("Frame")
+        function w:Show() self.__shown = true self.__scripts.OnShow(self) end
+        function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
+        w.BagSlots, w.Character = false, false
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { "backpack" } }) end
+        local holder = CreateFrame("Frame")
+        local box = CreateFrame("Frame", nil, holder)
+        rawset(holder, "checkBox", box)
+        holder.option = "auto_open.auction_house"
+        local checked, enabled, text = true, true, "Auction House"
+        function box:GetText() return text end
+        function box:SetText(t) text = t end
+        function box:SetEnabled(on) enabled = on end
+        function box:SetChecked(on) checked = on end
+        function box:GetParent() return holder end
+        function holder:SetValue(v) checked = v end
+        for _, fn in ipairs(skinListeners) do fn({ regionType = "CheckBox", region = box }) end
+        local function open(first)
+            now = now + 10
+            if first then w:Show() end
+            fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 21)
+            if not first then w:Show() end
+        end
+        open(true)
+        check(not w:IsShown(), "opened before the event: closed")
+        open(false)
+        check(not w:IsShown(), "opened after the event: closed")
+        now = now + 1
+        w:Show()
+        check(w:IsShown(), "opened later: stays")
+        holder:SetValue(true)
+        local greyed = not checked and not enabled and text:find("auction window")
+        w:Hide()
+        IF.Auction, C_Timer.After, GetTime = auction, after, getTime
+        rawset(Enum, "PlayerInteractionType", kinds)
+        check(greyed, "the checkbox off, disabled, with the reason")
     end },
     -- (the Baganator module's settings filled once, not on every read)
     { name = "baganator settings", fn = function()
