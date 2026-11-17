@@ -20,11 +20,15 @@
 // Build and flash with tools/pad/flash.sh.
 
 #include <Arduino.h>
+#include <NimBLEDevice.h>
+#ifndef PAD_TXPOWER
+#define PAD_TXPOWER 9   // dBm (-9..9); the C3 mini's antenna is poor, so some boards connect better lower
+#endif
 #include <BleCompositeHID.h>
 #include <XboxGamepadDevice.h>
 
 static XboxGamepadDevice *pad;
-static BleCompositeHID hid("Improved Forever Test Pad", "Improved Forever", 100);
+static BleCompositeHID hid("IF Test Pad", "Improved Forever", 100);
 
 struct Name { const char *name; uint16_t mask; };
 static const Name BUTTONS[] = {
@@ -170,6 +174,19 @@ void setup() {
 
 void loop() {
     static String line;
+    // (full transmit power, once the BLE stack is up: the C3's small antenna is weak otherwise)
+    static bool powered = false;
+    if (!powered && millis() > 3000) {
+        NimBLEDevice::setPower(PAD_TXPOWER);
+        // (NimBLE makes the advertising connectable only when its peripheral role is configured; this
+        // build's isn't, so the Mac saw the pad but could never connect: made connectable here)
+        NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
+        adv->stop();
+        adv->setConnectableMode(BLE_GAP_CONN_MODE_UND);
+        adv->setDiscoverableMode(BLE_GAP_DISC_MODE_GEN);
+        adv->start();
+        powered = true;
+    }
     while (Serial.available()) {
         char c = (char)Serial.read();
         if (c == '\n' || c == '\r') {
