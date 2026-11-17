@@ -16,6 +16,14 @@ local ITEMS = {
         if IF.Binds.FocusChanged then IF.Binds.FocusChanged() end
     end, "Controller buttons")),
     Item({
+        key = "menuDouble", group = "gamepad", label = "Double tap Menu opens this panel",
+        tip = "Pressing the Menu button (Start) twice quickly opens this panel; once still opens the game's own "
+            .. "menu. Turn it off if you don't want the double tap to do that. The same as the \"Improved Forever "
+            .. "panel\" binding in the Bindings tab; the panel also opens with /if.",
+    }, OnOff(function() return IF.db.menuDouble ~= false end, function(on)
+        IF.db.menuDouble = on and nil or false
+    end, "Double tap Menu opens this panel")),
+    Item({
         key = "wandShoot", group = "gamepad", label = "Square shoots the wand",
         tip = "With a wand in your ranged slot, Square on a living enemy shoots it instead of swinging the "
             .. "melee weapon. L2 / R2 + Square stay the crossbar's; on a corpse, an NPC or an object Square is "

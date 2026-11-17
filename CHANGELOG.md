@@ -16,6 +16,7 @@
 
 ## Core (next)
 
+- Settings, General: "Double tap Menu opens this panel" turns off the double press of Menu (Start) that opens the panel (the same as unbinding it in the Bindings tab).
 - `/if report`: when the game blocks an action ("forbidden", "blocked"), a window with a text to copy and paste in a comment or an issue: the action and addon the game named, where it happened (instance, zone, combat), and the Improved Forever and other addons loaded. Every blocked action is logged for it; the chat tells you once to use it. `/if clearreport` empties the log.
 
 ## Wheel (next)
