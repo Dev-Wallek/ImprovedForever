@@ -478,6 +478,16 @@ local CHECKS = {
         defs = nav.legend.defs
         check(defs and defs[#defs - 1][1] ~= "PADRTRIGGER", "no switch: no entry")
     end },
+    -- (the Baganator module's settings filled once, not on every read)
+    { name = "baganator settings", fn = function()
+        local BG = rawget(_G, "ImprovedForever") and ImprovedForever.Baganator
+        if not BG then return end
+        local s = BG.Settings()
+        ImprovedForever.db.bagsLog = {}
+        local kept = BG.Settings() == s and ImprovedForever.db.bagsLog
+        ImprovedForever.db.bagsLog = nil
+        if not (kept and s.switch == true) then error("Settings: not filled once", 0) end
+    end },
     -- (Baganator's backpack and bank open beside an unseen game window (the
     -- game's bank, Baganator hides it): closing the backpack with B hands
     -- the pad straight to the bank, and one B then closes that)

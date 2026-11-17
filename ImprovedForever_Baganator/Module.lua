@@ -14,12 +14,15 @@ IF.Baganator = BG
 
 local DEFAULTS = { radial = true, switch = true }
 
+-- (filled once: the saved table is only replaced at login, and nothing sets a key to nil to mean its default)
+local settings
 function BG.Settings()
+    if settings then return settings end
     local db = IF.db
     -- (a test's log, left in saved variables)
     db.bagsLog = nil
     db.baganator = db.baganator or {}
-    local settings = db.baganator
+    settings = db.baganator
     for key, value in pairs(DEFAULTS) do
         if settings[key] == nil then settings[key] = value end
     end
