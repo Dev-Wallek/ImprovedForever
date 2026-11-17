@@ -23,7 +23,8 @@ focus the way Forever's native windows do. The shared code is
 - Never set a property of the game's frames (`SetAlpha`, `Hide`, `SetPoint`...)
   from addon code: it taints them, and closing a gamepad-focused window later
   gets `SetPreferredGamepadInteractTarget` forbidden. To hide one, use
-  `IF.Focus.Fade(region, true)` (an animation of ours aimed at it).
+  `IF.Focus.Fade(region, true)` (an animation of ours aimed at it). Only the
+  cases in "Taint rules: exceptions" below may break this.
 - Never add our frames to the game's managed frames
   (`RightManagedFrameContainer:AddManagedFrame`): it lays them out tainted and
   resizes the objective tracker from addon code.
@@ -43,7 +44,8 @@ focus the way Forever's native windows do. The shared code is
 - Never call the frame manager's `Focus*` / `FrameShown` / `ShowUIPanel` from
   addon code. Only read `GamepadMode.FrameControlsManager`
   (`shownFrames`, `focusedFrame`, `isUIFocused`). Calling them taints window
-  closing (ADDON_ACTION_BLOCKED on SetPreferredGamepadInteractTarget).
+  closing (ADDON_ACTION_BLOCKED on SetPreferredGamepadInteractTarget). Only
+  the cases in "Taint rules: exceptions" below may break this.
 - Take the pad with a catcher frame (`EnableGamePadButton`). Call
   `EnableGamePadButton(false)` right after `SetScript`, because setting the
   handler turns input on.
@@ -194,6 +196,51 @@ when a gamepad-focused window closes):
   - taking, passing on or binding the game's pad buttons while its window has
     focus
   - calling the game's window code that drives SmartNavigation
+
+## Taint rules: exceptions
+The rules above (no property of the game's frames set, no call into the frame
+manager or the game's window code) stay broad on purpose. A case may break one
+only once it is on the list below, and it gets there only after all of these:
+- The game's source shows why it can't taint: the path is one Blizzard opens to
+  addons (`SecureHelper:SetSecureValue` / `SecureHelper:WrapFunction`, an event
+  the game handles in its own handler), or no game code runs with our taint.
+  Forever's source: `github.com/Ketho/wow-ui-source-forever`.
+- Why it closes a gamepad-focused window cleanly: closing runs the frame
+  manager's `FrameHidden`, the binding stack, then the protected
+  `SetPreferredGamepadInteractTarget` (`Blizzard_GamepadActionBars/MainActionBarFrame.lua`);
+  any of it run or reading a value tainted by us gets that blocked.
+- The taint log, 3+ times: open the case, close a gamepad-focused window
+  (game's and ours), then a fight; no `ADDON_ACTION_BLOCKED` / forbidden.
+- In combat too, or guarded: what Blizzard opens to addons only out of combat
+  (`SecureHelper`'s default check) is called only out of combat.
+- Its entry here (what, where it may be used, the evidence), and a comment at
+  each use naming this list.
+
+Exceptions:
+- `SmartNavigation_MarkFrameIgnored` / `SmartNavigation_ClearIgnoreStatus`,
+  out of combat only: they set the mark through `SecureHelper`, which the
+  game's source says "may be set without causing taint (only while out of
+  combat)" (`Blizzard_GamepadSmartNavigation/Utility.lua`). Taint log: open.
+- `C_SettingsUtil.OpenSettingsPanel(categoryID)`: it fires
+  `SETTINGS_PANEL_OPEN`, and the settings panel opens itself in its own event
+  handler (`Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua`), the path of
+  every addon's `Settings.OpenToCategory`. Taint log: open.
+- `hooksecurefunc` on the frame manager's functions (`FrameShown`...): a
+  post-hook that only reads; the game's function runs untouched before it.
+  Taint log: open.
+- `Hide()` on the game's bag frames (`ContainerFrame_GenerateFrame`'s) while
+  Baganator keeps them under its hidden parent: Baganator, an addon, already
+  reparented them, and the game never shows them. Escape and a fight after it
+  unblocked (measured). Taint log: open.
+
+Not on the list, though Blizzard opens them to addons out of combat
+(`SecureHelper:WrapFunction`): the frame manager's `FrameShown` /
+`FrameHidden` and SmartNavigation's `SetTargetButtonForFrame`,
+`SetScrollFrameForFrame`, `SelectFirstButton`. In combat they're refused
+("Interface action blocked"). Calling the manager tainted window closing once,
+without a record of whether in combat: check them as above, out of combat,
+before using one. The manager's `Focus*` and `ShowUIPanel` aren't opened to
+addons.
 
 ## Checks
 - `luajit -bl <file>` for syntax.
