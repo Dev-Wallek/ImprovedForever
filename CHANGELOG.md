@@ -1,25 +1,36 @@
 # Changelog
 
-## Immersion (next)
+## Map 0.8.0
+
+- Peek map: L1 / R1 zoom the map out / in by level (sub-zone, zone, continent, world, as the map's own navigation does) instead of shrinking and growing its window.
+
+## QuestTracker 0.6.7
+
+- Fixed: tracking or untracking quests in the quest log while the map is open no longer freezes the game: the tracker waits until the map closes before it reorders the game's watch list.
+- Fixed: a quest that moves down the list no longer sends the tracker into an anchoring loop.
+
+## Immersion 0.14.0
 
 - Fixed: with the quest cards on and no Quest Tracker module, the game's own tracker no longer stays on screen: Immersion hides it too (not in Edit Mode), and it shows again when the cards are off.
 - Settings: "Target health line height" and "Nameplate health line height" sliders make the target header's and the nameplates' health lines thicker (Target and Nameplates sections); the reset-all button puts them back.
 - Settings: "Red line in melee range" (Target section, off by default): the target header's health line turns red while the target is within melee range, for hunters keeping out of the dead zone. It needs a melee ability on your gamepad bar.
 
-## Vibration (next)
+## Vibration 0.7.0
 
 - New event "Quest turned in" (Progress): a triple tick when you hand in a quest.
 
-## Camp (next)
+## Camp 0.2.0
 
 - Settings: "Camera" picks what the scene's camera does: shots with a slow pan (as before), shots held still, or the camera staying where it is.
 
-## Core (next)
+## Core 0.20.0
 
+- **Square always attacks** (General tab, off by default): Square on a living enemy starts the melee attack and never switches it off, so pressing it again keeps attacking. With a wand and "Square shoots the wand" on, the wand wins.
+- The bind editor takes a binding made of the pad's D-pad and buttons, and shows a card's layer when you are not binding.
 - Settings, General: "Double tap Menu opens this panel" turns off the double press of Menu (Start) that opens the panel (the same as unbinding it in the Bindings tab).
 - `/if report`: when the game blocks an action ("forbidden", "blocked"), a window with a text to copy and paste in a comment or an issue: the action and addon the game named, where it happened (instance, zone, combat), and the Improved Forever and other addons loaded. Every blocked action is logged for it; the chat tells you once to use it. `/if clearreport` empties the log.
 
-## Wheel (next)
+## Wheel 0.13.1
 
 - Fixed: opening a wheel no longer stops a character that is already walking with the left stick. The wheel takes the sticks only while you push the right stick to pick a slot (the left stick pauses then, as before) and lets go of them when it is back in the middle.
 - Fixed: the item tooltip no longer stays in the middle of the screen after you use an item from a wheel.
