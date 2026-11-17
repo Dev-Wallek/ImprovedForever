@@ -1,5 +1,16 @@
 # Changelog
 
+## Chat 0.7.0
+
+- **Chat keyboard**: an on-screen keyboard laid out like the PS5's, low in the middle of the screen on a soft dark band. Open it anywhere with LB + RB held, then Cross (a binding, changeable in the Bindings tab), or with D-pad Down while the chat has the controller. The chat's edit box isn't needed.
+- D-pad picks a key, Cross types it, Square deletes, Triangle is a space, LB / RB move the cursor, Start sends, Circle closes. Your sticks stay the game's.
+- LT / RT pick the channel: Say, Yell, Party, Raid, Guild, Whisper, and the numbered channels (General, Trade...). The message goes to the channel picked.
+- The message sits in the middle and grows out from it.
+- **Slash commands**: type `/` and the commands of the game and your addons (and the emotes) are offered in a strip over the keyboard; pick one with D-pad Up from the top row, left / right, Cross. Sending runs it as the game's chat would.
+- **Global** channel (one before Say, with LT): each key goes to the game as the keyboard's key, so your keyboard hotkeys work from the pad. The game's own protected actions (action bars, targeting, movement...) are left out.
+- Put the keyboard at the bottom, left or right of the screen, with its size and offsets, in the Chat tab; it shows while you change them.
+- Chat lines (D-pad Up in the chat) are as before: pick a line and the links in it, open an item in the Wiki, put a link in your message.
+
 ## Map 0.8.0
 
 - Peek map: L1 / R1 zoom the map out / in by level (sub-zone, zone, continent, world, as the map's own navigation does) instead of shrinking and growing its window.

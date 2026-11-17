@@ -1,8 +1,9 @@
 ## Interface: 16001, 16002, 16003, 16100, 16101, 16200
 ## Title: Improved Forever: Chat
-## Notes: Pick chat lines with the controller and what's linked in them.
+## Notes: Chat with the controller: an on-screen keyboard you open anywhere (LB + RB, Cross), a channel picker, and a picker for the lines of the chat and the links in them.
 ## Author: markg
-## Version: 0.6.0
+## Version: 0.7.0
+## X-Curse-Project-ID: 1812516
 ## X-Website: https://github.com/markgravity/ImprovedForever
 ## X-License: MIT
 ## IconTexture: Interface\AddOns\ImprovedForever\textures\ic_mod_chat
