@@ -15,7 +15,7 @@ local IF = ImprovedForever
 local BG = IF.Baganator
 
 -- Hide sets a property of the game's frames: allowed here only as one of
--- CLAUDE.md's taint exceptions (the game's bag frames under Baganator's hidden parent).
+-- the exceptions in docs/taint.md (the game's bag frames under Baganator's hidden parent).
 local function OnGenerated(frame)
     if not BG.Settings().radial then return end
     if not (frame and frame:IsShown() and not frame:IsVisible()) then return end
