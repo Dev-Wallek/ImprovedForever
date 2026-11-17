@@ -18,7 +18,8 @@
 -- spell, item or macro dropped on ours with the mouse goes into the slot
 -- it shows, and one dragged off is picked up (out of combat). Its two
 -- class action buttons (L1 + L2, R1 + R2) too, beside the diamonds, their two-glyph
--- prompt over them.
+-- prompt over them. The game's pet flyouts (L1 + L2 with a pet: its commands;
+-- R1 + R2: its spells) are drawn at 0 and ours draws each above its class tile.
 -- A cooldown can be a secret (Forever restricts them at times): its ring
 -- and countdown then aren't shown.
 local IF = ImprovedForever
@@ -1001,7 +1002,6 @@ local function Picture(native)
 end
 
 local FULL = { 0.07, 0.07, 0.07, 0.93, 0.93, 0.07, 0.93, 0.93 }   -- (an icon's own edge cropped)
-
 -- The interact button (the top bar's right face cluster's first): the game
 -- draws a unit's cursor on it (SetUnitCursorTexture: a herb's, an NPC's),
 -- a picture it can't hand on. Ours draws the same cursor itself, for the
@@ -1113,6 +1113,13 @@ local function Mirror(b, native)
     if wandTexture then has, texture, atlas, coords, icon = true, wandTexture, nil, nil, nil end
     if cursor then has, texture, atlas, coords, icon = true, nil, nil, nil, nil end
     b.icon:SetAlpha(shooting and (0.55 + 0.45 * math.abs(math.sin(GetTime() * 4))) or 1)
+    -- A portrait the game drew (SetPortraitTexture) reads as a render target's
+    -- name ("RTPortrait1"), which only the game's own texture shows, so ours
+    -- draws it itself: the pet's, on the pet command button (L1 + L2 with a
+    -- pet, Camelot/PetActionFlyout.lua)
+    local portrait = not Secret(texture) and type(texture) == "string" and texture:find("^RTPortrait")
+        and native.HasAvailablePetActions and "pet" or nil
+    if not portrait then b.portrait = nil end
     if not has then
         b.icon:SetTexture(nil)
         b.count:SetText("")
@@ -1138,8 +1145,19 @@ local function Mirror(b, native)
         b.icon:SetSize(d.width * UprightFill(), d.width * UprightFill())
         b.icon:SetRotation(0)
     else
-        b.icon:SetTexture(texture)
-        b.icon:SetTexCoord(unpack(coords or FULL))
+        if portrait then
+            -- (drawn again only for another pet: a portrait renders once)
+            local ok, guid = pcall(UnitGUID, portrait)
+            guid = (ok and not Secret(guid) and guid) or portrait
+            if b.portrait ~= guid then
+                b.portrait = guid
+                SetPortraitTexture(b.icon, portrait)
+            end
+            b.icon:SetTexCoord(0, 1, 0, 1)
+        else
+            b.icon:SetTexture(texture)
+            b.icon:SetTexCoord(unpack(coords or FULL))
+        end
         if coords then
             -- (the game's own picture, a cursor or a raid marker: upright)
             b.icon:SetSize(d.width * UprightFill(), d.width * UprightFill())
@@ -1354,7 +1372,139 @@ local function MirrorClass(b, native)
     if on then Mirror(b, native) end
 end
 
+---------------------------------------------------------------------------
+-- The game's pet flyouts open round the game's class buttons, which lie
+-- under ours at the screen's bottom: the pet commands (GamepadPetActionFlyout,
+-- L1 + L2 with a pet) and the pet's spells (GamepadPetSpellFlyout, R1 + R2
+-- for a hunter or warlock, Camelot/PetSpellFlyout.lua). Each is drawn at 0
+-- (IF.Focus.Fade, from the moment it shows) and ours draws its open state
+-- above the class tile it opened from: its ring, each slot and icon where
+-- the game has them, the one the right stick points at lit, the game's
+-- arrow at it. The presses stay the game's.
+---------------------------------------------------------------------------
 local shown, padShown
+
+-- (a block of its own: the file's main chunk is at Lua's 200 locals)
+do
+    local rings = {}   -- (ours, by the game's flyout)
+
+    local function Ring(flyout)
+        local ring = rings[flyout]
+        if ring then return ring end
+        ring = CreateFrame("Frame", nil, holder)
+        ring:SetFrameStrata("DIALOG")
+        ring:SetClampedToScreen(true)
+        ring:Hide()
+        ring.textures = {}
+        rings[flyout] = ring
+        return ring
+    end
+
+    -- (a texture's own scale, where the client has one; else its frame's)
+    local function RegionScale(r)
+        return r.GetEffectiveScale and r:GetEffectiveScale() or r:GetParent():GetEffectiveScale()
+    end
+
+    -- One of the flyout's textures drawn on ours: its picture, size, turn and
+    -- place from the flyout's centre (hidden with it, or with `shown` false)
+    local function CopyTexture(key, layer, sub, tex, flyout, shown)
+        local petRing = Ring(flyout)
+        local t = petRing.textures[key]
+        if not t then
+            t = petRing:CreateTexture(nil, layer, nil, sub)
+            petRing.textures[key] = t
+        end
+        local x, y
+        if tex then x, y = tex:GetCenter() end
+        local fx, fy = flyout:GetCenter()
+        if not (shown ~= false and tex and tex:IsShown() and x and fx) then
+            t:Hide()
+            return t
+        end
+        local s, fs, rs = RegionScale(tex), flyout:GetEffectiveScale(), petRing:GetEffectiveScale()
+        local atlas = tex:GetAtlas()
+        if type(atlas) == "string" and atlas ~= "" then
+            t:SetAtlas(atlas)
+        else
+            t:SetTexture(tex:GetTexture())
+            t:SetTexCoord(tex:GetTexCoord())
+        end
+        t:SetSize(tex:GetWidth() * s / rs, tex:GetHeight() * s / rs)
+        t:ClearAllPoints()
+        t:SetPoint("CENTER", petRing, "CENTER", (x * s - fx * fs) / rs, (y * s - fy * fs) / rs)
+        t:SetRotation(tex:GetRotation())
+        t:SetVertexColor(tex:GetVertexColor())
+        t:SetDesaturated(tex:IsDesaturated())
+        t:Show()
+        return t
+    end
+
+    local function DrawPetRing(flyout)
+        local petRing = Ring(flyout)
+        local fs, rs = flyout:GetEffectiveScale(), petRing:GetEffectiveScale()
+        petRing:SetSize(flyout:GetWidth() * fs / rs, flyout:GetHeight() * fs / rs)
+        CopyTexture("bg", "BACKGROUND", 0, flyout.Background, flyout)
+        for i, backdrop in ipairs(flyout.SlotBackdrops or {}) do
+            CopyTexture("backdrop" .. i, "BACKGROUND", 1, backdrop, flyout)
+        end
+        CopyTexture("indicator", "BACKGROUND", 2, flyout.SelectionIndicator, flyout)
+        local maskAtlas = flyout.style and flyout.style.maskAtlas
+        for i, button in ipairs(flyout.buttons or {}) do
+            local on = button:IsShown()
+            CopyTexture("normal" .. i, "BORDER", 0, button.NormalTexture, flyout, on)
+            CopyTexture("checked" .. i, "BORDER", 1, button.CheckedTexture, flyout, on and button:GetChecked() and true or false)
+            local icon = CopyTexture("icon" .. i, "ARTWORK", 0, button.icon, flyout, on)
+            if maskAtlas and not icon.mask then
+                icon.mask = petRing:CreateMaskTexture()
+                icon.mask:SetAllPoints(icon)
+                icon:AddMaskTexture(icon.mask)
+            end
+            if icon.mask then icon.mask:SetAtlas(maskAtlas) end
+            CopyTexture("checkedOverlay" .. i, "OVERLAY", 0, button.CheckedOverlayTexture, flyout, on)
+            CopyTexture("highlight" .. i, "OVERLAY", 1, button.HighlightTexture, flyout, on)
+        end
+        local arrow = flyout.SelectionArrow
+        CopyTexture("arrow", "OVERLAY", 2, arrow and arrow.Texture, flyout, arrow ~= nil and arrow:IsShown())
+    end
+
+    -- Ours shown while the game's is open and the pad's bar is up, above
+    -- the class tile it opened from
+    local function Sync(flyout)
+        local petRing = Ring(flyout)
+        local open = padShown and flyout:IsShown()
+        IF.Focus.Fade(flyout, open)
+        if not open then
+            petRing:Hide()
+            return
+        end
+        local pu = PageUnit()
+        local tile = (pu and flyout.flyoutButton == pu.RightClassAction) and classRight or classLeft
+        petRing:ClearAllPoints()
+        petRing:SetPoint("BOTTOM", tile, "TOP", 0, CLASS.glyph + 4)
+        if not petRing:IsShown() then
+            petRing:Show()
+            DrawPetRing(flyout)
+        end
+    end
+
+    local hooked = {}
+    IN.Watcher("pet flyouts", 0.05, function()
+        for _, name in ipairs({ "GamepadPetActionFlyout", "GamepadPetSpellFlyout" }) do
+            local flyout = _G[name]
+            if flyout then
+                if not hooked[flyout] then
+                    hooked[flyout] = true
+                    -- (faded as it shows, before it is drawn once at the game's spot)
+                    flyout:HookScript("OnShow", function(self) pcall(Sync, self) end)
+                    Ring(flyout):SetScript("OnUpdate", function()
+                        if flyout:IsShown() then DrawPetRing(flyout) end
+                    end)
+                end
+                Sync(flyout)
+            end
+        end
+    end)
+end
 
 -- A key tile's keybind: the game's own text on its button (what it has when
 -- unbound is the range dot: none)
