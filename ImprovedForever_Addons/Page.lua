@@ -107,7 +107,8 @@ function P:Choose()
         local fn = SlashCmdList[e.key]
         if fn then fn("") end
     elseif e.kind == "settings" then
-        securecallfunction(C_SettingsUtil.OpenSettingsPanel, e.id)
+        -- (one of CLAUDE.md's taint exceptions: the game opens its panel in its own event handler)
+        C_SettingsUtil.OpenSettingsPanel(e.id)
     elseif e.kind == "compartment" then
         local fn = _G[e.text]
         if type(fn) == "function" then fn(e.addon, "LeftButton") end

@@ -558,7 +558,8 @@ events:SetScript("OnEvent", function(_, event)
 end)
 
 -- A window the game's frame manager shows and focuses while the panel has
--- the pad: the panel behind it (the manager only hooked, never called)
+-- the pad: the panel behind it (the manager only hooked, never called: one of
+-- CLAUDE.md's taint exceptions)
 IF.OnLogin(function()
     local m = IF.Focus.Manager()
     if not m then return end
