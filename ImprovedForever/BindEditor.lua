@@ -82,15 +82,38 @@ B.Editor = P
 P.ShowsToast = true
 P.mouseLegend = true
 
--- A touchpad (its corners) only on a PlayStation controller; elsewhere the
--- same button is View / Minus
+-- A touchpad's corners: on a PlayStation controller, or from Steam Input's corner keys
+-- (Touchpad.lua). The touchpad click (PADBACK) is the touchpad's on a PlayStation controller
+-- only; elsewhere the same button is View / Minus
 local function HasTouchpad()
-    return IF.PadStyle() == "Shapes"
+    return touch.HasCorners()
+end
+
+-- A touchpad click made now: PADBACK on a PlayStation controller, or one of Steam Input's corner
+-- keys (the Recorder's info.cornerKey)
+local function IsTouchClick(pressed, info)
+    return pressed == "PADBACK" and (touch.ClickIsPad() or (info ~= nil and info.cornerKey == true))
+end
+
+-- Under Steam Input with its corner keys the game sees an Xbox pad: View (PADBACK) is the
+-- Create button, drawn where it is; that pad has no Share
+local function SteamPad()
+    return touch.HasCorners() and not touch.ClickIsPad()
+end
+
+-- Where a button is drawn (the drawing's pixels) and its size
+local function Pos(s)
+    if s.key == "PADBACK" and SteamPad() then
+        local create = SPOT.PADSOCIAL
+        return create.x, create.y, create.size
+    end
+    return s.x, s.y, s.size or 30
 end
 
 local function Visible(s)
     if s.region then return HasTouchpad() end
-    if s.key == "PADBACK" then return not HasTouchpad() end
+    if s.key == "PADBACK" then return not touch.ClickIsPad() end
+    if s.key == "PADSOCIAL" then return not SteamPad() end
     return true
 end
 
@@ -149,12 +172,18 @@ local function LayerText(layer, size)
     return table.concat(parts, " + ")
 end
 
+-- The touchpad click's name (with its glyph at size): PADBACK's on a PlayStation controller;
+-- under Steam Input (an Xbox pad to the game, PADBACK its View) a plain "Touchpad"
+local function TouchText(size)
+    return touch.ClickIsPad() and B.Text("PADBACK", size) or IF.ButtonName("TOUCHPAD")
+end
+
 -- "L1 + R3" (with glyphs at size), a corner: the touchpad's, and which
 local function PressText(press, size)
     local region = CornerOf(press)
     if region then
         local layer = LayerOfPress(press)
-        return (layer and (LayerText(layer, size) .. " + ") or "") .. B.Text("PADBACK", size)
+        return (layer and (LayerText(layer, size) .. " + ") or "") .. TouchText(size)
             .. "  |cff9d917a·|r  " .. touch.REGION_LABELS[region]
             .. (IsDoubleTap(press) and "  |cff9d917a(double tap)|r" or "")
     end
@@ -972,18 +1001,18 @@ function P:BindEntry(e)
             return true
         end,
         onKey = function(spec) P:BindKey(e, spec) end,
-        accept = function(spec)
+        accept = function(spec, info)
             if def then
                 -- (the touchpad's click: the corner under the finger, for one that takes a corner)
                 local held, base = B.Parse(spec)
-                if (def.corner or IF.Actions.IsWindow(def.id)) and base == "PADBACK" and HasTouchpad()
+                if (def.corner or IF.Actions.IsWindow(def.id)) and IsTouchClick(base, info)
                     and (not held or touch.LayerOf(held)) then
                     return true
                 end
                 return def.accepts(spec)
             end
             local held, pressed = B.Parse(spec)
-            if pressed == "PADBACK" and HasTouchpad() then return not held or touch.LayerOf(held) ~= nil end
+            if IsTouchClick(pressed, info) then return not held or touch.LayerOf(held) ~= nil end
             return B.ActionFits(spec)
         end,
         reject = function(spec) return B.GameOwns(spec) or ((e.name or "It") .. " can't go on that press") end,
@@ -991,8 +1020,8 @@ function P:BindEntry(e)
             local held, pressed, double = B.Parse(spec)
             -- (a def with an action of its own, the corner's: any def with its button; else as the corner is)
             local cornerDef = def and (def.corner or IF.Actions.IsWindow(def.id))
-            if def and not (cornerDef and pressed == "PADBACK" and HasTouchpad()) then return P:BindDef(def, spec) end
-            if pressed == "PADBACK" and HasTouchpad() then
+            if def and not (cornerDef and IsTouchClick(pressed, info)) then return P:BindDef(def, spec) end
+            if IsTouchClick(pressed, info) then
                 local region = info and info.touch and touch.RegionAt(info.touch[1], info.touch[2])
                 if not region then return menu.Toast("Click the touchpad in the corner you want", true) end
                 return P:BindCorner(region, e, nil, double, touch.LayerOf(held))
@@ -1038,7 +1067,9 @@ function P:ComposeMove(name)
     if name == "LEFT" then dx = -1 elseif name == "RIGHT" then dx = 1 elseif name == "UP" then dy = -1 else dy = 1 end
     local best, bestScore
     for _, sp in ipairs(ComposeSpots()) do
-        local ox, oy = sp.x - cur.x, sp.y - cur.y
+        local sx, sy = Pos(sp)
+        local cx, cy = Pos(cur)
+        local ox, oy = sx - cx, sy - cy
         local along, across = ox * dx + oy * dy, math.abs(ox * dy) + math.abs(oy * dx)
         if along > 1 then
             local score = along + across * 2
@@ -1072,13 +1103,63 @@ function P:ComposePick()
     -- (a touchpad corner ends it: it's what is pressed)
 end
 
+-- A touchpad corner pressed while binding with the pad: that corner is the press (after the
+-- buttons picked to hold with it), bound at once, as a touchpad click bound before the drawing
+-- took the pad. Not binding: the card picked starts its binding onto it.
+function P:OnCorner(region)
+    if self.popup or KeysOnly() or not HasTouchpad() then return end
+    -- (one click: the pad's own touchpad and Steam Input's key for it may both report it)
+    local now = GetTime()
+    if self.cornerAt and now - self.cornerAt < 0.3 then return end
+    self.cornerAt = now
+    local key = "TOUCH:" .. region
+    if not (SPOT[key] and Visible(SPOT[key])) then return end
+    if not self.compose then
+        local e = self:Entry()
+        if not e or e.header then return end
+        self:Bind()
+        if not self.compose then return menu.Render() end
+    end
+    local c = self.compose
+    -- (a corner picked before: this one instead)
+    for i = #c.picked, 1, -1 do
+        local k = c.picked[i]
+        if SPOT[k] and SPOT[k].region then
+            c.set[k] = nil
+            table.remove(c.picked, i)
+        end
+    end
+    c.double = nil
+    c.cursor = key
+    c.picked[#c.picked + 1] = key
+    c.set[key] = true
+    self:ComposeSave()
+    menu.Render()
+end
+
+-- The touchpad clicked (a PlayStation controller's own): the corner under the finger
+function P:OnTouch()
+    if not touch.ClickIsPad() then return end
+    local x, y = touch.FingerPosition()
+    local region = x and touch.RegionAt(x, y)
+    if region then self:OnCorner(region) end
+end
+
 function P:ComposeLive()
     local c = self.compose
     if #c.picked == 0 then return "|cffffd100Pick a button, then others to hold with it|r" end
-    local spec = ComposeSpec(c)
+    local spec, region, held = ComposeSpec(c)
     local glyphs = ""
-    for _, k in ipairs(c.picked) do glyphs = glyphs .. (IF.GlyphText(IF.PAD_KEY[k] or k, 18) or "") .. " " end
-    return "|cff9d917aBinding|r   " .. glyphs .. "|cffffd100" .. (spec and B.Text(spec) or "") .. "|r"
+    for _, k in ipairs(c.picked) do
+        if not (SPOT[k] and SPOT[k].region) then glyphs = glyphs .. (IF.GlyphText(IF.PAD_KEY[k] or k, 18) or "") .. " " end
+    end
+    -- (a corner: the touchpad's, and which; with L1 / R1 / L2 / R2 held, that layer)
+    local text = spec and B.Text(spec) or ""
+    local layer = region and #held > 0 and touch.LayerOf(table.concat(held, "+"))
+    if region and (#held == 0 or layer) then
+        text = PressText("TOUCH:" .. region .. (layer and (":" .. layer) or "") .. (c.double and ":double" or ""))
+    end
+    return "|cff9d917aBinding|r   " .. glyphs .. "|cffffd100" .. text .. "|r"
 end
 
 function P:ComposeSave()
@@ -1544,6 +1625,14 @@ function P:Render()
     for _, s in ipairs(SPOTS) do
         local key, b = s.key, f.spots[s.key]
         b:SetShown(Visible(s))
+        -- (View under Steam Input: drawn at the Create button, at its size)
+        if key == "PADBACK" then
+            local x, y, size = Pos(s)
+            local scale = size / (s.size or 30)
+            b:SetScale(scale)
+            b:ClearAllPoints()
+            b:SetPoint("CENTER", b:GetParent(), "TOPLEFT", x / scale, -y / scale)
+        end
         if not s.region and b:IsShown() then
             b.glyph:Set(IF.PAD_KEY[key] or key)
             local any, clash = false, false
