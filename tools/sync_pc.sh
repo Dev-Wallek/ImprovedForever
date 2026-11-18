@@ -1,7 +1,7 @@
 #!/bin/sh
 # Copies every addon folder of the repo to the gaming PC's WoW Forever, so the game there loads
 # the working copy (/reload after). The PC dual-boots: Windows (ssh alias `winpc`) is tried
-# first, then Bazzite (ssh alias `bazzite`, same game folder through the NTFS mount). Each
+# first, then Bazzite (ssh alias `bazzite`, the game on its gamespace drive). Each
 # addon's folder there is emptied first, so a file deleted or renamed here is gone there too.
 #   tools/sync_pc.sh
 # (the PC has no symlink to the repo, which lives on the Mac: a copy; see the winpc-remote
@@ -31,7 +31,7 @@ sync_win() {
 }
 
 sync_bazzite() {
-    dest='/var/mnt/windows/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns'
+    dest='/var/mnt/gamespace/World of Warcraft/_forever_/Interface/AddOns'
     ssh -o ConnectTimeout=5 bazzite "cd \"$dest\"" >/dev/null 2>&1 || return 1
     ssh bazzite "cd \"$dest\" && rm -rf $dirs"
     pack | ssh bazzite "cd \"$dest\" && tar -xzf - 2>/dev/null"
