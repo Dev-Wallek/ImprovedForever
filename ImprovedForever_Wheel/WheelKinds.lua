@@ -622,7 +622,7 @@ end
 ---------------------------------------------------------------------------
 local CANCEL = {
     PALADIN = { 642, 1022, 498 },  -- Divine Shield, Blessing of Protection, Divine Protection
-    MAGE = { 45438 },              -- Ice Block
+    MAGE = { 11958 },              -- Ice Block
     DRUID = { 5487, 768, 783 },    -- Bear, Cat, Travel Form
     SHAMAN = { 2645 },             -- Ghost Wolf
     PRIEST = { 15473 },            -- Shadowform
