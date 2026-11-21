@@ -28,6 +28,7 @@ local DEFAULTS = {
     alertFor = "skill",  -- skill (gives skill), gather (can gather), any (any herb / ore), all (any dot)
     alertWith = "both",  -- both, vibe, sound, show (the message only)
     interval = 3,        -- seconds between alert scans
+    square = false,      -- the minimap square (MM.ApplySquare)
 }
 
 function MM.Settings()
@@ -953,7 +954,37 @@ function MM.ApplyAlert()
     UpdateScans(false, true)
 end
 
+---------------------------------------------------------------------------
+-- Square minimap: the game's minimap masked square, its round frame art
+-- faded by an animation of ours. One of the exceptions in docs/taint.md.
+-- The game sets the mask again as the rotateMinimap option changes
+-- (MinimapCluster:UpdateMinimapConfig), so ours goes back on after it.
+-- GetMinimapShape tells other addons (LibDBIcon's buttons) its edge.
+---------------------------------------------------------------------------
+local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+local ROUND_MASK = "ui-hud-minimap-frame-generic-mask"   -- the game's, in both of its modes
+local ROUND_ART = { "MinimapCompassTexture", "MinimapCompassTextureUnderlay" }
+
+function MM.ApplySquare()
+    local square = MM.Settings().square
+    -- docs/taint.md, exceptions: the minimap's mask
+    Minimap:SetMaskTexture(square and SQUARE_MASK or ROUND_MASK)
+    for _, name in ipairs(ROUND_ART) do IF.Focus.Fade(_G[name], square) end
+end
+
+if not GetMinimapShape then
+    function GetMinimapShape()
+        return IF.db and MM.Settings().square and "SQUARE" or "ROUND"
+    end
+end
+
 IF.OnLogin(function()
+    if MM.Settings().square then MM.ApplySquare() end
+    if MinimapCluster and MinimapCluster.UpdateMinimapConfig then
+        hooksecurefunc(MinimapCluster, "UpdateMinimapConfig", function()
+            if MM.Settings().square then MM.ApplySquare() end
+        end)
+    end
     MM.ApplyLabels()
     MM.ApplyAlert()
     -- (whether the game answers, once the minimap is up; said in the chat when one is on)
