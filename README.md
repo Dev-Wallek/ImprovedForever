@@ -32,7 +32,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Minimap` | Names beside the minimap's dots (herbs, ore, quests, NPCs, party members: you choose), gathering alerts. Formerly Gather. |
 | `ImprovedForever_Map` | The peek map. |
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
-| `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. |
+| `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. With Auctionator installed, one full scan serves both. Other addons read its prices (see Development). |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
 | `ImprovedForever_Wiki` | Everything about an item. |
 | `ImprovedForever_Journal` | A diary of your days, read as a book. |
@@ -124,6 +124,10 @@ A module reaches the core through the global `ImprovedForever` (`local IF = Impr
 is there with `IF.AddModule`, adds its presses with `IF.Binds.Add`, its commands with `IF.AddCommand`
 and its settings tab with `IF.SettingsPage` (form fields) or `IF.Menu.AddTab` (a page of its own).
 Another module's table (`IF.Auction`, `IF.Vibe`...) is used only after checking it is loaded.
+Other addons read auction prices with `ImprovedForever.Auction.Price(itemID)`: the latest lowest
+price a unit in copper, the days since it was seen, and its source (`"improvedforever"`, or
+`"auctionator"` for an item only Auctionator has seen, its days nil when Auctionator doesn't say);
+nil when none is known or the auction features are off.
 
 `luajit tools/loadcheck.lua each` loads the core with each module alone, then all of them, against a
 stand-in for the game's API, and drives the configuration panel: it catches a module reaching for

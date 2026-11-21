@@ -2,7 +2,10 @@
 -- ImprovedForeverAuctionDB: a full scan of every auction
 -- (C_AuctionHouse.ReplicateItems, as the auction house opens, at most once
 -- in 15 minutes: the server's limit) and a search of one item (the
--- auction window's tabs). Each is kept as the day's numbers per item:
+-- auction window's tabs). With Auctionator loaded, its full scan is
+-- started from here and read by both, so both keep the same lowest prices;
+-- another addon's full scan is read too, when none was in 15 minutes.
+-- Each is kept as the day's numbers per item:
 -- its lowest price a unit, its market price (what the cheapest quarter of
 -- those listed ask on average) and how many are up. A.Suggest prices an
 -- item from them; the Auction tab (AuctionEditor.lua) sets how.
@@ -199,6 +202,20 @@ function A.Latest(itemID)
     return last, Unpack(item[last])
 end
 
+-- For other addons (ImprovedForever.Auction.Price): the latest lowest price
+-- a unit, the days since it was seen and its source, "improvedforever" or,
+-- for an item only Auctionator has seen, "auctionator" (days nil: Auctionator doesn't say).
+-- nil: no price, or the auction features are off.
+function A.Price(itemID)
+    if type(itemID) ~= "number" or not (IF.db and A.Settings().buy) then return nil end
+    local day, lowest = A.Latest(itemID)
+    if day then return lowest, Today() - day, "improvedforever" end
+    local api = _G.Auctionator and _G.Auctionator.API and _G.Auctionator.API.v1
+    local copper = api and api.GetAuctionPriceByItemID("ImprovedForever", itemID)
+    if not copper then return nil end
+    return copper, api.GetAuctionAgeByItemID("ImprovedForever", itemID), "auctionator"
+end
+
 -- Days older than kept go, and items left with none
 function A.Prune()
     local from = Today() - A.Settings().keepDays
@@ -273,6 +290,17 @@ function A.CanScan()
     return true
 end
 
+-- Starts Auctionator's full scan, or finds one under way (false: not
+-- loaded, or it won't scan now). Its scan frame exists once the auction
+-- house has shown.
+local function AuctionatorScan()
+    local state = _G.Auctionator and _G.Auctionator.State
+    local frame = state and state.FullScanFrameRef
+    if not frame then return false end
+    if not frame.inProgress and frame:CanInitiate() then frame:InitiateScan() end
+    return frame.inProgress == true
+end
+
 function A.Scan(quiet)
     local ok, why = A.CanScan()
     if not ok then
@@ -281,7 +309,7 @@ function A.Scan(quiet)
     end
     scan.state, scan.started, scan.read, scan.total = "waiting", GetTime(), 0, nil
     Realm().replicateAt = time()
-    AH.ReplicateItems()
+    if not AuctionatorScan() then AH.ReplicateItems() end
     if not quiet then IF.Print("scanning the auction house...") end
     Changed()
     return true
@@ -585,7 +613,13 @@ events:SetScript("OnEvent", function(_, event, arg)
         if scan.state == "waiting" then scan.state = "idle" end
         Changed()
     elseif event == "REPLICATE_ITEM_LIST_UPDATE" then
-        if scan.state == "waiting" then StartReading() end
+        if scan.state == "waiting" then
+            StartReading()
+        elseif scan.state == "idle" and A.ScanWait() == 0 and A.Settings().buy then
+            -- (another addon's full scan: the server's 15 minutes count from it)
+            Realm().replicateAt = time()
+            StartReading()
+        end
     elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" then
         CommodityResults(arg)
     elseif event == "ITEM_SEARCH_RESULTS_UPDATED" then
