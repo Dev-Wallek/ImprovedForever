@@ -964,11 +964,18 @@ end
 local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 local ROUND_MASK = "ui-hud-minimap-frame-generic-mask"   -- the game's, in both of its modes
 local ROUND_ART = { "MinimapCompassTexture", "MinimapCompassTextureUnderlay" }
+-- The hatched rings the minimap draws round a quest's (task's, dig site's)
+-- area at its round edge: on a square map they show as a full circle.
+-- ponytail: 1 assumed to be the game's own scale (there's no getter).
+local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetTaskBlobRingScalar", "SetArchBlobRingScalar" }
 
 function MM.ApplySquare()
     local square = MM.Settings().square
-    -- docs/taint.md, exceptions: the minimap's mask
+    -- docs/taint.md, exceptions: the minimap's mask and blob rings
     Minimap:SetMaskTexture(square and SQUARE_MASK or ROUND_MASK)
+    for _, method in ipairs(BLOB_RINGS) do
+        if Minimap[method] then Minimap[method](Minimap, square and 0 or 1) end
+    end
     for _, name in ipairs(ROUND_ART) do IF.Focus.Fade(_G[name], square) end
 end
 
