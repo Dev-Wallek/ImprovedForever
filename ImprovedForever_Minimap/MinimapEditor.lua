@@ -1,6 +1,6 @@
 -- The Minimap tab, a tab of settings (IF.SettingsPage, SettingsPage.lua): the
 -- minimap labels, their hotkey and the dots they name, the skill colours,
--- the alerts, and the player's gathering skills. Minimap.lua does the work.
+-- the alerts, the square minimap, and the player's gathering skills. Minimap.lua does the work.
 local IF = ImprovedForever
 
 local menu = IF.Menu
@@ -153,6 +153,14 @@ local ITEMS = {
         { 5, "5 seconds" }, { 10, "10 seconds" },
     })),
     Item({
+        key = "square", group = "look", label = "Square minimap",
+        tip = "The minimap square instead of round, without its round frame. Addon buttons on its edge follow"
+            .. " when the addon asks the minimap's shape.",
+    }, OnOff(function() return S().square end, function(on)
+        S().square = on
+        MM.ApplySquare()
+    end, "Square minimap")),
+    Item({
         key = "skills", group = "skills", label = "Your skills",
         tip = SKILL_TIP,
         text = function()
@@ -169,6 +177,7 @@ local ITEMS = {
 local GROUPS = {
     { key = "labels", label = "Labels" },
     { key = "alert", label = "Alerts" },
+    { key = "look", label = "Look" },
     { key = "skills", label = "Skills" },
 }
 
