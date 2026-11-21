@@ -48,7 +48,8 @@ the core, **Improved Forever**:
 - **Wheels** on R3 combos, laid out like the game's radial menu. Built in: **Quest Items** and
   **Consumables** (each fills itself from your bags) and **Emotes**. Make wheels of your own, mixing
   spells, items, macros, emotes and chat phrases you add (D-pad up / down picks a phrase's channel on
-  the wheel), or a shaman's totems, or a trinket swap. Aim with the right stick.
+  the wheel), or a shaman's totems, or a trinket swap, or one that cancels your buffs (forms,
+  stealth and shields first; in combat too). Aim with the right stick.
 - **Recent action slot** on R3, placed in Edit Mode.
 - **Touchpad** corner actions.
 - **Chat lines**: with the chat open on the controller, D-pad Up picks its lines, left / right the links in a line

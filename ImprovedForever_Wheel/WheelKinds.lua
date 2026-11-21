@@ -615,6 +615,87 @@ for invSlot, order in pairs({ [13] = 5, [14] = 6 }) do
 end
 
 ---------------------------------------------------------------------------
+-- Cancel buffs: a slot's secure macro "/cancelaura <name>", so a pick
+-- works in combat too. First the class's buffs worth dropping in a hurry
+-- (forms, stealth, shields; grey while not on you, so their slots stay put
+-- through a fight), then every other buff on you as the wheel was built.
+---------------------------------------------------------------------------
+local CANCEL = {
+    PALADIN = { 642, 1022, 498 },  -- Divine Shield, Blessing of Protection, Divine Protection
+    MAGE = { 45438 },              -- Ice Block
+    DRUID = { 5487, 768, 783 },    -- Bear, Cat, Travel Form
+    SHAMAN = { 2645 },             -- Ghost Wolf
+    PRIEST = { 15473 },            -- Shadowform
+    ROGUE = { 1784 },              -- Stealth
+    HUNTER = { 5118 },             -- Aspect of the Cheetah
+}
+
+-- The buffs on you: name -> icon (nil: the game won't tell, in a fight)
+local function PlayerBuffs()
+    local get = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+    if not get then return nil end
+    local buffs = {}
+    for i = 1, 40 do
+        local aura = get("player", i, "HELPFUL")
+        if not aura then break end
+        if issecretvalue and issecretvalue(aura.name) then return nil end
+        buffs[aura.name] = aura.icon
+    end
+    return buffs
+end
+
+local function CancelEntry(name, icon, missing)
+    return { label = name, icon = icon, type = "macro", value = "/cancelaura " .. name, missing = missing }
+end
+
+local shownBuffs = ""   -- the buffs the wheel was last built with, sorted and joined
+
+local function BuffKey(buffs)
+    local names = {}
+    for name in pairs(buffs) do names[#names + 1] = name end
+    table.sort(names)
+    return table.concat(names, "\n")
+end
+
+local function BuildCancel(wheel)
+    local buffs = PlayerBuffs() or {}
+    shownBuffs = BuffKey(buffs)
+    local known = {}
+    for _, spell in ipairs(IF.GetSpellbookSpells()) do known[spell.name] = true end
+    local _, class = UnitClass("player")
+    local classGroup, others, listed = { label = "Class" }, { label = "On you" }, {}
+    for _, spellID in ipairs(CANCEL[class] or {}) do
+        local name, icon = IF.SpellInfo(spellID)
+        if name and known[name] and not listed[name] then
+            listed[name] = true
+            classGroup[#classGroup + 1] = CancelEntry(name, buffs[name] or icon, buffs[name] == nil)
+        end
+    end
+    for name, icon in pairs(buffs) do
+        if not listed[name] then others[#others + 1] = CancelEntry(name, icon) end
+    end
+    table.sort(others, ByLabel)
+    local entries = Paged({ classGroup, others }, wheel.max or 24)
+    entries.empty = "No buffs on you"
+    return entries
+end
+
+Add({
+    key = "cancel", order = 7, label = "Cancel buffs", name = "Cancel Buffs", max = 24,
+    events = { "UNIT_AURA" },
+    changed = function(_, unit)
+        if unit ~= "player" then return false end
+        local buffs = PlayerBuffs()
+        return buffs ~= nil and BuffKey(buffs) ~= shownBuffs
+    end,
+    info = "Fills itself: your class's buffs to drop in a hurry (forms, stealth, shields), grey while not on"
+        .. " you, then every other buff on you. A pick cancels it, in combat too.",
+    about = "Cancels a buff on you: your class's forms, stealth and shields first, then the rest. The list"
+        .. " is the one from before a fight until it's over.",
+    build = BuildCancel,
+})
+
+---------------------------------------------------------------------------
 -- Changes a kind waits for (beyond the bags and the spellbook, which
 -- Ring.lua already watches): the rings rebuilt when a wheel of that kind
 -- exists (in combat, after it)
@@ -628,12 +709,12 @@ for _, kind in ipairs(KD.ORDER) do
         watch:RegisterEvent(event)
     end
 end
-watch:SetScript("OnEvent", function(_, event)
+watch:SetScript("OnEvent", function(_, event, ...)
     local MW = IF.MyWheels
     if not (IF.db and IF.charDB and MW) then return end
     for key in pairs(watching[event] or {}) do
         local kind = KD.BY_KEY[key]
-        if (kind.builtIn or MW.HasKind(key)) and (not kind.changed or kind.changed(event)) then
+        if (kind.builtIn or MW.HasKind(key)) and (not kind.changed or kind.changed(event, ...)) then
             IF.RefreshRings()
             return
         end
