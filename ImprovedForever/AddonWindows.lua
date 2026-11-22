@@ -169,19 +169,10 @@ function W.Watch(win, opts)
     places[win] = v
     v.sw = F.Switch(win, {
         other = function() return Neighbour(win) end,
+        -- (the others of ours let go and the pad goes on in Switch:Set)
         onChange = function(focus)
-            if focus == "ours" then
-                v.away = false
-                -- (one of ours at a time; the one letting go first, so its dim is put back before ours)
-                for other, o in pairs(places) do
-                    if other ~= win and o.sw.focus == "ours" then Release(other) end
-                end
-                Apply(win)
-            else
-                Apply(win)
-                local to = places[v.sw:Other()]
-                if to then to.sw:Set("ours") end
-            end
+            if focus == "ours" then v.away = false end
+            Apply(win)
         end,
     })
     -- (holding nothing till it shows)
