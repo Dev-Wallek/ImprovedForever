@@ -263,10 +263,14 @@ end
 -- Well under its usual price (the Bargains share or more), as a badge:
 -- "-45%"; nil: not, or its usual price known for too few days
 local function BargainBadge(result)
-    local usual, days = result.usual, A.BARGAIN_DAYS
-    if not usual then usual, days = A.MarketPrice(result.itemKey.itemID) end
+    local usual = result.usual
+    if not usual then
+        local days
+        usual, days = A.MarketPrice(result.itemKey.itemID)
+        if not usual or days < A.BARGAIN_DAYS then return nil end
+    end
     local price = result.minPrice
-    if not (usual and days >= A.BARGAIN_DAYS and price and price > 0) then return nil end
+    if not (price and price > 0) then return nil end
     local pct = math.floor((price / usual - 1) * 100 + 0.5)
     if pct > -A.Settings().bargainShare then return nil end
     return { BADGE_PRICE .. pct .. "%", "good" }
@@ -1788,7 +1792,7 @@ local function RenderResults()
             local info = KeyInfo(result)
             local price = result.minPrice
             local upgrade, gain, needLevel = BY.GroupUpgrade(result.itemKey)
-            -- (no "New" badge: only a gain's percent; no price badge)
+            -- (no "New" badge: only a gain's percent)
             local gainText, gainColor
             if gain then gainText, gainColor = GainBadge(upgrade, gain, needLevel) end
             local priceText = price and price > 0 and A.Money(price) or "bid only"

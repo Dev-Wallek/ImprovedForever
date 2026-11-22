@@ -363,7 +363,7 @@ end
 function A.BelowVendor()
     local list, least = {}, A.Settings().belowMin
     for itemID, b in pairs(Realm().belowVendor or {}) do
-        if b.each and b.each > 0 and b.each >= least then
+        if b.each > 0 and b.each >= least then
             list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
                 each = b.each, count = b.count }
         end
@@ -376,6 +376,7 @@ end
 -- median over BARGAIN_DAYS days at least). Kept: the usual price and the
 -- listings BARGAIN_KEEP or more under it, so A.Bargains can take any of the
 -- setting's shares without a new scan. nil: none, or too few days known.
+-- (BARGAIN_KEEP: the smallest share Bargains at offers, AuctionEditor.lua)
 local BARGAIN_DAYS, BARGAIN_KEEP = 3, 0.2
 A.BARGAIN_DAYS = BARGAIN_DAYS
 
