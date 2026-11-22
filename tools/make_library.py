@@ -14,6 +14,13 @@ item fills, TotemCategory's type and mask) are listed too, so a profession's
 or a class's tool is never taken for junk (ItemValue.lua):
     tools = { [itemID] = { skillLine, ... } }, classTools = { [itemID] = classMask }
 
+For levelling a profession: each recipe's skill where it
+turns yellow and grey (SkillLineAbility), the skill a recipe item asks to
+learn it, and the vendor price of one reagent (ItemSparse; whether a vendor
+sells it is QuestieDB's):
+    trivial = { [spellID] = { yellow, grey } }, learnRank = { [itemID] = rank },
+    buy = { [itemID] = copper }
+
 Also WikiItems.lua (the Wiki's search and its filters): every item the
 client knows, from its own ItemSparse and Item tables:
     items[itemID] = "name|quality|itemLevel|requiredLevel|classID|subclassID|inventoryType"
@@ -73,7 +80,7 @@ def forever_build():
     return ".".join(map(str, max(versions)))
 
 
-def find_tools(build):
+def find_tools(build, sparse):
     """The items spells need as tools: { item: [profession skill lines] } for
     the professions' spells, { item: class mask } for the classes' (a
     shaman's totems, a rogue's Thieves' Tools)"""
@@ -85,7 +92,7 @@ def find_tools(build):
     cats = {int(r["ID"]): (int(r["TotemCategoryType"]), int(r["TotemCategoryMask"]))
             for r in table("TotemCategory", build)}
     item_cat = {}
-    for row in table("ItemSparse", build):
+    for row in sparse:
         cat = int(row.get("TotemCategoryID") or 0)
         if cat:
             item_cat[int(row["ID"])] = cat
@@ -121,11 +128,11 @@ NOT_ITEMS = re.compile(r"^Monster - |\b(test|debug|qa)\b|\[PH\]|deprecated|(?-i:
                        re.I)
 
 
-def write_items(build):
+def write_items(build, sparse):
     """WikiItems.lua: every item's name, quality, levels, class and slot"""
     kinds = {row["ID"]: (row["ClassID"], row["SubclassID"]) for row in table("Item", build)}
     rows = []
-    for row in table("ItemSparse", build):
+    for row in sparse:
         name = (row["Display_lang"] or "").replace("|", "/").replace("\n", " ").strip()
         if not name or NOT_ITEMS.search(name):
             continue
@@ -150,15 +157,18 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     build = args[0] if args else forever_build()
     print(f"build {build}")
-    write_items(build)
+    sparse = table("ItemSparse", build)
+    write_items(build, sparse)
     if "--items" in sys.argv[1:]:
         return
 
-    skill = {}
+    skill, trivial = {}, {}
     for row in table("SkillLineAbility", build):
         line = int(row["SkillLine"])
         if line in PROFESSIONS:
-            skill[int(row["Spell"])] = line
+            spell = int(row["Spell"])
+            skill[spell] = line
+            trivial[spell] = (int(row["TrivialSkillLineRankLow"]), int(row["TrivialSkillLineRankHigh"]))
 
     reagents = {}
     for row in table("SpellReagents", build):
@@ -205,12 +215,25 @@ def main():
             if recipe in skill:
                 taught.setdefault(recipe, item)
 
-    tools, class_tools = find_tools(build)
+    tools, class_tools = find_tools(build, sparse)
 
-    rows = []
+    # (BuyPrice is for VendorStackCount items)
+    used = {reagents[s][i] for s in reagents for i in range(0, len(reagents[s]), 2)}
+    recipe_items = set(taught.values())
+    learn_rank, buy = {}, {}
+    for row in sparse:
+        item = int(row["ID"])
+        if item in recipe_items and int(row["RequiredSkillRank"]) > 0:
+            learn_rank[item] = int(row["RequiredSkillRank"])
+        if item in used and int(row["BuyPrice"]) > 0:
+            per = int(row["BuyPrice"]) / max(int(row["VendorStackCount"]), 1)
+            buy[item] = int(per) if per == int(per) else round(per, 2)
+
+    rows, kept = [], []
     for spell in sorted(skill):
         if spell not in reagents and spell not in makes:
             continue
+        kept.append(spell)
         make, count = makes.get(spell, (0, 0))
         fields = [skill[spell], make, count, taught.get(spell, 0)] + reagents.get(spell, [])
         rows.append(f"[{spell}]={{{','.join(map(str, fields))}}},")
@@ -227,6 +250,9 @@ def main():
         "tools = { " + ", ".join(f"[{i}] = {{ {', '.join(map(str, sorted(lines)))} }}"
                                  for i, lines in sorted(tools.items())) + " },\n"
         "classTools = { " + ", ".join(f"[{i}] = {mask}" for i, mask in sorted(class_tools.items())) + " },\n"
+        "trivial = { " + ",".join(f"[{s}]={{{trivial[s][0]},{trivial[s][1]}}}" for s in kept) + " },\n"
+        "learnRank = { " + ",".join(f"[{i}]={r}" for i, r in sorted(learn_rank.items())) + " },\n"
+        "buy = { " + ",".join(f"[{i}]={p}" for i, p in sorted(buy.items())) + " },\n"
         "}\n",
         encoding="utf-8",
     )
