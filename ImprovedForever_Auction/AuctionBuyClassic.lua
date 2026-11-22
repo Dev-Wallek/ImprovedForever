@@ -253,6 +253,18 @@ local function VendorBadge(result)
     return profit and { BADGE_PRICE .. "+" .. A.Money(profit), "good" } or nil
 end
 
+-- Well under its usual price (the Bargains share or more), as a badge:
+-- "-45%"; nil: not, or its usual price known for too few days
+local function BargainBadge(result)
+    local usual, days = result.usual, A.BARGAIN_DAYS
+    if not usual then usual, days = A.MarketPrice(result.itemKey.itemID) end
+    local price = result.minPrice
+    if not (usual and days >= A.BARGAIN_DAYS and price and price > 0) then return nil end
+    local pct = math.floor((price / usual - 1) * 100 + 0.5)
+    if pct > -A.Settings().bargainShare then return nil end
+    return { BADGE_PRICE .. pct .. "%", "good" }
+end
+
 -- An upgrade's gain as a badge: the arrow and "+12%" (nothing worn: "New");
 -- one of a higher level in purple
 local function GainBadge(isUpgrade, gain, needLevel)
@@ -859,9 +871,15 @@ BY.main, BY.sub, BY.subsub = 1, 1, 1   -- 1 in the top bars: "All"
 BY.index, BY.top = 1, 1
 BY.results = {}
 
--- Ours, last (one up from the first): what is listed under a vendor's pay
--- (A.BelowVendor), from the last scan rather than a query
-local BELOW_VENDOR = { name = "Below vendor price", belowVendor = true }
+-- Ours, last (one and two up from the first), from the last scan rather
+-- than a query: what is listed well under its usual price (A.Bargains),
+-- what is listed under a vendor's pay (A.BelowVendor)
+local OURS = {
+    { name = "Bargains", list = A.Bargains, line = " at a bargain",
+        empty = "Nothing well under its usual price in the last scan" },
+    { name = "Below vendor price", list = A.BelowVendor, line = " under a vendor's pay",
+        empty = "Nothing under a vendor's pay in the last scan" },
+}
 
 local function Mains()
     local list = {}
@@ -869,7 +887,9 @@ local function Mains()
         -- (the WoW Token has its own window)
         if not (cat.HasFlag and cat:HasFlag("WOW_TOKEN_FLAG")) then list[#list + 1] = cat end
     end
-    if #list > 0 then list[#list + 1] = BELOW_VENDOR end
+    if #list > 0 then
+        for _, cat in ipairs(OURS) do list[#list + 1] = cat end
+    end
     return list
 end
 
@@ -885,8 +905,10 @@ local function Chosen()
     return main, sub, subsub
 end
 
-local function BelowVendorShown()
-    return (Chosen()) == BELOW_VENDOR
+-- One of ours chosen: it (else nil)
+local function OursShown()
+    local main = Chosen()
+    return main and main.list and main or nil
 end
 
 local function Names(cat)
@@ -907,9 +929,10 @@ local function SendQuery()
         return
     end
     BY.queryWaiting = false
-    if BelowVendorShown() then
-        -- ponytail: the filters and the search box don't narrow this list
-        BY.allResults = A.BelowVendor()
+    local ours = OursShown()
+    if ours then
+        -- ponytail: the filters and the search box don't narrow these lists
+        BY.allResults = ours.list()
         BY.FilterResults()
         BY.browseSent, BY.searching = true, false
         BY.Render()
@@ -1023,7 +1046,7 @@ end
 
 local function ResultsIn()
     -- (the client's own browse, a purchase's refresh: not this list's)
-    if BelowVendorShown() then return BY.AfterBrowse(true) end
+    if OursShown() then return BY.AfterBrowse(true) end
     BY.allResults = AH.GetBrowseResults() or {}
     BY.FilterResults()
     BY.searching = false
@@ -1040,7 +1063,7 @@ end
 -- Near the end of what has come: the next part asked for (at: the row
 -- reached, the pick's or the wheel's)
 local function MoreIfNeeded(at)
-    if (at or BY.index) > #BY.results - 10 and not BelowVendorShown() and AH.HasFullBrowseResults
+    if (at or BY.index) > #BY.results - 10 and not OursShown() and AH.HasFullBrowseResults
         and not AH.HasFullBrowseResults() then
         -- (with only upgrades shown, few of what came may show)
         AH.RequestMoreBrowseResults()
@@ -1393,10 +1416,11 @@ function BY.SearchItem()
         end
         if not listings then D.message = "No answer from the auction house" end
         if not D.commodity then KeepVersions(D.result.itemKey, D.listings) end
-        if BelowVendorShown() then
+        local ours = OursShown()
+        if ours then
             -- (its row from what is listed now, the pick kept on it; gone
-            -- once nothing is under a vendor's pay)
-            BY.allResults = A.BelowVendor()
+            -- once none is cheap enough)
+            BY.allResults = ours.list()
             BY.FilterResults()
             for i, r in ipairs(BY.results) do
                 if r.itemKey.itemID == itemID then BY.index = i end
@@ -1741,8 +1765,9 @@ local function RenderResults()
     end
     BY.top = math.max(1, math.min(BY.top, math.max(1, n - per + 1)))
     emptyText:SetShown(n == 0)
+    local ours = OursShown()
     emptyText:SetText(BY.searching and "Searching..."
-        or BelowVendorShown() and (A.Stats() == 0 and "Nothing scanned yet" or "Nothing under a vendor's pay in the last scan")
+        or ours and (A.Stats() == 0 and "Nothing scanned yet" or ours.empty)
         or "Nothing listed here")
     local fr, fg, fb = FocusColor()
     for _, r in ipairs(listRows) do r:Hide() end
@@ -1761,10 +1786,10 @@ local function RenderResults()
             f:Fill({
                 icon = info and info.iconFileID, quality = info and info.quality,
                 name = info and info.itemName or "...", price = priceText, upgrade = upgrade,
-                line = result.totalQuantity .. (result.profit and " under a vendor's pay" or " available")
+                line = result.totalQuantity .. (ours and ours.line or " available")
                     .. (ReqLevel(result.itemKey.itemID) and ("  ·  " .. ReqLevel(result.itemKey.itemID)) or ""),
                 gain = gainText and { gainText, gainColor },
-                deal = VendorBadge(result),
+                deal = VendorBadge(result) or BargainBadge(result),
             })
             -- (dimmed only under the filters: the item's screen gone into
             -- keeps its row bright)
