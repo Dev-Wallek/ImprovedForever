@@ -3,6 +3,7 @@
   ic_mod_addons      a puzzle piece, a green "/" through it
   ic_mod_panel       a bar, a green fill along it, a coin over its end
   ic_mod_bags        a backpack, its front pocket and two strap tabs green
+  ic_mod_professions an anvil, a green hammer over it
 
 Run: python3 tools/draw_module_icons.py   (needs Pillow)
 """
@@ -91,7 +92,22 @@ def backpack():
     return [(body, CREAM), (accents, GREEN)]
 
 
-for name, layers in (("ic_mod_addons", puzzle()), ("ic_mod_panel", panel()), ("ic_mod_bags", backpack())):
+def anvil():
+    body, d = mask()
+    rr(d, (34, 58, 112, 74), 4)                             # face
+    d.polygon([(p(36), p(58)), (p(10), p(62)), (p(36), p(74))], fill=255)  # horn
+    d.rectangle([p(58), p(74), p(90), p(94)], fill=255)     # waist
+    rr(d, (42, 92, 106, 112), 4)                            # foot
+    hammer, dh = mask()
+    dh.line([p(50), p(30), p(92), p(52)], fill=255, width=p(9))  # handle
+    head = Image.new("L", (p(40), p(20)), 255).rotate(62, expand=True)
+    hammer.paste(255, (p(46) - head.width // 2, p(30) - head.height // 2), head)
+    body = ImageChops.subtract(body, hammer.filter(ImageFilter.MaxFilter(4 * S + 1)))
+    return [(body, CREAM), (hammer, GREEN)]
+
+
+for name, layers in (("ic_mod_addons", puzzle()), ("ic_mod_panel", panel()), ("ic_mod_bags", backpack()),
+                     ("ic_mod_professions", anvil())):
     path = os.path.join(TEX, name + ".tga")
     compose(layers).save(path)
     print("wrote", path)
