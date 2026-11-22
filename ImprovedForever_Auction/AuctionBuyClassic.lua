@@ -51,8 +51,9 @@ local REPEAT_DELAY, REPEAT_EVERY, FAST_AFTER = 0.35, 0.1, 1.5
 local QUERY_DELAY = 0.3               -- categories moved through quickly: one query at the end
 local BUY_TIMEOUT = 10                -- a buy the server hasn't answered by then: given up
 
-local QUALITY_FILTERS = {             -- Enum.AuctionHouseFilter, from poor up
-    [0] = 6, [1] = 7, [2] = 8, [3] = 9, [4] = 10, [5] = 11,
+local QUALITY_FILTERS = {             -- Enum.AuctionHouseFilter's names, from poor up
+    [0] = "PoorQuality", [1] = "CommonQuality", [2] = "UncommonQuality", [3] = "RareQuality",
+    [4] = "EpicQuality", [5] = "LegendaryQuality",
 }
 local QUALITY_NAMES = { [0] = "Poor", [1] = "Common", [2] = "Uncommon", [3] = "Rare", [4] = "Epic",
     [5] = "Legendary" }
@@ -921,8 +922,10 @@ local function SendQuery()
     if cat and cat.implicitFilter then filters[#filters + 1] = cat.implicitFilter end
     local s = S()
     if s.buyUsable then filters[#filters + 1] = Enum.AuctionHouseFilter.UsableOnly end
+    -- (none ticked: every quality, as the game's own window sends by default)
+    local any = next(s.buyQualities) == nil
     for q = 0, 5 do
-        if s.buyQualities[q] then filters[#filters + 1] = QUALITY_FILTERS[q] end
+        if any or s.buyQualities[q] then filters[#filters + 1] = Enum.AuctionHouseFilter[QUALITY_FILTERS[q]] end
     end
     local sorts = s.buySort == "name"
         and { { sortOrder = Enum.AuctionHouseSortOrder.Name, reverseSort = false },
