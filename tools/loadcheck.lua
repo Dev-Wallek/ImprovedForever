@@ -1056,6 +1056,33 @@ local CHECKS = {
         assert(cleared and not (b.gcdStart or b.cdDuration or b.cdUntil or b.cdDoneAt),
             "an emptied tile kept a cooldown")
     end },
+    -- (a recipe's colour and chance of a point: 2329 turns yellow at 55,
+    -- grey at 95; -1 has no grey, -2 a yellow above its grey)
+    { name = "profession colours", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local PR = IF and IF.Professions
+        if not (PR and PR.Color) then return end
+        local trivial = IF.RecipeData.trivial
+        trivial[-1], trivial[-2] = { 10, 0 }, { 320, 310 }
+        local function is(want, wantChance, ...)
+            local color, chance = ...
+            assert(color == want and chance == wantChance,
+                ("%s, %s: want %s, %s"):format(tostring(color), tostring(chance), tostring(want), tostring(wantChance)))
+        end
+        is("orange", 1, PR.Color(2329, 54))
+        is("yellow", 1, PR.Color(2329, 55))
+        is("yellow", 0.6, PR.Color(2329, 71))
+        is("green", 0.5, PR.Color(2329, 75))
+        is("grey", 0, PR.Color(2329, 95))
+        is(nil, nil, PR.Color(-1, 50))
+        is("orange", 1, PR.Color(-2, 309))
+        is("grey", 0, PR.Color(-2, 310))
+        is("orange", 1, PR.Color(2329, 75, 0))
+        is("yellow", 0.5, PR.Color(2329, 75, 1))
+        is("green", nil, PR.Color(2329, 100, 2))
+        is("grey", 0, PR.Color(-1, 50, 3))
+        trivial[-1], trivial[-2] = nil, nil
+    end },
 }
 
 local args = { ... }
