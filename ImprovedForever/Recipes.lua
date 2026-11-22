@@ -10,7 +10,6 @@ IF.Recipes = R
 -- nil: the client doesn't know it
 function R.Read(recipeID)
     local ui = C_TradeSkillUI
-    if not (ui and ui.GetRecipeSchematic) then return nil end
     local ok, schematic = pcall(ui.GetRecipeSchematic, recipeID, false)
     if not ok or not schematic then return nil end
     local reagents = {}
