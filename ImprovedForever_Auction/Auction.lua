@@ -586,8 +586,8 @@ end
 IF.OnLogin(A.Prune)
 
 ---------------------------------------------------------------------------
--- Item tooltips: its usual price and the latest lowest, a unit (and the
--- stack's worth at the usual price, when it is one)
+-- Item tooltips: its usual price and the latest lowest; a bag stack's
+-- whole, a unit's in brackets after it
 ---------------------------------------------------------------------------
 local function TooltipPrices(tooltip, data)
     if not (IF.db and A.Settings().tooltip) then return end
@@ -598,18 +598,20 @@ local function TooltipPrices(tooltip, data)
     if not day then return end
     local market = A.MarketPrice(itemID)
     local ago = A.Today() - day
-    local r, g, b = 0.79, 0.64, 0.35
-    if market then tooltip:AddDoubleLine("Auction: usually", A.Money(market), r, g, b, 1, 1, 1) end
-    tooltip:AddDoubleLine("Auction: lowest" .. (ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")),
-        A.Money(lowest), r, g, b, 1, 1, 1)
-    -- A bag stack: what it all brings
+    -- A bag stack: what it all brings, a unit's after it
     local owner = tooltip:GetOwner()
     local stack = owner and owner.GetBagID and owner.GetID and C_Container and C_Container.GetContainerItemInfo
         and C_Container.GetContainerItemInfo(owner:GetBagID(), owner:GetID())
     local count = stack and stack.itemID == itemID and stack.stackCount or 1
-    if market and count > 1 then
-        tooltip:AddDoubleLine("Auction: stack of " .. count, A.Money(market * count), r, g, b, 1, 1, 1)
+    local function Price(unit)
+        if count == 1 then return A.Money(unit) end
+        return A.Money(unit * count) .. " |cff9d917a(" .. A.Money(unit) .. ")|r"
     end
+    local r, g, b = 0.79, 0.64, 0.35
+    local of = count > 1 and (" ×" .. count) or ""
+    if market then tooltip:AddDoubleLine("Auction: usually" .. of, Price(market), r, g, b, 1, 1, 1) end
+    tooltip:AddDoubleLine("Auction: lowest" .. of .. (ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")),
+        Price(lowest), r, g, b, 1, 1, 1)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum.TooltipDataType then
