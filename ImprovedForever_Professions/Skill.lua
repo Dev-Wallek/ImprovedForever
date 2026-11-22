@@ -73,6 +73,7 @@ local function Audit()
             end
         end
     end
+    log[1] = log[1] .. ", " .. checked .. " checked"
     IF.db.profAudit = log
     IF.Print(("%d recipes checked, %d differ (IF.db.profAudit, on disk after /reload)."):format(checked, #log - 1))
 end
