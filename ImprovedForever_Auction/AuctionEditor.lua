@@ -172,6 +172,14 @@ ITEMS[#ITEMS + 1] = Item({
 }, IF.ItemValue.Changed))
 
 ITEMS[#ITEMS + 1] = Item({
+    key = "bargainShare", group = "use", label = "Bargains at",
+    tip = "Buy's Bargains list, and the price badges in the other categories: what is listed this much or more"
+        .. " under its usual price (known for 3 days at least).",
+}, Choice("bargainShare", "Bargains at", {
+    { 20, "20% under usual" }, { 30, "30% under usual" }, { 50, "50% under usual" },
+}))
+
+ITEMS[#ITEMS + 1] = Item({
     key = "upgradeBags", group = "upgrades", label = "Bag arrows",
     tip = "A green arrow on a bag item better than what you wear in its slot: scored by its stats for"
         .. " your class and talents (else its item level), only what you can wear. The Buy window marks"

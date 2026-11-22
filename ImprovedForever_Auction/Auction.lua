@@ -38,6 +38,7 @@ local DEFAULTS = {
     destroy = true,        -- junk (ItemValue.lua) is never what sells better here than to a vendor
     share = 25,            -- "sells better here": by this many percent over a vendor's pay
     minGain = 0,           -- and by at least this much (copper)
+    bargainShare = 30,     -- Buy's Bargains: listed this many percent or more under the usual price
     keepDays = 30,         -- days of prices kept
     chartDays = 14,        -- days the charts show (and the market price covers)
 }
@@ -246,7 +247,7 @@ end
 
 function A.Clear()
     local realm = Realm()
-    realm.items, realm.scannedAt, realm.belowVendor = {}, nil, nil
+    realm.items, realm.scannedAt, realm.belowVendor, realm.bargains = {}, nil, nil, nil
 end
 
 ---------------------------------------------------------------------------
@@ -365,16 +366,58 @@ function A.BelowVendor()
     return list
 end
 
+-- Bargains: listings well under an item's usual price (its market price's
+-- median over BARGAIN_DAYS days at least). Kept: the usual price and the
+-- listings BARGAIN_KEEP or more under it, so A.Bargains can take any of the
+-- setting's shares without a new scan. nil: none, or too few days known.
+local BARGAIN_DAYS, BARGAIN_KEEP = 3, 0.2
+A.BARGAIN_DAYS = BARGAIN_DAYS
+
+local function Bargain(itemID, list)
+    local usual, days = A.MarketPrice(itemID)
+    if not usual or days < BARGAIN_DAYS then return nil end
+    local cheap = {}
+    for _, l in ipairs(list) do
+        if l[1] <= usual * (1 - BARGAIN_KEEP) then cheap[#cheap + 1] = { math.ceil(l[1]), l[2] } end
+    end
+    if #cheap == 0 then return nil end
+    return { usual = usual, listings = cheap }
+end
+
+-- The Buy tab's "Bargains": what is listed at least the setting's share
+-- under its usual price, as browse results, the most saved first
+function A.Bargains()
+    local share = A.Settings().bargainShare / 100
+    local list = {}
+    for itemID, b in pairs(Realm().bargains or {}) do
+        local units, saving, lowest = 0, 0, nil
+        for _, l in ipairs(b.listings) do
+            if l[1] <= b.usual * (1 - share) then
+                units, saving = units + l[2], saving + (b.usual - l[1]) * l[2]
+                lowest = math.min(lowest or l[1], l[1])
+            end
+        end
+        if units > 0 then
+            list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = units, minPrice = lowest,
+                saving = math.floor(saving), usual = b.usual }
+        end
+    end
+    table.sort(list, function(a, b) return a.saving > b.saving end)
+    return list
+end
+
 local function FinishScan()
     reader:Hide()
-    local items, below = 0, {}
+    local items, below, bargains = 0, {}, {}
     for itemID, list in pairs(scan.byItem or {}) do
         below[itemID] = BelowVendor(itemID, list)
+        -- (against the days before today's numbers join them)
+        bargains[itemID] = Bargain(itemID, list)
         A.Record(itemID, Summarize(list))
         items = items + 1
     end
     local realm = Realm()
-    realm.scannedAt, realm.belowVendor = time(), below
+    realm.scannedAt, realm.belowVendor, realm.bargains = time(), below, bargains
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
     scan.state, scan.byItem = "idle", nil
     Changed()
@@ -457,8 +500,9 @@ local function Answer(listings)
     search = nil
     local plain = {}
     for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
-    local below = Realm().belowVendor
-    if below then below[s.itemID] = BelowVendor(s.itemID, plain) end
+    local realm = Realm()
+    if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
+    if realm.bargains then realm.bargains[s.itemID] = Bargain(s.itemID, plain) end
     if #listings > 0 then
         A.Record(s.itemID, Summarize(plain))
         Changed()
