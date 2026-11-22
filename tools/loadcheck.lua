@@ -437,18 +437,20 @@ local CHECKS = {
     -- (a CVar changed: the pad's bindings set again only for the ones they read)
     { name = "bindings on CVAR_UPDATE", fn = function()
         local IF = rawget(_G, "ImprovedForever")
-        local O, MW = IF and IF.Override, IF and IF.MyWheels
-        local saved = { O and O.Apply, MW and MW.ApplyWheelKeys }
+        local O, MW, T = IF and IF.Override, IF and IF.MyWheels, IF and IF.Touch
+        local saved = { O and O.Apply, MW and MW.ApplyWheelKeys, T and T.Apply }
         local applied = 0
         if O then O.Apply = function() applied = applied + 1 end end
         if MW then MW.ApplyWheelKeys = function() applied = applied + 1 end end
+        if T then T.Apply = function() applied = applied + 1 end end
         fire("CVAR_UPDATE", "Sound_MasterVolume", "0.5")
         local other = applied
         fire("CVAR_UPDATE", "GamePadEmulateShift", "PADLSHOULDER")
         if O then O.Apply = saved[1] end
         if MW then MW.ApplyWheelKeys = saved[2] end
+        if T then T.Apply = saved[3] end
         assert(other == 0, "an unrelated CVar set the bindings again")
-        assert(applied == (O and 1 or 0) + (MW and 1 or 0), "a modifier CVar left the bindings as they were")
+        assert(applied == (O and 1 or 0) + (MW and 1 or 0) + (T and 1 or 0), "a modifier CVar left the bindings as they were")
     end },
     { name = "config panel presses", fn = function()
         local IF = rawget(_G, "ImprovedForever")

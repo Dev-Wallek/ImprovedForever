@@ -642,7 +642,7 @@ events:SetScript("OnEvent", function(_, event, cvar)
     if event == "PLAYER_LOGOUT" then
         return BlockTouchCursor(false)
     end
-    if pending or event == "CVAR_UPDATE" then
+    if pending or (event == "CVAR_UPDATE" and IF.KeysCVar(cvar)) then
         touch.Apply()
     end
 end)
