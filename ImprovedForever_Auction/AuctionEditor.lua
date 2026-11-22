@@ -1,5 +1,5 @@
 -- The Auction tab, a tab of settings (IF.SettingsPage, SettingsPage.lua):
--- the auction window on top (off: every auction feature off), the price
+-- the auction window on top (off: the game's own), the price
 -- scans and what is kept of them, selling (the price it starts at, the
 -- duration), what uses the prices. Auction.lua and AuctionBuyClassic.lua (and its
 -- tabs) do the work.
@@ -56,13 +56,12 @@ local ITEMS = {
         key = "buy", group = "auction", label = "Auction window",
         tip = "Opens over the auction house, used with the pad, its tabs down the right (the right stick up / down): Buy (the left"
             .. " stick picks the category, L1 / R1 and L2 / R2 the next two levels, L3 the filters), Sell (your"
-            .. " bags sorted for profit), Auctions (yours, to cancel) and Tasks. Off: the game's own window, and every"
-            .. " auction feature off (no scan, no prices in tooltips, for junk or in the Destroy panel).",
+            .. " bags sorted for profit), Auctions (yours, to cancel) and Tasks. Off: the game's own window; the"
+            .. " scan and the prices keep working as set below.",
         mouseTip = "Opens over the auction house, its tabs down the right: Buy (categories on the left, a search box"
             .. " over them, Filters under the window; a click picks, the wheel scrolls), Sell (your bags sorted for"
             .. " profit: type the price, click the duration, hold the Hold to Sell bar), Auctions (yours: hold Hold to"
-            .. " Cancel) and Tasks. Off: the game's own window, and every auction feature off (no scan, no prices in"
-            .. " tooltips, for junk or in the Destroy panel).",
+            .. " Cancel) and Tasks. Off: the game's own window; the scan and the prices keep working as set below.",
     }, OnOff(function() return S().buy end, function(on) S().buy = on end, "Auction window")),
     Item({
         key = "scan", group = "scan", label = "Scan on open",
