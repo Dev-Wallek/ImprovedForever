@@ -438,9 +438,13 @@ local CHECKS = {
             bank = { { item = 4496, size = 6, slots = { [2] = "2589:5" } } } }
         BG.Open()
         for _, b in ipairs({ "PADDDOWN", "PADDRIGHT", "PADDUP", "PADDLEFT", "PADRSHOULDER", "PADLSHOULDER",
-            "PADRSTICK", "PAD4", "PAD2" }) do
+            "PADRSTICK", "PAD4", "PADBACK" }) do
             IF.Bags.Press(b)
         end
+        -- (away by Select: its watch a frame)
+        local win = rawget(_G, "ImprovedForeverBagsWindow")
+        win:GetScript("OnUpdate")(win)
+        IF.Bags.Press("PAD2")
         BG.Toggle()
     end },
     { name = "config panel", fn = function()

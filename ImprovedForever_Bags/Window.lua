@@ -202,7 +202,7 @@ function view:Render()
     content:SetHeight(math.max(1, y))
     win:SetHeight(math.max(260, math.min(UIParent:GetHeight() * 0.8, y + TOP + BOTTOM)))
     -- (the pad: its cursor and the game's tooltip on the picked slot, its prompts)
-    local focused = self.focus ~= "window"
+    local focused = self.focus ~= "window" and not self.away
     local pad = IF.Input.Pad()
     IF.Focus.Glow(win, focused and pad)
     self.sel = math.max(1, math.min(self.sel, #self.cells))
@@ -219,6 +219,7 @@ function view:Render()
         if IF.Wiki and cell and cell.b.itemID then defs[#defs + 1] = { "PADRSTICK", "RS", "Wiki" } end
         local hint = switch and switch:Hint()
         if hint then defs[#defs + 1] = hint end
+        defs[#defs + 1] = { "PADBACK", "BACK", "Background" }
         defs[#defs + 1] = { "PAD2", "B", "Close" }
         legend:Set(defs)
     else
@@ -289,7 +290,8 @@ picker:SetScript("OnClick", function() view:Characters() end)
 -- The pad
 ---------------------------------------------------------------------------
 local KEYS = { PADDUP = "UP", PADDDOWN = "DOWN", PADDLEFT = "LEFT", PADDRIGHT = "RIGHT", PAD1 = "A", PAD2 = "B",
-    PAD4 = "Y", PADLSHOULDER = "LB", PADRSHOULDER = "RB", PADLTRIGGER = "LT", PADRTRIGGER = "RT", PADRSTICK = "RS" }
+    PAD4 = "Y", PADLSHOULDER = "LB", PADRSHOULDER = "RB", PADLTRIGGER = "LT", PADRTRIGGER = "RT", PADRSTICK = "RS",
+    PADBACK = "BACK" }
 
 -- The slot one line up or down: the nearest column there
 local function Vertical(dir)
@@ -323,6 +325,7 @@ local function Press(name, down)
         return view:SetTab((view.tab - 1 + (name == "RB" and 1 or -1)) % #TABS + 1)
     elseif name == "LT" or name == "RT" then return switch:Press(name)
     elseif name == "Y" then return view:Characters()
+    elseif name == "BACK" then return view:Away()
     elseif name == "RS" then
         local cell = view.cells and view.cells[view.sel]
         return Wiki(cell and cell.b.itemID)
@@ -378,11 +381,59 @@ switch = IF.Focus.Switch(win, {
     end,
 })
 
-win:SetScript("OnUpdate", function() switch:Update() end)
+-- Select: the pad let go as the game's TOGGLEUIFOCUS does, the window
+-- left open behind. With a game window beside it the switch hands it there
+-- (L2 / R2 back); else it's the character's until Select again. Meanwhile
+-- a do-nothing button of ours takes PADBACK while no window of the game's
+-- is shown (its TOGGLEUIFOCUS would only say there's none to focus),
+-- unless another addon's click is on it.
+local hush = CreateFrame("Button", "ImprovedForeverBagsSelect")
+local HUSH = "CLICK " .. hush:GetName() .. ":LeftButton"
+local hushOwner = CreateFrame("Frame")
+local function Hush(on)
+    if on == (view.hush or false) or IF.InCombat() then return end
+    view.hush = on
+    if on then SetOverrideBindingClick(hushOwner, true, "PADBACK", hush:GetName())
+    else ClearOverrideBindings(hushOwner) end
+end
+
+function view:Away()
+    if switch:Other() then return switch:Set("game") end
+    self.away, self.selectHeld = true, true
+    TakePad(false)
+    BindEscape(false)
+    IF.Focus.DimNative(win, false)
+    GameTooltip:Hide()
+    self:Render()
+end
+
+local function Back()
+    view.away = false
+    Hush(false)
+    TakePad(true)
+    BindEscape(true)
+    IF.Focus.DimNative(win, true)
+    view:Render()
+end
+
+win:SetScript("OnUpdate", function()
+    if not view.away then return switch:Update() end
+    local m = IF.Focus.Manager()
+    local down = IsKeyDown("PADBACK")
+    local fresh = down and not view.selectHeld and not view.gameFocus
+    view.selectHeld = down
+    view.gameFocus = m and m.isUIFocused or false
+    local now = GetBindingAction("PADBACK", true)
+    local taken = now and now:find("^CLICK ") and now ~= HUSH
+    Hush(m ~= nil and not m.isUIFocused and #(m.shownFrames or {}) == 0 and not taken)
+    if fresh then Back() end
+end)
 IF.Input.OnChange(function() view:Render() end)
 BG.OnChange(function() view:Render() end)
 
 win:SetScript("OnHide", function()
+    view.away = false
+    Hush(false)
     view.focus, switch.focus = "ours", "ours"
     TakePad(false)
     IF.Focus.DimNative(win, false)
@@ -433,6 +484,30 @@ end
 function BG.Toggle()
     if win:IsShown() then return win:Hide() end
     BG.Open()
+end
+
+-- A button beside the game's bags, the mouse's way here from them: outside
+-- their top left corner, shown with them. Ours, never a child of theirs, so
+-- the game's pad navigation in them stays its own.
+local opener = CreateFrame("Button", nil, UIParent)
+opener:SetSize(32, 32)
+opener:SetFrameStrata("HIGH")
+opener:SetNormalTexture("Interface\\Icons\\INV_Misc_Bag_08")
+opener:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+opener:SetScript("OnClick", function() BG.Toggle() end)
+opener:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:SetText("Bags & Bank")
+    GameTooltip:AddLine("Your bank and your other characters' bags", 1, 1, 1)
+    GameTooltip:Show()
+end)
+opener:SetScript("OnLeave", function() GameTooltip:Hide() end)
+opener:Hide()
+local combined = _G.ContainerFrameCombinedBags
+if combined then
+    opener:SetPoint("TOPRIGHT", combined, "TOPLEFT", -4, -40)
+    combined:HookScript("OnShow", function() opener:Show() end)
+    combined:HookScript("OnHide", function() opener:Hide() end)
 end
 
 -- (its button: a wheel's slot, a press, a corner opens it: Actions.lua)
