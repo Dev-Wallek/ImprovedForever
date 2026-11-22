@@ -1,6 +1,7 @@
 """Draws the module icons that have no designer art, in the designed set's look
 (import_icons.py: cream shapes, green accents, black outline, soft shadow):
   ic_mod_addons      a puzzle piece, a green "/" through it
+  ic_mod_panel       a bar, a green fill along it, a coin over its end
 
 Run: python3 tools/draw_module_icons.py   (needs Pillow)
 """
@@ -58,7 +59,19 @@ def puzzle():
     return [(piece, CREAM), (slash, GREEN)]
 
 
-for name, layers in (("ic_mod_addons", puzzle()),):
+def panel():
+    bar, d = mask()
+    rr(d, (10, 50, 118, 78), 10)
+    coin, dc = mask()
+    dc.ellipse([p(74), p(30), p(122), p(78)], fill=255)
+    bar = ImageChops.subtract(bar, coin.filter(ImageFilter.MaxFilter(4 * S + 1)))
+    fill, df = mask()
+    rr(df, (18, 57, 60, 71), 5)
+    bar = ImageChops.subtract(bar, fill.filter(ImageFilter.MaxFilter(2 * S + 1)))
+    return [(bar, CREAM), (fill, GREEN), (coin, CREAM)]
+
+
+for name, layers in (("ic_mod_addons", puzzle()), ("ic_mod_panel", panel())):
     path = os.path.join(TEX, name + ".tga")
     compose(layers).save(path)
     print("wrote", path)
