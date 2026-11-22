@@ -20,8 +20,14 @@ local function Wielding()
     return class == (Enum and Enum.ItemClass and Enum.ItemClass.Weapon or 2) and subclass == wand
 end
 
+-- The wand's Shoot, by ID: the client names it in its own language
+local SHOOT = 5019
+
+-- Its name while learned, as the macro needs
 local function ShootName()
-    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo("Shoot")
+    local known = IsPlayerSpell or IsSpellKnown
+    if not (known and known(SHOOT)) then return nil end
+    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(SHOOT)
     return info and info.name
 end
 
