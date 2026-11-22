@@ -131,6 +131,32 @@ function UI.Window(name, width, height, opaque)
     return win
 end
 
+-- A window's own pad: a catcher handing keys[button] to press(key, down)
+-- (legend:SetPress(pad.catcher) gives the mouse the same presses), and Esc
+-- running onEscape on its release. pad:Set(on): the pad and Esc taken or
+-- let go, the game's focus dimmed or put back (bindings out of combat only).
+function UI.PadControls(win, keys, press, onEscape)
+    local pad = {}
+    local catcher = K.NewFrame("Frame", nil, win)
+    catcher:SetAllPoints(win)
+    catcher:SetScript("OnGamePadButtonDown", function(_, button) if keys[button] then press(keys[button], true) end end)
+    catcher:SetScript("OnGamePadButtonUp", function(_, button) if keys[button] then press(keys[button], false) end end)
+    -- (setting the handler switches its input on: off until wanted)
+    catcher:EnableGamePadButton(false)
+    pad.catcher = catcher
+    local escape = K.NewFrame("Button", win:GetName() .. "Escape")
+    escape:RegisterForClicks("AnyUp")
+    escape:SetScript("OnClick", onEscape)
+    function pad:Set(on)
+        IF.Focus.DimNative(win, on)
+        if IF.InCombat() then return end
+        catcher:EnableGamePadButton(on)
+        ClearOverrideBindings(win)
+        if on then SetOverrideBindingClick(win, true, "ESCAPE", escape:GetName()) end
+    end
+    return pad
+end
+
 ---------------------------------------------------------------------------
 -- The pages' tabs down the window's right: the game's side tabs (as the
 -- character window's), the right stick's glyph above them (tilted up /

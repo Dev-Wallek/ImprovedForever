@@ -488,32 +488,12 @@ local function Press(name, down)
     ScrollTo(view.sel)
 end
 
-local catcher = K.NewFrame("Frame", nil, win)
-catcher:SetAllPoints(win)
-if catcher.EnableGamePadButton then
-    catcher:SetScript("OnGamePadButtonDown", function(_, button) if KEYS[button] then Press(KEYS[button], true) end end)
-    catcher:SetScript("OnGamePadButtonUp", function(_, button) if KEYS[button] then Press(KEYS[button], false) end end)
-    -- (setting the handler switches its input on: off until wanted)
-    catcher:EnableGamePadButton(false)
-end
-legend:SetPress(catcher)
-
-local function TakePad(on)
-    if catcher.EnableGamePadButton and not IF.InCombat() then catcher:EnableGamePadButton(on and true or false) end
-end
-
--- (Esc: closed, on its release)
-local escape = K.NewFrame("Button", "ImprovedForeverFishCollectionEscape")
-escape:RegisterForClicks("AnyUp")
-escape:SetScript("OnClick", function()
+-- (Esc: closed)
+local pad = IF.UI.PadControls(win, KEYS, Press, function()
     if dropdown:IsShown() then return dropdown:Close() end
     win:Hide()
 end)
-local function BindEscape(on)
-    if IF.InCombat() then return end
-    ClearOverrideBindings(win)
-    if on then SetOverrideBindingClick(win, true, "ESCAPE", escape:GetName()) end
-end
+legend:SetPress(pad.catcher)
 
 -- Where it sits: as the game's own panels (Focus.lua)
 IF.Focus.Dock(win)
@@ -522,9 +502,7 @@ switch = IF.Focus.Switch(win, {
     onChange = function(focus)
         local ours = focus == "ours"
         view.focus = ours and "ours" or "window"
-        TakePad(ours)
-        BindEscape(ours)
-        IF.Focus.DimNative(win, ours)
+        pad:Set(ours)
         view:Render()
     end,
 })
@@ -535,11 +513,9 @@ IF.Input.OnChange(function() view:Render() end)
 win:SetScript("OnHide", function()
     view.focus = "ours"
     switch.focus = "ours"
-    TakePad(false)
-    IF.Focus.DimNative(win, false)
+    pad:Set(false)
     cursor:Hide()
     dropdown:Close()
-    if not IF.InCombat() then ClearOverrideBindings(win) end
     PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_CLOSE or 840)
 end)
 win:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -556,9 +532,7 @@ function B.Open(itemID)
     end
     if not win:IsShown() then PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_OPEN or 839) end
     win:Show()
-    TakePad(true)
-    BindEscape(true)
-    IF.Focus.DimNative(win, true)
+    pad:Set(true)
     scroll:SetVerticalScroll(0)
     view:Render()
     if item then
