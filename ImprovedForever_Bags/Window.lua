@@ -486,9 +486,11 @@ function BG.Toggle()
     BG.Open()
 end
 
--- A button beside the game's bags, the mouse's way here from them: outside
--- their top left corner, shown with them. Ours, never a child of theirs, so
--- the game's pad navigation in them stays its own.
+-- A button beside the game's bags, the way here from them: outside their
+-- top left corner, shown with them, clicked with the mouse; with the pad L3
+-- while they have the game's focus (watched, never taken: their own
+-- buttons are the face ones, Select and the shoulders). Ours, never a child
+-- of theirs, so the game's pad navigation in them stays its own.
 local opener = CreateFrame("Button", nil, UIParent)
 opener:SetSize(32, 32)
 opener:SetFrameStrata("HIGH")
@@ -502,8 +504,20 @@ opener:SetScript("OnEnter", function(self)
     GameTooltip:Show()
 end)
 opener:SetScript("OnLeave", function() GameTooltip:Hide() end)
+opener.glyph = opener:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+opener.glyph:SetPoint("TOP", opener, "BOTTOM", 0, -2)
 opener:Hide()
 local combined = _G.ContainerFrameCombinedBags
+local l3Held = false
+opener:SetScript("OnUpdate", function()
+    opener.glyph:SetText(IF.Input.Pad() and IF.GlyphText("PADLSTICK", 20) or "")
+    local down = IsKeyDown("PADLSTICK")
+    local m = IF.Focus.Manager()
+    if down and not l3Held and m and m.isUIFocused and m.focusedFrame == combined and not IF.InCombat() then
+        BG.Toggle()
+    end
+    l3Held = down
+end)
 if combined then
     opener:SetPoint("TOPRIGHT", combined, "TOPLEFT", -4, -40)
     combined:HookScript("OnShow", function() opener:Show() end)
