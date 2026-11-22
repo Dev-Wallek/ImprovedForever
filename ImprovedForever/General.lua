@@ -21,7 +21,8 @@ local ITEMS = {
             .. "menu. Turn it off if you don't want the double tap to do that. The same as the \"Improved Forever "
             .. "panel\" binding in the Bindings tab; the panel also opens with /if.",
     }, OnOff(function() return IF.db.menuDouble ~= false end, function(on)
-        IF.db.menuDouble = on and nil or false
+        -- (nil: on, the default)
+        if on then IF.db.menuDouble = nil else IF.db.menuDouble = false end
     end, "Double tap Menu opens this panel")),
     Item({
         key = "wandShoot", group = "gamepad", label = "Square shoots the wand",
@@ -57,7 +58,8 @@ local ITEMS = {
             .. "takes the controller, the D-pad moves a cursor in it, A presses, Circle closes it. Turn it off "
             .. "if an addon's windows should leave the controller to the game.",
     }, OnOff(function() return IF.AddonWindows.Scanned() end, function(on)
-        IF.db.addonWindows = on and nil or false
+        -- (nil: on, the default)
+        if on then IF.db.addonWindows = nil else IF.db.addonWindows = false end
         if not on then IF.AddonWindows.Refresh() end
     end, "Other addons' windows in L2 / R2")),
     Item({

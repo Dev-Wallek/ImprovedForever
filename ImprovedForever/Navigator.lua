@@ -137,8 +137,7 @@ end
 
 local function Bound()
     for key in pairs(BINDS) do
-        local ok, now = pcall(GetBindingAction, key, true)
-        if not (ok and now == ACTIONS[key]) then return false end
+        if GetBindingAction(key, true) ~= ACTIONS[key] then return false end
     end
     return true
 end
