@@ -241,6 +241,18 @@ local function DealBadge(itemID, price)
     return text, "plain"
 end
 
+-- Listed under what a vendor pays, the profit as a badge: in "Below vendor
+-- price" all of it, elsewhere a unit's at the lowest price; nil: none
+local function VendorBadge(result)
+    local profit = result.profit
+    if not profit then
+        local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(result.itemKey.itemID))
+        local price = result.minPrice
+        profit = sell and price and price > 0 and sell > price and sell - price
+    end
+    return profit and { BADGE_PRICE .. "+" .. A.Money(profit), "good" } or nil
+end
+
 -- An upgrade's gain as a badge: the arrow and "+12%" (nothing worn: "New");
 -- one of a higher level in purple
 local function GainBadge(isUpgrade, gain, needLevel)
@@ -847,12 +859,17 @@ BY.main, BY.sub, BY.subsub = 1, 1, 1   -- 1 in the top bars: "All"
 BY.index, BY.top = 1, 1
 BY.results = {}
 
+-- Ours, last (one up from the first): what is listed under a vendor's pay
+-- (A.BelowVendor), from the last scan rather than a query
+local BELOW_VENDOR = { name = "Below vendor price", belowVendor = true }
+
 local function Mains()
     local list = {}
     for _, cat in ipairs(_G.AuctionCategories or {}) do
         -- (the WoW Token has its own window)
         if not (cat.HasFlag and cat:HasFlag("WOW_TOKEN_FLAG")) then list[#list + 1] = cat end
     end
+    if #list > 0 then list[#list + 1] = BELOW_VENDOR end
     return list
 end
 
@@ -866,6 +883,10 @@ local function Chosen()
     local sub = BY.sub > 1 and Subs(main)[BY.sub - 1] or nil
     local subsub = sub and BY.subsub > 1 and Subs(sub)[BY.subsub - 1] or nil
     return main, sub, subsub
+end
+
+local function BelowVendorShown()
+    return (Chosen()) == BELOW_VENDOR
 end
 
 local function Names(cat)
@@ -886,6 +907,14 @@ local function SendQuery()
         return
     end
     BY.queryWaiting = false
+    if BelowVendorShown() then
+        -- ponytail: the filters and the search box don't narrow this list
+        BY.allResults = A.BelowVendor()
+        BY.FilterResults()
+        BY.browseSent, BY.searching = true, false
+        BY.Render()
+        return
+    end
     local main, sub, subsub = Chosen()
     local cat = subsub or sub or main
     local filters = {}
@@ -993,6 +1022,8 @@ function BY.FilterResults()
 end
 
 local function ResultsIn()
+    -- (the client's own browse, a purchase's refresh: not this list's)
+    if BelowVendorShown() then return BY.AfterBrowse(true) end
     BY.allResults = AH.GetBrowseResults() or {}
     BY.FilterResults()
     BY.searching = false
@@ -1009,7 +1040,8 @@ end
 -- Near the end of what has come: the next part asked for (at: the row
 -- reached, the pick's or the wheel's)
 local function MoreIfNeeded(at)
-    if (at or BY.index) > #BY.results - 10 and AH.HasFullBrowseResults and not AH.HasFullBrowseResults() then
+    if (at or BY.index) > #BY.results - 10 and not BelowVendorShown() and AH.HasFullBrowseResults
+        and not AH.HasFullBrowseResults() then
         -- (with only upgrades shown, few of what came may show)
         AH.RequestMoreBrowseResults()
     end
@@ -1361,6 +1393,15 @@ function BY.SearchItem()
         end
         if not listings then D.message = "No answer from the auction house" end
         if not D.commodity then KeepVersions(D.result.itemKey, D.listings) end
+        if BelowVendorShown() then
+            -- (its row from what is listed now, the pick kept on it; gone
+            -- once nothing is under a vendor's pay)
+            BY.allResults = A.BelowVendor()
+            BY.FilterResults()
+            for i, r in ipairs(BY.results) do
+                if r.itemKey.itemID == itemID then BY.index = i end
+            end
+        end
         D.qty = math.max(1, math.min(D.qty or 1, Available()))
         BY.Render()
     end, not D.commodity and D.result.itemKey or nil)
@@ -1700,7 +1741,9 @@ local function RenderResults()
     end
     BY.top = math.max(1, math.min(BY.top, math.max(1, n - per + 1)))
     emptyText:SetShown(n == 0)
-    emptyText:SetText(BY.searching and "Searching..." or "Nothing listed here")
+    emptyText:SetText(BY.searching and "Searching..."
+        or BelowVendorShown() and (A.Stats() == 0 and "Nothing scanned yet" or "Nothing under a vendor's pay in the last scan")
+        or "Nothing listed here")
     local fr, fg, fb = FocusColor()
     for _, r in ipairs(listRows) do r:Hide() end
     for i, f in ipairs(listRows) do
@@ -1718,9 +1761,10 @@ local function RenderResults()
             f:Fill({
                 icon = info and info.iconFileID, quality = info and info.quality,
                 name = info and info.itemName or "...", price = priceText, upgrade = upgrade,
-                line = result.totalQuantity .. " available"
+                line = result.totalQuantity .. (result.profit and " under a vendor's pay" or " available")
                     .. (ReqLevel(result.itemKey.itemID) and ("  ·  " .. ReqLevel(result.itemKey.itemID)) or ""),
                 gain = gainText and { gainText, gainColor },
+                deal = VendorBadge(result),
             })
             -- (dimmed only under the filters: the item's screen gone into
             -- keeps its row bright)

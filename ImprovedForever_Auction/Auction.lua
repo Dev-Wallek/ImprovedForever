@@ -244,7 +244,7 @@ end
 
 function A.Clear()
     local realm = Realm()
-    realm.items, realm.scannedAt = {}, nil
+    realm.items, realm.scannedAt, realm.belowVendor = {}, nil, nil
 end
 
 ---------------------------------------------------------------------------
@@ -332,15 +332,45 @@ function A.ScanText()
         .. " (" .. math.floor(scan.read * 100 / scan.total) .. "%)"
 end
 
+-- What of listings { { unit, count } } is under a vendor's pay:
+-- { units, profit (selling them all to a vendor), lowest }; nil: none, or
+-- its vendor price not known yet (ponytail: skipped till the next scan)
+local function BelowVendor(itemID, list)
+    local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(itemID))
+    if not sell or sell <= 0 then return nil end
+    local units, profit, lowest = 0, 0, nil
+    for _, l in ipairs(list) do
+        if l[1] < sell then
+            units, profit = units + l[2], profit + (sell - l[1]) * l[2]
+            lowest = math.min(lowest or l[1], l[1])
+        end
+    end
+    if units == 0 then return nil end
+    return { units = units, profit = math.floor(profit), lowest = math.ceil(lowest) }
+end
+
+-- The Buy tab's "Below vendor price": the last full scan's (an item's
+-- search updates its own), as browse results, the most profit first
+function A.BelowVendor()
+    local list = {}
+    for itemID, b in pairs(Realm().belowVendor or {}) do
+        list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
+            profit = b.profit }
+    end
+    table.sort(list, function(a, b) return a.profit > b.profit end)
+    return list
+end
+
 local function FinishScan()
     reader:Hide()
-    local items = 0
+    local items, below = 0, {}
     for itemID, list in pairs(scan.byItem or {}) do
+        below[itemID] = BelowVendor(itemID, list)
         A.Record(itemID, Summarize(list))
         items = items + 1
     end
     local realm = Realm()
-    realm.scannedAt = time()
+    realm.scannedAt, realm.belowVendor = time(), below
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
     scan.state, scan.byItem = "idle", nil
     Changed()
@@ -421,9 +451,11 @@ end
 local function Answer(listings)
     local s = search
     search = nil
+    local plain = {}
+    for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
+    local below = Realm().belowVendor
+    if below then below[s.itemID] = BelowVendor(s.itemID, plain) end
     if #listings > 0 then
-        local plain = {}
-        for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
         A.Record(s.itemID, Summarize(plain))
         Changed()
     end
