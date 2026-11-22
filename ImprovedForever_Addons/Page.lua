@@ -2,7 +2,7 @@
 -- pages and launchers (Commands.lua), a heading per addon. The D-pad and
 -- the left stick move through them, L1 / R1 to the previous / next addon.
 -- A runs a command as typed, without arguments: a secure macro button of
--- ours takes A while one is picked (D-10). On a settings page or launcher A
+-- ours takes A while one is picked. On a settings page or launcher A
 -- opens it.
 local IF = ImprovedForever
 
