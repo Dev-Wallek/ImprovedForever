@@ -553,7 +553,14 @@ SecureHandlerWrapScript(hold, "OnClick", hold, [[
     local tap = self:GetAttribute("ic-tap")
     if tap then
         if not down then return false end
-        if self:GetAttribute("ic-peek-shown") or self:GetAttribute("ic-peek-open") then down = false end
+        -- (a map closed another way, B on its window: this press opens it again)
+        local map = not PlayerInCombat() and self:GetFrameRef("map")
+        if map and not map:IsShown() then
+            self:SetAttribute("ic-peek-shown", nil)
+            self:SetAttribute("ic-peek-open", nil)
+        elseif self:GetAttribute("ic-peek-shown") or self:GetAttribute("ic-peek-open") then
+            down = false
+        end
     end
     local result = self:RunAttribute("ic-peek", down, self:GetAttribute("ic-macro"))
     if tap then self:SetAttribute("useOnKeyDown", true) end
