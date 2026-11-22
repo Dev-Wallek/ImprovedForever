@@ -12,8 +12,9 @@
 --     auction house (as below); gear and odds and ends that
 --     are white (or green and bound) and unusable for the class, of an
 --     armor type it doesn't wear, low level or cheap;
---   auction: worth clearly more at the auction house (its usual price,
---     after the cut: the Auction module's scans) than a vendor pays;
+--   auction: worth more at the auction house (its usual price, after the
+--     cut: the Auction module's scans) than a vendor pays, by the share
+--     and the gain the Auction tab sets;
 --   unknown: could be auctioned, never priced there yet;
 --   vendor: anything else a vendor buys (food, trade goods...).
 -- The player's marks are the character's own (IF.charDB.junkMarks: by
@@ -22,8 +23,6 @@ local _, IF = ...
 
 local IV = {}
 IF.ItemValue = IV
-
-IV.PROFIT_SHARE = 1.25         -- "worth more": over a vendor's pay by a quarter (and MinProfit)
 
 local DEFAULTS = {
     auto = true,               -- the verdict marks junk by itself (off: greys and the player's marks only)
@@ -66,17 +65,12 @@ function IV.LowLevel()
     return level - math.max(3, math.ceil(level / 4))
 end
 
--- "Worth more at the auction house" by at least this much (copper): 2
--- silver at level 10, 18 at 30
-function IV.MinProfit()
-    local level = PlayerLevel()
-    return math.max(100, 2 * level * level)
-end
-
 ---------------------------------------------------------------------------
 -- Auction prices: the Auction module's, when loaded (Auction.lua sets it):
 -- { price = fn(itemID) -> what one sells for after the cut, or nil;
---   counts = fn() -> whether prices weigh in the verdict (its settings) }
+--   counts = fn() -> whether prices weigh in the verdict (its settings);
+--   share = fn() -> how many percent over a vendor's pay is "worth more";
+--   minGain = fn() -> and by at least this much (copper) }
 ---------------------------------------------------------------------------
 local auction
 function IV.UseAuction(def)
@@ -393,7 +387,7 @@ function IV.Judge(bag, slot, opts)
             "Upgrade")
     end
     e.ah = auctionable and AuctionNet(id, count, forced) or nil
-    local profit = e.ah and e.ah > e.value * IV.PROFIT_SHARE and e.ah - e.value >= IV.MinProfit()
+    local profit = e.ah and e.ah > e.value * (1 + auction.share() / 100) and e.ah - e.value >= auction.minGain()
     if quality == 0 and not profit then return done("junk", "Grey: worth only what a vendor pays", "Junk", 0) end
     if KEEP_CLASS[classID] then return done("keep", "Kept: a container, reagent, ammunition or key", "Kept") end
     if vendor == 0 and not auctionable then return done("keep", "Can't be sold", "Kept") end
