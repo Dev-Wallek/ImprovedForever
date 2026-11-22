@@ -145,7 +145,8 @@ local ITEMS = {
 
 ITEMS[#ITEMS + 1] = Item({
     key = "tooltip", group = "use", label = "Tooltips",
-    tip = "Item tooltips show its usual auction price and the latest lowest (and a bag stack's worth).",
+    tip = "Item tooltips show its usual auction price and the latest lowest; for a bag stack, the whole"
+        .. " stack's, a single one's in brackets.",
 }, OnOff(function() return S().tooltip end, function(on) S().tooltip = on end, "Tooltips"))
 ITEMS[#ITEMS + 1] = Item({
     key = "destroy", group = "use", label = "Junk",
