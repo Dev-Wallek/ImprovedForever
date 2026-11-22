@@ -490,8 +490,9 @@ local function ItemResults(itemKey)
     for i = 1, AH.GetNumItemSearchResults(itemKey) do
         local r = AH.GetItemSearchResultInfo(itemKey, i)
         if r and r.buyoutAmount and r.buyoutAmount > 0 and r.quantity > 0 then
-            -- (an auction's buyout is for all of it)
-            local l = { unit = r.buyoutAmount / r.quantity, total = r.buyoutAmount, count = r.quantity,
+            -- (a search result's buyout is a unit's, quantity how many are
+            -- up at it, as the game's own sell window reads it; a buy costs it)
+            local l = { unit = r.buyoutAmount, total = r.buyoutAmount, count = r.quantity,
                 own = r.containsOwnerItem and r.quantity or 0, auctionID = r.auctionID, link = r.itemLink,
                 itemLevel = r.itemKey and r.itemKey.itemLevel }
             all[#all + 1] = l
