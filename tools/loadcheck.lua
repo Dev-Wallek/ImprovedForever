@@ -489,7 +489,7 @@ local CHECKS = {
         s.partyX = 0
         -- (the cooldowns' lane: its near end, the party spells' diamond hidden)
         local cooldowns = Up(IN.BuffTimeline.Apply, "cooldowns")
-        -- (the row's OnUpdate, or IN.Prof's wrapper round it)
+        -- (the row's OnUpdate, or IF.Prof's wrapper round it)
         local onUpdate = cooldowns.holder:GetScript("OnUpdate")
         local Lane = (Up(onUpdate, "source") or Up(Up(onUpdate, "fn"), "source")).Lane
         local PP = IN.PartyPad
