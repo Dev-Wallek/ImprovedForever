@@ -14,8 +14,8 @@ local function S()
     return A.Settings()
 end
 
--- A choice of values: { { value, name }... } on a setting's key
-local function Choice(key, label, choices)
+-- A choice of values: { { value, name }... } on a setting's key; after: run once one is chosen
+local function Choice(key, label, choices, after)
     local byValue = {}
     for _, c in ipairs(choices) do byValue[c[1]] = c end
     return {
@@ -36,6 +36,7 @@ local function Choice(key, label, choices)
                 if tostring(c[1]) == action then
                     S()[key] = c[1]
                     menu.Toast(label .. ": " .. c[2])
+                    if after then after() end
                 end
             end
         end,
@@ -149,12 +150,26 @@ ITEMS[#ITEMS + 1] = Item({
 }, OnOff(function() return S().tooltip end, function(on) S().tooltip = on end, "Tooltips"))
 ITEMS[#ITEMS + 1] = Item({
     key = "destroy", group = "use", label = "Junk",
-    tip = "What sells for more at the auction house than to a vendor (unless next to nothing either way)"
+    tip = "What sells for more at the auction house than to a vendor (Worth more by, Gain at least)"
         .. " is never marked junk, and the Destroy panel shows each item's auction worth.",
 }, OnOff(function() return S().destroy end, function(on)
     S().destroy = on
     IF.ItemValue.Changed()
 end, "Junk"))
+ITEMS[#ITEMS + 1] = Item({
+    key = "share", group = "use", label = "Worth more by",
+    tip = "An item belongs at the auction house (the Sell tab's Auction, never junk) when it brings this much"
+        .. " more there, after the cut, than a vendor pays.",
+}, Choice("share", "Worth more by", {
+    { 0, "Anything" }, { 10, "10%" }, { 25, "25%" }, { 50, "50%" }, { 100, "Twice as much" },
+}, IF.ItemValue.Changed))
+ITEMS[#ITEMS + 1] = Item({
+    key = "minGain", group = "use", label = "Gain at least",
+    tip = "And it brings at least this much more there than a vendor pays.",
+}, Choice("minGain", "Gain at least", {
+    { 0, "Any gain" }, { 10, "10 copper" }, { 50, "50 copper" }, { 100, "1 silver" },
+    { 500, "5 silver" }, { 1000, "10 silver" },
+}, IF.ItemValue.Changed))
 
 ITEMS[#ITEMS + 1] = Item({
     key = "upgradeBags", group = "upgrades", label = "Bag arrows",
