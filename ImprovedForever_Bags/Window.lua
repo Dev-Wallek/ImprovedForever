@@ -487,10 +487,11 @@ function BG.Toggle()
 end
 
 -- A button beside the game's bags, the way here from them: outside their
--- top left corner, shown with them, clicked with the mouse; with the pad L3
--- while they have the game's focus (watched, never taken: their own
--- buttons are the face ones, Select and the shoulders). Ours, never a child
--- of theirs, so the game's pad navigation in them stays its own.
+-- top left corner, shown with them, clicked with the mouse; with the pad R1
+-- held + L3 while they have the game's focus (watched, never taken; L3
+-- alone sorts the bags, Bags.lua, which a held shoulder leaves alone).
+-- Ours, never a child of theirs, so the game's pad navigation in them stays
+-- its own.
 local opener = CreateFrame("Button", nil, UIParent)
 opener:SetSize(32, 32)
 opener:SetFrameStrata("HIGH")
@@ -510,8 +511,8 @@ opener:Hide()
 local combined = _G.ContainerFrameCombinedBags
 local l3Held = false
 opener:SetScript("OnUpdate", function()
-    opener.glyph:SetText(IF.Input.Pad() and IF.GlyphText("PADLSTICK", 20) or "")
-    local down = IsKeyDown("PADLSTICK")
+    opener.glyph:SetText(IF.Input.Pad() and (IF.GlyphText("PADRSHOULDER", 20) .. "+" .. IF.GlyphText("PADLSTICK", 20)) or "")
+    local down = IsKeyDown("PADLSTICK") and IsKeyDown("PADRSHOULDER")
     local m = IF.Focus.Manager()
     if down and not l3Held and m and m.isUIFocused and m.focusedFrame == combined and not IF.InCombat() then
         BG.Toggle()
