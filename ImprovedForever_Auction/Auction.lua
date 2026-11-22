@@ -34,7 +34,7 @@ local DEFAULTS = {
     buyUpgrades = "mark",  -- upgrades (Upgrades.lua) in it: off, mark (an arrow), only
     destroy = true,        -- junk (ItemValue.lua) is never what sells better here than to a vendor
     share = 25,            -- "sells better here": by this many percent over a vendor's pay
-    minGain = 0,           -- and by at least this much (copper)
+    minGain = 100,         -- and by at least this much (copper)
     keepDays = 30,         -- days of prices kept
     chartDays = 14,        -- days the charts show (and the market price covers)
 }
