@@ -239,7 +239,7 @@ TC.Render = Render
 IF.Input.OnChange(function() if panel:IsShown() then Render() end end)
 
 function TC.Open(recipeID, count)
-    local recipe = recipeID and TK.Recipe(recipeID)
+    local recipe = recipeID and IF.Recipes.Read(recipeID)
     if not recipe or IF.InCombat() then return end
     if #recipe.reagents == 0 then
         return IF.Print("that recipe needs nothing to buy.")
@@ -355,13 +355,7 @@ end)
 ---------------------------------------------------------------------------
 -- The profession window: on a recipe of its list, Cross held adds a task
 ---------------------------------------------------------------------------
-local function CurrentRecipe()
-    local page = _G.ProfessionsFrame and _G.ProfessionsFrame.CraftingPage
-    local form = page and page.SchematicForm
-    if not (form and form.GetRecipeInfo) then return nil end
-    local got, info = pcall(form.GetRecipeInfo, form)
-    return got and info and info.recipeID or nil
-end
+local CurrentRecipe = IF.Recipes.Shown
 
 local function CurrentAmount()
     local page = _G.ProfessionsFrame and _G.ProfessionsFrame.CraftingPage

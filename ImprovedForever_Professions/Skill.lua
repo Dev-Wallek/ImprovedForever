@@ -40,8 +40,22 @@ function PR.Color(spell, skill, difficulty)
     return game, (color == "yellow" or color == "green") and chance or nil
 end
 
+-- About how many crafts from skill until the recipe turns grey: a point at
+-- each step comes after 1 / chance crafts on average. 0: grey already;
+-- nil: its grey isn't known
+function PR.CraftsToGrey(spell, skill)
+    local t = IF.RecipeData.trivial[spell]
+    if not t or t[2] == 0 then return nil end
+    local crafts = 0
+    for s = skill, t[2] - 1 do
+        local _, chance = PR.TableColor(spell, s)
+        crafts = crafts + 1 / chance
+    end
+    return math.ceil(crafts)
+end
+
 -- The open profession's skill
-local function Skill()
+function PR.Skill()
     local ui = C_TradeSkillUI
     local info = ui.GetChildProfessionInfo and ui.GetChildProfessionInfo()
     if not (info and (info.skillLevel or 0) > 0) then info = ui.GetBaseProfessionInfo() end
@@ -53,7 +67,7 @@ end
 local function Audit()
     local ui = C_TradeSkillUI
     local ok, ids = pcall(ui and ui.GetAllRecipeIDs)
-    local skill = ok and type(ids) == "table" and #ids > 0 and Skill()
+    local skill = ok and type(ids) == "table" and #ids > 0 and PR.Skill()
     if not skill then
         IF.Print("open a profession window first.")
         return
