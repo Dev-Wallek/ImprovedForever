@@ -92,6 +92,14 @@ local ITEMS = {
         S().legend = on
         if PeekMap.ShowLegend then PeekMap.ShowLegend() end
     end, "Button legend")),
+    Item({
+        key = "tap", group = "look", label = "Tap to open and close",
+        tip = "On: a press opens the map and the next press closes it, nothing to hold. With the map open as"
+            .. " a window (the first time, and in combat) B closes it too.",
+    }, OnOff(function() return S().tap end, function(on)
+        S().tap = on
+        PeekMap.Apply()
+    end, "Tap to open and close")),
     {
         key = "x", group = "look", label = "Offset left / right",
         tip = "Moves the map from its position, by a share of the screen's width.",

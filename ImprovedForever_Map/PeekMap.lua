@@ -30,6 +30,7 @@ local DEFAULTS = {
     y = 0,               -- up (+) / down (-), of its height
     labels = true,       -- each quest's name beside its node
     legend = true,       -- the buttons' prompts, below the map
+    tap = false,         -- a press opens it, the next closes it (not held)
 }
 
 function PeekMap.Settings()
@@ -545,9 +546,18 @@ local hold = CreateFrame("Button", "ImprovedForeverPeekMapHold", UIParent,
 hold:SetSize(1, 1)
 hold:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -20, 20)
 hold:RegisterForClicks("AnyDown", "AnyUp")
+-- (tapped: each press alone counts, the one after opening as its release,
+-- its map button run on that press)
 SecureHandlerWrapScript(hold, "OnClick", hold, [[
     self:SetAttribute("type", nil)
-    return self:RunAttribute("ic-peek", down, self:GetAttribute("ic-macro"))
+    local tap = self:GetAttribute("ic-tap")
+    if tap then
+        if not down then return false end
+        if self:GetAttribute("ic-peek-shown") or self:GetAttribute("ic-peek-open") then down = false end
+    end
+    local result = self:RunAttribute("ic-peek", down, self:GetAttribute("ic-macro"))
+    if tap then self:SetAttribute("useOnKeyDown", true) end
+    return result
 ]])
 
 -- A peek's press (opens) or release (closes), for the hold button and a
@@ -636,6 +646,7 @@ function PeekMap.Apply()
         if WorldMapFrame.ScrollContainer then hold:SetFrameRef("map-scroll", WorldMapFrame.ScrollContainer) end
     end
     hold:SetAttribute("ic-macro", macro)
+    hold:SetAttribute("ic-tap", PeekMap.Settings().tap or nil)
     ClearOverrideBindings(hold)
     local key = PeekMap.Key() and IF.Binds.KeyOf(PeekMap.Key())
     -- (kept while the map has the gamepad: its release closes it)
