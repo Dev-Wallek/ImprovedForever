@@ -220,13 +220,12 @@ function hooksecurefunc(t, name, fn)
         return unpack(r)
     end)
 end
--- (UISpecialFrames: a game window, one of another addon's, one of ours, one of
--- Baganator's; an entry an addon put there is tainted by it)
+-- (UISpecialFrames: a game window, one of another addon's, one of ours; an
+-- entry an addon put there is tainted by it)
 -- (and a game frame another addon listed: its entry tainted, its global not)
-UISpecialFrames = { "GameSpecialWindow", "OtherAddonWindow", "ImprovedForeverSpecialWindow", "BaganatorSpecialWindow",
-    "GameFrameListedByAddon" }
-local specialBy = { [2] = "OtherAddon", [3] = "ImprovedForever_Wiki", [4] = "Baganator", [5] = "OtherAddon" }
-local addonGlobals = { OtherAddonWindow = true, ImprovedForeverSpecialWindow = true, BaganatorSpecialWindow = true }
+UISpecialFrames = { "GameSpecialWindow", "OtherAddonWindow", "ImprovedForeverSpecialWindow", "GameFrameListedByAddon" }
+local specialBy = { [2] = "OtherAddon", [3] = "ImprovedForever_Wiki", [4] = "OtherAddon" }
+local addonGlobals = { OtherAddonWindow = true, ImprovedForeverSpecialWindow = true }
 for _, name in ipairs(UISpecialFrames) do Frame(name) end
 function issecurevariable(t, key)
     if t == UISpecialFrames and specialBy[key] then return false, specialBy[key] end
@@ -267,11 +266,6 @@ C_GamePad = { IsEnabled = function() return true end, GetActiveDeviceID = functi
     GetDeviceMappedState = function() return nil end, GetDeviceRawState = function() return nil end,
     GetCombinedDeviceID = function() return 1 end, GetPowerLevel = function() return nil end,
     SetVibration = function() end, StopVibration = function() end, ButtonIndexToBinding = function() return nil end }
--- (Baganator's skins: the listeners kept, for the checks to hand them windows)
-local skinListeners = {}
-Baganator = Frame("Baganator")
-Baganator.API.Skins = { GetAllFrames = function() return {} end,
-    RegisterListener = function(fn) skinListeners[#skinListeners + 1] = fn end }
 
 -- Lua helpers the game adds
 function strsplit(sep, s, n)
@@ -431,17 +425,6 @@ local function allFolders()
 end
 
 -- After loading: open each panel the modules give (what a player does first)
--- (a Baganator window, hidden, skinned as Baganator hands its windows to skins)
-local function BaganatorWindow(tag)
-    local w = CreateFrame("Frame")
-    w.BagSlots, w.Character = false, false
-    function w:Show() self.__shown = true self.__scripts.OnShow(self) end
-    function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
-    w.__shown = false
-    for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { tag } }) end
-    return w
-end
-
 local CHECKS = {
     { name = "config panel", fn = function()
         local IF = rawget(_G, "ImprovedForever")
@@ -650,7 +633,7 @@ local CHECKS = {
         nav.menu:Close()
     end },
     -- (UISpecialFrames at login: another addon's window joins L2 / R2; the game's,
-    -- ours and one of an addon a module claims don't)
+    -- ours don't)
     { name = "addon windows from UISpecialFrames", fn = function()
         local IF = rawget(_G, "ImprovedForever")
         local W = IF and IF.AddonWindows
@@ -660,7 +643,6 @@ local CHECKS = {
         check(not W.Watched(GameSpecialWindow), "the game's doesn't")
         check(not W.Watched(GameFrameListedByAddon), "a game frame another addon listed doesn't")
         check(not W.Watched(ImprovedForeverSpecialWindow), "ours doesn't")
-        check(not (IF.Baganator and W.Watched(BaganatorSpecialWindow)), "a claimed addon's doesn't")
         IF.db.addonWindows = false
         local off = not W.Scanned()
         IF.db.addonWindows = nil
@@ -727,159 +709,6 @@ local CHECKS = {
         nav:ShowLegend()
         defs = nav.legend.defs
         check(defs and defs[#defs - 1][1] ~= "PADRTRIGGER", "no switch: no entry")
-    end },
-    -- (our auction window on: the backpack Baganator opens with the auction
-    -- house, before or after its event, closes again; one opened later stays;
-    -- its Auto Open checkbox shows off and disabled)
-    { name = "baganator auto open at the auction house", fn = function()
-        local IF = rawget(_G, "ImprovedForever")
-        if not (IF and IF.Baganator and #skinListeners > 0) then return end
-        local function check(ok, msg) if not ok then error(msg, 0) end end
-        local auction, after, getTime, kinds = rawget(IF, "Auction"), C_Timer.After, GetTime, rawget(Enum, "PlayerInteractionType")
-        local now = 1000
-        GetTime = function() return now end
-        C_Timer.After = function(_, fn) fn() end
-        rawset(Enum, "PlayerInteractionType", { Auctioneer = 21 })
-        IF.Auction = { Settings = function() return { buy = true } end, Available = function() return true end }
-        local w = CreateFrame("Frame")
-        function w:Show() self.__shown = true self.__scripts.OnShow(self) end
-        function w:Hide() self.__shown = false self.__scripts.OnHide(self) end
-        w.BagSlots, w.Character = false, false
-        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = w, tags = { "backpack" } }) end
-        local holder = CreateFrame("Frame")
-        local box = CreateFrame("Frame", nil, holder)
-        rawset(holder, "checkBox", box)
-        holder.option = "auto_open.auction_house"
-        local checked, enabled, text = true, true, "Auction House"
-        function box:GetText() return text end
-        function box:SetText(t) text = t end
-        function box:SetEnabled(on) enabled = on end
-        function box:SetChecked(on) checked = on end
-        function box:GetParent() return holder end
-        function holder:SetValue(v) checked = v end
-        for _, fn in ipairs(skinListeners) do fn({ regionType = "CheckBox", region = box }) end
-        local function open(first)
-            now = now + 10
-            if first then w:Show() end
-            fire("PLAYER_INTERACTION_MANAGER_FRAME_SHOW", 21)
-            if not first then w:Show() end
-        end
-        open(true)
-        check(not w:IsShown(), "opened before the event: closed")
-        open(false)
-        check(not w:IsShown(), "opened after the event: closed")
-        now = now + 1
-        w:Show()
-        check(w:IsShown(), "opened later: stays")
-        holder:SetValue(true)
-        local greyed = not checked and not enabled and text:find("auction window")
-        w:Hide()
-        IF.Auction, C_Timer.After, GetTime = auction, after, getTime
-        rawset(Enum, "PlayerInteractionType", kinds)
-        check(greyed, "the checkbox off, disabled, with the reason")
-    end },
-    -- (the Baganator module's settings filled once, not on every read)
-    { name = "baganator settings", fn = function()
-        local BG = rawget(_G, "ImprovedForever") and ImprovedForever.Baganator
-        if not BG then return end
-        local s = BG.Settings()
-        ImprovedForever.db.bagsLog = {}
-        local kept = BG.Settings() == s and ImprovedForever.db.bagsLog
-        ImprovedForever.db.bagsLog = nil
-        if not (kept and s.switch == true) then error("Settings: not filled once", 0) end
-    end },
-    -- (Baganator's backpack and bank open beside an unseen game window (the
-    -- game's bank, Baganator hides it): closing the backpack with B hands
-    -- the pad straight to the bank, and one B then closes that)
-    { name = "baganator close hands the pad on", fn = function()
-        local IF = rawget(_G, "ImprovedForever")
-        if not (IF and IF.Baganator and #skinListeners > 0) then return end
-        local F = IF.Focus
-        local function check(ok, msg) if not ok then error(msg, 0) end end
-        local gamepadMode, isKeyDown = GamepadMode, IsKeyDown
-        local manager = { shownFrames = {}, isUIFocused = false }
-        GamepadMode = { FrameControlsManager = manager }
-        local function Catcher(w)
-            for _, f in ipairs(frames) do
-                if f.__parent == w and f.__scripts.OnGamePadButtonDown then return f end
-            end
-        end
-        local function B(w)
-            local c = Catcher(w)
-            c.__scripts.OnGamePadButtonDown(c, "PAD2")
-            c.__scripts.OnGamePadButtonUp(c, "PAD2")
-        end
-        local backpack, bank = BaganatorWindow("backpack"), BaganatorWindow("bank")
-        backpack:Show()
-        bank:Show()
-        check(F.Holding() == backpack, "the backpack opened first holds the pad")
-        local game = CreateFrame("Frame")
-        manager.shownFrames, manager.focusedFrame, manager.isUIFocused = { game }, game, true
-        -- (B still down as the backpack hides on its release)
-        IsKeyDown = function(key) return key == "PAD2" end
-        B(backpack)
-        IsKeyDown = isKeyDown
-        local c = Catcher(bank)
-        c.__scripts.OnUpdate(c, 0.1)
-        check(not backpack:IsShown() and F.Holding() == bank, "closing the backpack hands the pad to the bank")
-        B(bank)
-        GamepadMode = gamepadMode
-        check(not bank:IsShown(), "one B then closes the bank")
-    end },
-    -- (a Baganator window opened from the panel (its Addons tab): the last one opened has the
-    -- pad, the panel behind it; the pad back on the panel once it closes)
-    { name = "baganator over the panel", fn = function()
-        local IF = rawget(_G, "ImprovedForever")
-        if not (IF and IF.Baganator and IF.Menu and #IF.Menu.TABS > 0 and #skinListeners > 0) then return end
-        local F, M = IF.Focus, IF.Menu
-        local function check(ok, msg) if not ok then error(msg, 0) end end
-        local gamepadMode = GamepadMode
-        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
-        M.Open()
-        local bags = BaganatorWindow("backpack")
-        bags:Show()
-        M.OnUpdate(0)
-        check(F.Holding() == bags and M.Behind(), "the bags opened over the panel have the pad, the panel behind")
-        -- (L2 there, the triggers up first: back on the panel, the bags letting go)
-        local isKeyDown = IsKeyDown
-        IsKeyDown = function(key) return key == "PADLTRIGGER" end
-        M.OnUpdate(0)
-        IsKeyDown = isKeyDown
-        check(not M.Behind() and F.Holding() ~= bags, "L2 on the bags gives the panel the pad, the bags let go")
-        bags:Hide()
-        M.OnUpdate(0)
-        GamepadMode = gamepadMode
-        check(M.IsOpen() and not M.Behind() and F.Holding() ~= bags, "the bags closing give the panel the pad back")
-        M.Close()
-    end },
-    -- (the bag slots bar open above the backpack: closing the backpack with
-    -- B leaves the bar shown under it, unseen; the pad must not go to it)
-    { name = "baganator close skips the hidden bag slots bar", fn = function()
-        local IF = rawget(_G, "ImprovedForever")
-        if not (IF and IF.Baganator and #skinListeners > 0) then return end
-        local F = IF.Focus
-        local function check(ok, msg) if not ok then error(msg, 0) end end
-        local gamepadMode = GamepadMode
-        GamepadMode = { FrameControlsManager = { shownFrames = {}, isUIFocused = false } }
-        local backpack = CreateFrame("Frame")
-        backpack.__shown = false
-        local slots = CreateFrame("Frame", nil, backpack)
-        backpack.BagSlots = slots
-        slots.liveBagSlots = { CreateFrame("Button", nil, slots) }
-        function backpack:ToggleBagSlots() end
-        function backpack:Show() self.__shown = true self.__scripts.OnShow(self) end
-        function backpack:Hide() self.__shown = false self.__scripts.OnHide(self) end
-        for _, fn in ipairs(skinListeners) do fn({ regionType = "ButtonFrame", region = backpack, tags = { "backpack" } }) end
-        local catcher
-        for _, f in ipairs(frames) do
-            if f.__parent == backpack and f.__scripts.OnGamePadButtonUp then catcher = f end
-        end
-        backpack:Show()
-        check(F.Holding() == backpack, "the backpack holds the pad")
-        catcher.__scripts.OnGamePadButtonDown(catcher, "PAD2")
-        catcher.__scripts.OnGamePadButtonUp(catcher, "PAD2")
-        GamepadMode = gamepadMode
-        check(not backpack:IsShown() and F.Holding() == nil, "closing the backpack leaves the pad to no window of ours")
     end },
     -- (a window the frame manager shows and focuses while the panel is up:
     -- the panel stays open behind it; in front again when it closes, or on

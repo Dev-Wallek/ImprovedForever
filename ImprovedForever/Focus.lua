@@ -241,7 +241,7 @@ end)
 -- sw.focus: "ours" or "game"; sw:Behind() -> label, key ("LT" / "RT");
 -- sw:Press(key): a trigger pressed on ours (true: handled);
 -- sw:Update(): from ours' OnUpdate; sw:Set(focus); sw:Take(): on opening ours
--- With several of ours up (an addon's windows: ImprovedForever_Baganator), one holds
+-- With several of ours up (other addons' windows through AddonWindows.lua), one holds
 -- the pad at a time: the last one opened, or the one L2 / R2 moved it to; the others
 -- get it back as it closes. A switch whose other is another of ours watches only
 -- while that one holds it. F.Holding(except): the one holding it;

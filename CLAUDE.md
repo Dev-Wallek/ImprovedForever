@@ -71,7 +71,7 @@ focus the way Forever's native windows do. The shared code is
 - Another addon's window joins L2 / R2 through `IF.AddonWindows.Watch(win, opts)`
   (`ImprovedForever/AddonWindows.lua`: switch, catcher, navigator, B). Every
   window another addon put in `UISpecialFrames` joins by itself; a module that
-  hands its addon's windows in itself (Baganator's) calls `W.Claim(addon)`.
+  hands its addon's windows in itself calls `W.Claim(addon)`.
   Its cursor is `IF.Navigator.New(win)` (`ImprovedForever/Navigator.lua`):
   `nav:Set(on)` with the window's focus, its catcher passing
   `nav:Press(button, down)` and propagating what `nav:Passes(button)` says

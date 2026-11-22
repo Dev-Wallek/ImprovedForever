@@ -55,8 +55,7 @@ local ITEMS = {
         key = "addonWindows", group = "gamepad", label = "Other addons' windows in L2 / R2",
         tip = "Windows of other addons that Escape closes join L2 / R2 beside the game's windows: one opened "
             .. "takes the controller, the D-pad moves a cursor in it, A presses, Circle closes it. Turn it off "
-            .. "if an addon's windows should leave the controller to the game. Baganator's have their own switch "
-            .. "in the Baganator tab.",
+            .. "if an addon's windows should leave the controller to the game.",
     }, OnOff(function() return IF.AddonWindows.Scanned() end, function(on)
         IF.db.addonWindows = on and nil or false
         if not on then IF.AddonWindows.Refresh() end

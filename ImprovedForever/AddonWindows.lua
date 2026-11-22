@@ -7,7 +7,7 @@
 -- open: Away below), Circle closes it. The game's frame manager never lists
 -- them, so the pad is taken by a catcher frame of ours on each. Never in
 -- combat: combat lets the pad go.
--- Which windows: those a module hands in (Baganator's, ImprovedForever_Baganator),
+-- Which windows: those a module hands in (W.Claim),
 -- and every frame another addon put in UISpecialFrames (the list Escape closes),
 -- told from the game's by issecurevariable: what lies beyond that list is the
 -- addon's to offer.
@@ -300,8 +300,8 @@ function W.Scanned()
     return not (IF.db and IF.db.addonWindows == false)
 end
 
--- W.Claim(addon): its windows come through W.Watch from a module (theirs
--- need more: Baganator's glow layout, bag slots bar, setting)
+-- W.Claim(addon): its windows come through W.Watch from a module that
+-- knows them better (their glow layout, extra bars, own setting)
 function W.Claim(addon)
     claimed[addon] = true
 end

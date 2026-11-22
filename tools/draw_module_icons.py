@@ -1,6 +1,5 @@
 """Draws the module icons that have no designer art, in the designed set's look
 (import_icons.py: cream shapes, green accents, black outline, soft shadow):
-  ic_mod_baganator   a backpack, its front pocket and two strap tabs green
   ic_mod_addons      a puzzle piece, a green "/" through it
 
 Run: python3 tools/draw_module_icons.py   (needs Pillow)
@@ -45,25 +44,6 @@ def compose(layers):
     return img.resize((128, 128), Image.LANCZOS)
 
 
-def backpack():
-    body, d = mask()
-    rr(d, (30, 30, 98, 116), 18)
-    d.arc([p(44), p(10), p(84), p(46)], 180, 360, fill=255, width=p(7))   # handle
-    cut, dc = mask()
-    rr(dc, (30, 52, 98, 57), 0)           # flap seam
-    rr(dc, (40, 76, 88, 104), 8)          # front pocket's rim
-    body = ImageChops.subtract(body, cut)
-    accents, da = mask()
-    rr(da, (44, 80, 84, 100), 6)          # front pocket
-    rr(da, (42, 46, 52, 68), 3)           # strap tabs
-    rr(da, (76, 46, 86, 68), 3)
-    gap, dg = mask()
-    rr(dg, (40, 44, 54, 70), 4)
-    rr(dg, (74, 44, 88, 70), 4)
-    body = ImageChops.subtract(body, gap)
-    return [(body, CREAM), (accents, GREEN)]
-
-
 def puzzle():
     piece, d = mask()
     rr(d, (22, 34, 96, 108), 8)
@@ -78,7 +58,7 @@ def puzzle():
     return [(piece, CREAM), (slash, GREEN)]
 
 
-for name, layers in (("ic_mod_baganator", backpack()), ("ic_mod_addons", puzzle())):
+for name, layers in (("ic_mod_addons", puzzle()),):
     path = os.path.join(TEX, name + ".tga")
     compose(layers).save(path)
     print("wrote", path)
