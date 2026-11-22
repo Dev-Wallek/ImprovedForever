@@ -1,6 +1,6 @@
 -- The Panel tab, a tab of settings (IF.SettingsPage, SettingsPage.lua):
--- where the panel sits, each block shown or hidden and its place in the
--- row, the money's session gain. Module.lua does the work.
+-- each block shown or hidden and its place in the row, the experience as
+-- numbers, the money's session gain. Module.lua does the work.
 local IF = ImprovedForever
 
 local menu = IF.Menu
@@ -11,38 +11,7 @@ local function S()
     return P.Settings()
 end
 
-local PLACES = {
-    { "top", "Top bar" }, { "bottom", "Bottom bar" },
-    { "left", "Left strip" }, { "right", "Right strip" },
-    { "TOPLEFT", "Top left" }, { "TOPRIGHT", "Top right" },
-    { "BOTTOMLEFT", "Bottom left" }, { "BOTTOMRIGHT", "Bottom right" },
-    { "minimap", "Under the minimap" },
-}
-
-local ITEMS = {
-    Item({
-        key = "place", group = "panel", label = "Place",
-        tip = "Where the panel sits: a bar across the top or the bottom, a strip down a side, a block in a"
-            .. " corner, or under the minimap.",
-    }, {
-        value = function() return S().place end,
-        text = function()
-            for _, p in ipairs(PLACES) do
-                if p[1] == S().place then return p[2] end
-            end
-            return S().place
-        end,
-        options = function()
-            local list = {}
-            for _, p in ipairs(PLACES) do list[#list + 1] = { action = p[1], name = p[2] } end
-            return list
-        end,
-        choose = function(action)
-            S().place = action
-            P.Layout()
-        end,
-    }),
-}
+local ITEMS = {}
 
 -- A block: shown or hidden, a place earlier or later in the row
 for _, b in ipairs(P.Blocks()) do
@@ -78,6 +47,14 @@ for _, b in ipairs(P.Blocks()) do
 end
 
 ITEMS[#ITEMS + 1] = Item({
+    key = "xpNumbers", group = "blocks", label = "Experience as numbers",
+    tip = "Your experience in points, and how many are left to the next level, instead of the share of the level.",
+}, OnOff(function() return S().xpNumbers end, function(on)
+    S().xpNumbers = on
+    P.Refresh()
+end, "Experience as numbers"))
+
+ITEMS[#ITEMS + 1] = Item({
     key = "session", group = "blocks", label = "Money this session",
     tip = "Beside your money, what this session brought (green) or cost (red), since login or the last /reload.",
 }, OnOff(function() return S().session end, function(on)
@@ -86,7 +63,6 @@ ITEMS[#ITEMS + 1] = Item({
 end, "Money this session"))
 
 local GROUPS = {
-    { key = "panel", label = "Panel" },
     { key = "blocks", label = "Shown" },
 }
 

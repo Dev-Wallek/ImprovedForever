@@ -1,6 +1,6 @@
 ## Interface: 16001, 16002, 16003, 16100, 16101, 16200
 ## Title: Improved Forever: Panel
-## Notes: A slim bar with your experience and money, at an edge, in a corner or under the minimap.
+## Notes: A slim bar across the top with your experience, money and gear.
 ## Author: markg
 ## Version: 0.1.0
 ## X-Website: https://github.com/markgravity/ImprovedForever
@@ -12,4 +12,5 @@
 Module.lua
 XP.lua
 Money.lua
+Gear.lua
 PanelEditor.lua

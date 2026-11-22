@@ -1,4 +1,5 @@
--- The panel's experience: level, share of the level, rested; gone where
+-- The panel's experience: level, share of the level (or its points and
+-- those to go), rested; gone where
 -- the game shows no experience bar (the top level, experience turned off)
 local IF = ImprovedForever
 
@@ -24,6 +25,12 @@ IF.Panel.Add({
         if not Gaining() then return nil end
         local level, cur, max, rest = Values()
         if not level then return false end
+        if IF.Panel.Settings().xpNumbers then
+            local n = BreakUpLargeNumbers
+            local text = ("Level %d  %s / %s  (%s to go)"):format(level, n(cur), n(max), n(max - cur))
+            if rest > 0 then text = text .. ("  |cff4fa3ff+%s rested|r"):format(n(rest)) end
+            return text
+        end
         local text = ("Level %d  %d%%"):format(level, math.floor(cur / max * 100))
         if rest > 0 then text = text .. ("  |cff4fa3ff+%d%% rested|r"):format(math.floor(rest / max * 100)) end
         return text
