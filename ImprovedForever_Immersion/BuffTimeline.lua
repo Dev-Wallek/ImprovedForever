@@ -988,13 +988,20 @@ local cooldowns = Timeline("ImprovedForeverCooldownTimeline", {
 
 ---------------------------------------------------------------------------
 -- On / off: the game's own drawn at 0 (and their mouse taken) while ours
--- show; in Edit Mode the game's, to be moved
+-- show; in Edit Mode the game's, to be moved; the game's buffs too while
+-- the pad views them (its menu's View Buffs), its cursor going to its own
 ---------------------------------------------------------------------------
+local function Viewing()
+    local m = GamepadMode and GamepadMode.FrameControlsManager
+    local focused = m and m.isUIFocused and m.focusedFrame
+    return focused ~= nil and (focused == _G.BuffFrame or focused == _G.DebuffFrame)
+end
+
 local function Watch()
     if not IF.db then return end
     local settings = IN.Settings()
     local edit = UF.EditMode()
-    local buffsOn = settings.buffTimeline and not edit
+    local buffsOn = settings.buffTimeline and not edit and not Viewing()
     local cooldownsOn = settings.cooldownTimeline and not edit
     for _, native in ipairs({ _G.BuffFrame, _G.DebuffFrame }) do
         IF.Focus.Fade(native, buffsOn)
