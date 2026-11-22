@@ -442,6 +442,11 @@ local CHECKS = {
         is("yellow", 0.5, PR.Color(2329, 75, 1))
         is("green", nil, PR.Color(2329, 100, 2))
         is("grey", 0, PR.Color(-1, 50, 3))
+        -- (orange 54: 1; yellow 55..94: 40/40 .. 40/1; grey: 0)
+        local want = 1
+        for s = 55, 94 do want = want + 1 / ((95 - s) / 40) end
+        assert(PR.CraftsToGrey(2329, 54) == math.ceil(want), "crafts to grey from 54")
+        assert(PR.CraftsToGrey(2329, 95) == 0 and PR.CraftsToGrey(-1, 5) == nil, "crafts to grey: grey, unknown")
         trivial[-1], trivial[-2] = nil, nil
     end },
 }

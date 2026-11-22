@@ -31,6 +31,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Vibration` | Vibration on game events and spell casts. |
 | `ImprovedForever_Minimap` | Names beside the minimap's dots (herbs, ore, quests, NPCs, party members: you choose), gathering alerts. Formerly Gather. |
 | `ImprovedForever_Map` | The peek map. |
+| `ImprovedForever_Professions` | Beside the profession window, the recipe it shows: its colours on a bar with your skill, the chance of a point, about how many crafts until it turns grey, what its reagents cost (vendor or auction) and what the result brings. |
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
 | `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |

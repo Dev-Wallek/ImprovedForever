@@ -1,6 +1,6 @@
 ## Interface: 16001, 16002, 16003, 16100, 16101, 16200
 ## Title: Improved Forever: Professions
-## Notes: Levels your professions: what gives a point next, what it costs, what's missing and where the next rank is learnt.
+## Notes: Beside the profession window, the recipe shown: its colours, about how many crafts until it turns grey, its reagents' cost and its profit.
 ## Author: markg
 ## Version: 0.1.0
 ## X-Website: https://github.com/markgravity/ImprovedForever
@@ -11,3 +11,4 @@
 
 Module.lua
 Skill.lua
+Card.lua
