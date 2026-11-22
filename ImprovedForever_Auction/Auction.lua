@@ -2,12 +2,11 @@
 -- ImprovedForeverAuctionDB: a full scan of every auction
 -- (C_AuctionHouse.ReplicateItems, as the auction house opens, at most once
 -- in 15 minutes: the server's limit) and a search of one item (the
--- auction window's tabs). With Auctionator loaded, its full scan is
--- started from here and read by both, so both keep the same lowest prices;
--- another addon's full scan is read too, when none was in 15 minutes.
--- Each is kept as the day's numbers per item:
+-- auction window's tabs). Another addon's full scan is read too, when
+-- none was in 15 minutes. Each is kept as the day's numbers per item:
 -- its lowest price a unit, its market price (what the cheapest quarter of
--- those listed ask on average) and how many are up. A.Suggest prices an
+-- those listed ask on average), how many are up and what the cheapest
+-- five units cost on average (A.Price: buying a few). A.Suggest prices an
 -- item from them; the Auction tab (AuctionEditor.lua) sets how.
 local IF = ImprovedForever
 
@@ -19,6 +18,7 @@ local DAY = 86400
 local REPLICATE_EVERY = 15 * 60   -- the server's own limit on full scans
 local CHUNK = 2000                -- auctions read a frame (a scan can be many thousands)
 local MARKET_SHARE = 0.25         -- the market price: the cheapest quarter listed
+local BUY_UNITS = 5               -- A.Price: what buying a few costs
 local AH_CUT = 0.05               -- the auction house's cut of a sale
 local SEARCH_TIMEOUT = 8
 
@@ -29,7 +29,7 @@ local DEFAULTS = {
     duration = 2,          -- 1 / 2 / 3: the game's three (A.Durations)
     vendorFloor = true,    -- never under what a vendor pays (after the cut)
     tooltip = true,        -- item tooltips show the usual and lowest price
-    buy = true,            -- the auction features: the window (AuctionBuyClassic.lua), the scan, the prices in tooltips and junk's verdict
+    buy = true,            -- our auction window (AuctionBuyClassic.lua); off: the game's
     buyUsable = false,     -- its filters: usable only, qualities (none ticked: any), up to my level, sort
     buyMyLevel = false,
     buySort = "price",
@@ -129,34 +129,42 @@ local function Realm()
 end
 A.Realm = Realm
 
+-- (cheapest5: nil in days kept before it was)
 local function Unpack(s)
-    local lowest, market, qty = strsplit(":", s)
-    return tonumber(lowest), tonumber(market), tonumber(qty)
+    local lowest, market, qty, cheapest5 = strsplit(":", s)
+    return tonumber(lowest), tonumber(market), tonumber(qty), tonumber(cheapest5)
 end
 
--- A sighting today: the day's lowest kept, its market and count as last seen
-function A.Record(itemID, lowest, market, qty)
+-- A sighting today: the day's lowest kept, the rest as last seen
+function A.Record(itemID, lowest, market, qty, cheapest5)
     local items = Realm().items
     local days = items[itemID] or {}
     items[itemID] = days
     local today = Today()
     local old = days[today] and Unpack(days[today])
     if old and old < lowest then lowest = old end
-    days[today] = lowest .. ":" .. market .. ":" .. qty
+    days[today] = lowest .. ":" .. market .. ":" .. qty .. ":" .. cheapest5
 end
 
--- The day's numbers from listings { { unit, count } }: lowest, market, total
+-- What the cheapest `units` cost a unit on average (list sorted cheapest first;
+-- fewer listed: all of them)
+local function Cheapest(list, units)
+    local got, sum = 0, 0
+    for _, l in ipairs(list) do
+        local take = math.min(l[2], units - got)
+        if take <= 0 then break end
+        sum, got = sum + l[1] * take, got + take
+    end
+    return math.floor(sum / got + 0.5)
+end
+
+-- The day's numbers from listings { { unit, count } }: lowest, market,
+-- total, cheapest five
 local function Summarize(list)
     table.sort(list, function(a, b) return a[1] < b[1] end)
     local total = 0
     for _, l in ipairs(list) do total = total + l[2] end
-    local want, got, sum = math.max(1, total * MARKET_SHARE), 0, 0
-    for _, l in ipairs(list) do
-        local take = math.min(l[2], want - got)
-        if take <= 0 then break end
-        sum, got = sum + l[1] * take, got + take
-    end
-    return list[1][1], math.floor(sum / got + 0.5), total
+    return list[1][1], Cheapest(list, math.max(1, total * MARKET_SHARE)), total, Cheapest(list, BUY_UNITS)
 end
 
 -- The item's days over the last `days`, oldest first: { { day, lowest, market, qty } }
@@ -191,7 +199,7 @@ function A.UnitNet(itemID)
     return market and market * (1 - AH_CUT) or nil
 end
 
--- Its latest day: day, lowest, market, quantity (nil: never seen)
+-- Its latest day: day, lowest, market, quantity, cheapest five (nil: never seen)
 function A.Latest(itemID)
     local item = Realm().items[itemID]
     local last
@@ -202,18 +210,14 @@ function A.Latest(itemID)
     return last, Unpack(item[last])
 end
 
--- For other addons (ImprovedForever.Auction.Price): the latest lowest price
--- a unit, the days since it was seen and its source, "improvedforever" or,
--- for an item only Auctionator has seen, "auctionator" (days nil: Auctionator doesn't say).
--- nil: no price, or the auction features are off.
+-- For other modules and addons (ImprovedForever.Auction.Price), a unit in
+-- copper: what the cheapest five cost on average on its latest day, its
+-- usual price (A.MarketPrice) and the days since that day. nil: never seen.
 function A.Price(itemID)
-    if type(itemID) ~= "number" or not (IF.db and A.Settings().buy) then return nil end
-    local day, lowest = A.Latest(itemID)
-    if day then return lowest, Today() - day, "improvedforever" end
-    local api = _G.Auctionator and _G.Auctionator.API and _G.Auctionator.API.v1
-    local copper = api and api.GetAuctionPriceByItemID("ImprovedForever", itemID)
-    if not copper then return nil end
-    return copper, api.GetAuctionAgeByItemID("ImprovedForever", itemID), "auctionator"
+    if type(itemID) ~= "number" or not IF.db then return nil end
+    local day, lowest, _, _, cheapest5 = A.Latest(itemID)
+    if not day then return nil end
+    return cheapest5 or lowest, A.MarketPrice(itemID), Today() - day
 end
 
 -- Days older than kept go, and items left with none
@@ -260,8 +264,8 @@ end
 -- worth more here is never junk, the Sell tab's sections
 if IF.ItemValue then
     IF.ItemValue.UseAuction({
-        price = function(itemID) return A.Settings().buy and A.UnitNet(itemID) or nil end,
-        counts = function() return A.Settings().buy and A.Settings().destroy end,
+        price = A.UnitNet,
+        counts = function() return A.Settings().destroy end,
     })
 end
 
@@ -290,17 +294,6 @@ function A.CanScan()
     return true
 end
 
--- Starts Auctionator's full scan, or finds one under way (false: not
--- loaded, or it won't scan now). Its scan frame exists once the auction
--- house has shown.
-local function AuctionatorScan()
-    local state = _G.Auctionator and _G.Auctionator.State
-    local frame = state and state.FullScanFrameRef
-    if not frame then return false end
-    if not frame.inProgress and frame:CanInitiate() then frame:InitiateScan() end
-    return frame.inProgress == true
-end
-
 function A.Scan(quiet)
     local ok, why = A.CanScan()
     if not ok then
@@ -309,7 +302,7 @@ function A.Scan(quiet)
     end
     scan.state, scan.started, scan.read, scan.total = "waiting", GetTime(), 0, nil
     Realm().replicateAt = time()
-    if not AuctionatorScan() then AH.ReplicateItems() end
+    AH.ReplicateItems()
     if not quiet then IF.Print("scanning the auction house...") end
     Changed()
     return true
@@ -565,7 +558,7 @@ IF.OnLogin(A.Prune)
 -- stack's worth at the usual price, when it is one)
 ---------------------------------------------------------------------------
 local function TooltipPrices(tooltip, data)
-    if not (IF.db and A.Settings().buy and A.Settings().tooltip) then return end
+    if not (IF.db and A.Settings().tooltip) then return end
     if tooltip ~= GameTooltip and tooltip ~= _G.ItemRefTooltip then return end
     local itemID = data and data.id
     if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then return end
@@ -601,7 +594,7 @@ end
 events:SetScript("OnEvent", function(_, event, arg)
     if event == "AUCTION_HOUSE_SHOW" then
         A.open = true
-        if A.Available() and A.Settings().buy and A.Settings().scan and A.ScanWait() == 0 then
+        if A.Available() and A.Settings().scan and A.ScanWait() == 0 then
             -- (once the frame has settled)
             C_Timer.After(1, function() A.Scan(true) end)
         end
@@ -615,7 +608,7 @@ events:SetScript("OnEvent", function(_, event, arg)
     elseif event == "REPLICATE_ITEM_LIST_UPDATE" then
         if scan.state == "waiting" then
             StartReading()
-        elseif scan.state == "idle" and A.ScanWait() == 0 and A.Settings().buy then
+        elseif scan.state == "idle" and A.ScanWait() == 0 and A.Settings().scan then
             -- (another addon's full scan: the server's 15 minutes count from it)
             Realm().replicateAt = time()
             StartReading()
