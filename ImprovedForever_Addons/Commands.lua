@@ -3,12 +3,9 @@
 -- sources: slash commands, settings pages, the TOC's AddonCompartmentFunc
 -- and LibDataBroker launchers. The game's own commands and pages stay out,
 -- so do libraries' commands.
---   IF.Addons.Commands() -> groups ({ title, entries }, by title), skipped
---     ({ kind, text, reason }: every entry left out or not matched to an
---     addon); an entry: { kind = "slash" (text, key, aliases), "settings"
+--   IF.Addons.Commands() -> groups ({ title, entries }, by title); an entry: { kind = "slash" (text, key, aliases), "settings"
 --     (text, id, openable: a number id), "compartment" (text: the
 --     function's name, addon), "ldb" (text) }
---   IF.Addons.Dump(): the list into IF.db.addonsLog
 local IF = ImprovedForever
 
 local AD = IF.Addons
@@ -101,26 +98,13 @@ end
 -- own code, so the addon whose copy of the library loaded gets them all:
 -- those are matched by AceConfig app name, then by command name, then by
 -- sharing a handler with a matched one.
-local function SlashOwners(loaded, Skip)
-    local owners, ace, game = {}, {}, {}
+local function SlashOwners(loaded)
+    local owners, ace = {}, {}
     for key in pairs(SlashKeys()) do
         local alias = _G["SLASH_" .. key .. "1"]
-        local library = alias and LibraryKey(key)
-        if not alias then
-            Skip("slash", key, "no SLASH_" .. key .. "1")
-        elseif library then
-            Skip("slash", alias, "library command (" .. library .. ")")
-        else
+        if alias and not LibraryKey(key) then
             local secure, addon = issecurevariable("SLASH_" .. key .. "1")
-            local named = AddonTitled(loaded, key)
-            if secure then
-                game[#game + 1] = alias
-            else
-                if named and addon ~= named then
-                    Skip("slash", alias, "taint names " .. tostring(addon) .. ", listed under " .. named)
-                end
-                owners[key] = named or addon
-            end
+            if not secure then owners[key] = AddonTitled(loaded, key) or addon end
         end
     end
     local console = LibStub and LibStub("AceConsole-3.0", true)
@@ -137,49 +121,34 @@ local function SlashOwners(loaded, Skip)
             end
         end
     end
-    for key in pairs(ace) do
-        if not owners[key] then Skip("slash", Aliases(key)[1] or key, "library command, no addon matched") end
-    end
-    table.sort(game)
-    if game[1] then Skip("slash", table.concat(game, ","), "the game's (secure SLASH_ global)") end
     return owners
 end
 
 -- Addon settings pages. The game builds every category in its own secure
 -- code, so the owner comes from the page's name.
-local function SettingsPages(loaded, Add, Skip)
-    local game = {}
+local function SettingsPages(loaded, Add)
     for _, category in ipairs(SettingsPanel:GetAllCategories()) do
         local name = category:GetName()
-        if category:GetCategorySet() ~= Settings.CategorySet.AddOns then
-            game[#game + 1] = name
-        else
+        if category:GetCategorySet() == Settings.CategorySet.AddOns then
             local id = category:GetID()
-            local addon = AddonTitled(loaded, name)
-            if not addon then Skip("settings", name, "no addon matched, listed under its own name") end
-            Add(addon or name, { kind = "settings", text = name, id = id, openable = type(id) == "number" })
+            Add(AddonTitled(loaded, name) or name, { kind = "settings", text = name, id = id, openable = type(id) == "number" })
         end
     end
-    if game[1] then Skip("settings", table.concat(game, ","), "the game's category set") end
 end
 
 function AD.Commands()
-    local loaded, byAddon, skipped = LoadedAddons(), {}, {}
+    local loaded, byAddon = LoadedAddons(), {}
     local function Add(addon, entry)
         byAddon[addon] = byAddon[addon] or {}
         table.insert(byAddon[addon], entry)
     end
-    local function Skip(kind, text, reason)
-        skipped[#skipped + 1] = { kind = kind, text = text, reason = reason }
-    end
 
-    for key, addon in pairs(SlashOwners(loaded, Skip)) do
+    for key, addon in pairs(SlashOwners(loaded)) do
         local aliases = Aliases(key)
         if aliases[1] then Add(addon, { kind = "slash", text = aliases[1], key = key, aliases = aliases }) end
     end
 
-    local ok, err = pcall(SettingsPages, loaded, Add, Skip)
-    if not ok then Skip("settings", "all", "error: " .. tostring(err)) end
+    pcall(SettingsPages, loaded, Add)
 
     for _, addon in pairs(loaded) do
         local func = C_AddOns.GetAddOnMetadata(addon, "AddonCompartmentFunc")
@@ -189,11 +158,7 @@ function AD.Commands()
     local ldb = LibStub and LibStub("LibDataBroker-1.1", true)
     if ldb then
         for name, object in ldb:DataObjectIterator() do
-            if object.OnClick then
-                Add(AddonNamed(loaded, name) or name, { kind = "ldb", text = name })
-            else
-                Skip("ldb", name, "no OnClick")
-            end
+            if object.OnClick then Add(AddonNamed(loaded, name) or name, { kind = "ldb", text = name }) end
         end
     end
 
@@ -216,41 +181,5 @@ function AD.Commands()
         table.sort(group.entries, function(a, b) return a.kind .. tostring(a.text) < b.kind .. tostring(b.text) end)
     end
     table.sort(groups, function(a, b) return a.title:lower() < b.title:lower() end)
-    return groups, skipped
-end
-
--- tostring errors on a secret value
-local function Str(value)
-    local ok, text = pcall(tostring, value)
-    return ok and text or "<hidden>"
-end
-
-function AD.Dump()
-    local groups, skipped = AD.Commands()
-    local log = { date("%Y-%m-%d %H:%M:%S") }
-    IF.db.addonsLog = log
-    IF.Print("addons dump: start")
-    local found, left = {}, {}
-    local function Line(text) log[#log + 1] = string.format("%.2f %s", GetTime() % 1000, text) end
-    for _, group in ipairs(groups) do
-        local parts = {}
-        for i, entry in ipairs(group.entries) do
-            local text = entry.kind .. " " .. Str(entry.text)
-            if entry.aliases and #entry.aliases > 1 then text = text .. " (" .. table.concat(entry.aliases, ",") .. ")" end
-            if entry.kind == "settings" then text = text .. " id=" .. Str(entry.id) .. (entry.openable and "" or " not openable") end
-            parts[i] = text
-            found[entry.kind] = (found[entry.kind] or 0) + 1
-        end
-        Line(group.title .. ": " .. table.concat(parts, "; "))
-    end
-    for _, skip in ipairs(skipped) do
-        Line("skipped " .. skip.kind .. " " .. Str(skip.text) .. ": " .. skip.reason)
-        left[skip.kind] = (left[skip.kind] or 0) + 1
-    end
-    local counts = {}
-    for _, kind in ipairs({ "slash", "settings", "compartment", "ldb" }) do
-        counts[#counts + 1] = string.format("%s %d (skipped lines %d)", kind, found[kind] or 0, left[kind] or 0)
-    end
-    Line("counts: " .. table.concat(counts, ", "))
-    IF.Print("addons dump: " .. #groups .. " addons, " .. #log .. " lines; /reload writes them")
+    return groups
 end
