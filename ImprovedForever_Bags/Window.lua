@@ -368,7 +368,12 @@ local function BindEscape(on)
     if on then SetOverrideBindingClick(win, true, "ESCAPE", escape:GetName()) end
 end
 
-IF.Focus.Dock(win)
+-- (with the game's bags open: beside them, where it stays as they search;
+-- else where the game would put a panel)
+IF.Focus.Dock(win, { beside = function()
+    local bags = _G.ContainerFrameCombinedBags
+    if bags and bags:IsShown() then return { bags } end
+end })
 
 switch = IF.Focus.Switch(win, {
     onChange = function(focus)
@@ -495,7 +500,7 @@ end
 local opener = CreateFrame("Button", nil, UIParent)
 opener:SetSize(32, 32)
 opener:SetFrameStrata("HIGH")
-opener:SetNormalTexture("Interface\\Icons\\INV_Misc_Bag_08")
+opener:SetNormalTexture(IF.TEX .. "ic_mod_bags")
 opener:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 opener:SetScript("OnClick", function() BG.Toggle() end)
 opener:SetScript("OnEnter", function(self)

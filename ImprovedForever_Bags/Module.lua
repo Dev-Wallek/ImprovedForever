@@ -4,8 +4,7 @@
 -- (Window.lua). Only to look at: the items themselves stay the game's.
 local IF = ImprovedForever
 
--- ponytail: the game's bag icon, a drawn one of ours when the module gets art
-IF.AddModule({ key = "bags", label = "Bags & Bank", icon = "Interface\\Icons\\INV_Misc_Bag_08", addon = ... })
+IF.AddModule({ key = "bags", label = "Bags & Bank", icon = IF.TEX .. "ic_mod_bags", addon = ... })
 
 local BG = {}
 IF.Bags = BG
