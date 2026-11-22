@@ -39,6 +39,7 @@ local DEFAULTS = {
     share = 25,            -- "sells better here": by this many percent over a vendor's pay
     minGain = 0,           -- and by at least this much (copper)
     bargainShare = 30,     -- Buy's Bargains: listed this many percent or more under the usual price
+    belowMin = 0,          -- Buy's Below vendor price: gaining this much copper or more an item
     keepDays = 30,         -- days of prices kept
     chartDays = 14,        -- days the charts show (and the market price covers)
 }
@@ -337,32 +338,37 @@ function A.ScanText()
         .. " (" .. math.floor(scan.read * 100 / scan.total) .. "%)"
 end
 
--- What of listings { { unit, count } } is under a vendor's pay:
--- { units, profit (selling them all to a vendor), lowest }; nil: none, or
--- its vendor price not known yet (ponytail: skipped till the next scan)
+-- What of listings { { unit, count } } is under a vendor's pay: { units,
+-- lowest, each (an item's gain at the lowest), count (the cheapest
+-- listing's) }; nil: none, or its vendor price not known yet (ponytail:
+-- skipped till the next scan)
 local function BelowVendor(itemID, list)
     local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(itemID))
     if not sell or sell <= 0 then return nil end
-    local units, profit, lowest = 0, 0, nil
+    local units, cheapest = 0, nil
     for _, l in ipairs(list) do
         if l[1] < sell then
-            units, profit = units + l[2], profit + (sell - l[1]) * l[2]
-            lowest = math.min(lowest or l[1], l[1])
+            units = units + l[2]
+            if not cheapest or l[1] < cheapest[1] then cheapest = l end
         end
     end
-    if units == 0 then return nil end
-    return { units = units, profit = math.floor(profit), lowest = math.ceil(lowest) }
+    if not cheapest then return nil end
+    local lowest = math.ceil(cheapest[1])
+    return { units = units, lowest = lowest, each = sell - lowest, count = cheapest[2] }
 end
 
 -- The Buy tab's "Below vendor price": the last full scan's (an item's
--- search updates its own), as browse results, the most profit first
+-- search updates its own), as browse results, those gaining the setting's
+-- copper or more an item, the most an item first
 function A.BelowVendor()
-    local list = {}
+    local list, least = {}, A.Settings().belowMin
     for itemID, b in pairs(Realm().belowVendor or {}) do
-        list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
-            profit = b.profit }
+        if b.each and b.each > 0 and b.each >= least then
+            list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
+                each = b.each, count = b.count }
+        end
     end
-    table.sort(list, function(a, b) return a.profit > b.profit end)
+    table.sort(list, function(a, b) return a.each > b.each end)
     return list
 end
 

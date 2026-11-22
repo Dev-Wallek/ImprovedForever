@@ -242,16 +242,22 @@ local function DealBadge(itemID, price)
     return text, "plain"
 end
 
--- Listed under what a vendor pays, the profit as a badge: in "Below vendor
--- price" all of it, elsewhere a unit's at the lowest price; nil: none
+-- Listed under what a vendor pays, an item's gain at the lowest price as a
+-- badge; in "Below vendor price" the cheapest stack's too ("+5c each ·
+-- +1s for 20"); nil: none
 local function VendorBadge(result)
-    local profit = result.profit
-    if not profit then
+    local each, count = result.each, result.count
+    if not each then
         local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(result.itemKey.itemID))
         local price = result.minPrice
-        profit = sell and price and price > 0 and sell > price and sell - price
+        each = sell and price and price > 0 and sell > price and sell - price
     end
-    return profit and { BADGE_PRICE .. "+" .. A.Money(profit), "good" } or nil
+    if not each then return nil end
+    local text = BADGE_PRICE .. "+" .. A.Money(each)
+    if count and count > 1 then
+        text = text .. " each · +" .. A.Money(each * count) .. " for " .. count
+    end
+    return { text, "good" }
 end
 
 -- Well under its usual price (the Bargains share or more), as a badge:

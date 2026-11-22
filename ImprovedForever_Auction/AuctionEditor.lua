@@ -180,6 +180,15 @@ ITEMS[#ITEMS + 1] = Item({
 }))
 
 ITEMS[#ITEMS + 1] = Item({
+    key = "belowMin", group = "use", label = "Below vendor: at least",
+    tip = "Buy's Below vendor price list: only what gains this much or more on each item, bought at its"
+        .. " lowest price and sold to a vendor.",
+}, Choice("belowMin", "Below vendor: at least", {
+    { 0, "Any gain" }, { 10, "10 copper an item" }, { 100, "1 silver an item" }, { 500, "5 silver an item" },
+    { 1000, "10 silver an item" }, { 10000, "1 gold an item" },
+}))
+
+ITEMS[#ITEMS + 1] = Item({
     key = "upgradeBags", group = "upgrades", label = "Bag arrows",
     tip = "A green arrow on a bag item better than what you wear in its slot: scored by its stats for"
         .. " your class and talents (else its item level), only what you can wear. The Buy window marks"
