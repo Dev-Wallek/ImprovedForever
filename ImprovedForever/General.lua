@@ -85,6 +85,14 @@ local ITEMS = {
             C_Timer.After(0.2, function() IF.WhatsNew.Replay() end)
         end,
     }),
+    Item({
+        key = "reload", group = "updates", label = "Reload the interface",
+        tip = "Reloads the interface, the same as /reload: settings and saved data are written to disk, and"
+            .. " every addon loads again.",
+    }, {
+        button = "Reload",
+        run = function() ReloadUI() end,
+    }),
 }
 
 local GROUPS = {
