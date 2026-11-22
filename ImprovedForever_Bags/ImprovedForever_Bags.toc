@@ -1,0 +1,16 @@
+## Interface: 16001, 16002, 16003, 16100, 16101, 16200
+## Title: Improved Forever: Bags & Bank
+## Notes: Your bags and bank, and those of every character of yours, anywhere, in a window like the game's bags.
+## Author: markg
+## Version: 0.1.0
+## X-Website: https://github.com/markgravity/ImprovedForever
+## X-License: MIT
+## IconTexture: Interface\Icons\INV_Misc_Bag_08
+## Group: ImprovedForever
+## Dependencies: ImprovedForever
+## OptionalDeps: ImprovedForever_Wiki
+## SavedVariables: ImprovedForeverBagsDB
+
+Module.lua
+Record.lua
+Window.lua
