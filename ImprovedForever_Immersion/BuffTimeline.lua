@@ -1044,7 +1044,7 @@ local cooldowns = Timeline("ImprovedForeverCooldownTimeline", {
 -- the pad views them (its menu's View Buffs), its cursor going to its own
 ---------------------------------------------------------------------------
 local function Viewing()
-    local m = GamepadMode and GamepadMode.FrameControlsManager
+    local m = IF.Focus.Manager()
     local focused = m and m.isUIFocused and m.focusedFrame
     return focused ~= nil and (focused == _G.BuffFrame or focused == _G.DebuffFrame)
 end
