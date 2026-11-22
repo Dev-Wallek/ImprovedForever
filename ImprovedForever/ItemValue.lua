@@ -8,7 +8,8 @@
 --     starts; an upgrade (Upgrades.lua); a container, a reagent,
 --     ammunition, a key; a reagent, a recipe or a tool for a profession
 --     the character has, or its class's tool (RecipeData.lua); can't be sold;
---   junk: marked "junk" by the player; grey; gear and odds and ends that
+--   junk: marked "junk" by the player; grey, unless worth more at the
+--     auction house (as below); gear and odds and ends that
 --     are white (or green and bound) and unusable for the class, of an
 --     armor type it doesn't wear, low level or cheap;
 --   auction: worth clearly more at the auction house (its usual price,
@@ -365,7 +366,7 @@ function IV.Judge(bag, slot, opts)
     quality = quality or info.quality or 1
     local vendor = (not info.hasNoValue) and sellPrice or 0
     local bound = info.isBound or false
-    local auctionable = not bound and bindType ~= 4 and quality >= 1
+    local auctionable = not bound and bindType ~= 4
     if forced and C_AuctionHouse and C_AuctionHouse.IsSellItemValid and ItemLocation then
         local loc = ItemLocation:CreateFromBagAndSlot(bag, slot)
         auctionable = loc:IsValid() and C_AuctionHouse.IsSellItemValid(loc, false) or false
@@ -391,12 +392,12 @@ function IV.Judge(bag, slot, opts)
         return done("keep", needLevel and ("An upgrade for you at level " .. needLevel) or "An upgrade for you",
             "Upgrade")
     end
-    if quality == 0 then return done("junk", "Grey: worth only what a vendor pays", "Junk", 0) end
+    e.ah = auctionable and AuctionNet(id, count, forced) or nil
+    local profit = e.ah and e.ah > e.value * IV.PROFIT_SHARE and e.ah - e.value >= IV.MinProfit()
+    if quality == 0 and not profit then return done("junk", "Grey: worth only what a vendor pays", "Junk", 0) end
     if KEEP_CLASS[classID] then return done("keep", "Kept: a container, reagent, ammunition or key", "Kept") end
     if vendor == 0 and not auctionable then return done("keep", "Can't be sold", "Kept") end
 
-    e.ah = auctionable and AuctionNet(id, count, forced) or nil
-    local profit = e.ah and e.ah > e.value * IV.PROFIT_SHARE and e.ah - e.value >= IV.MinProfit()
     local function sell(tag, rank)
         if profit then
             return done("auction", "About " .. Money(e.ah - e.value) .. " more at the auction house than from a vendor",
