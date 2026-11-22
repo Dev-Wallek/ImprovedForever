@@ -20,7 +20,6 @@ local DEFAULTS = {
 function P.Settings()
     IF.db.panel = IF.db.panel or {}
     local s = IF.db.panel
-    s.place = nil
     for k, v in pairs(DEFAULTS) do
         if s[k] == nil then s[k] = type(v) == "table" and {} or v end
     end
