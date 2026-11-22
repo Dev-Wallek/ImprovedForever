@@ -761,7 +761,7 @@ end
 local learnedNow = {}
 function LB.Learn()
     local ui = C_TradeSkillUI
-    if not (ui and ui.GetAllRecipeIDs and IF.Tasks and IF.Tasks.Recipe) or not IF.db then return end
+    if not (ui and ui.GetAllRecipeIDs) or not IF.db then return end
     local ok, ids = pcall(ui.GetAllRecipeIDs)
     if not ok or type(ids) ~= "table" then return end
     local store = GD.SeenRecipes()
@@ -769,7 +769,7 @@ function LB.Learn()
     for _, id in ipairs(ids) do
         if not learnedNow[id] then
             learnedNow[id] = true
-            local r = IF.Tasks.Recipe(id)
+            local r = IF.Recipes.Read(id)
             if r and (r.output or #r.reagents > 0) then
                 local got, line, _, parent = pcall(ui.GetTradeSkillLineForRecipe, id)
                 local bundled = IF.RecipeData and IF.RecipeData.recipes[id]
