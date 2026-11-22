@@ -229,18 +229,6 @@ end
 local BADGE_PRICE = "|T" .. K.TEX .. "ic_badge_price:0:0:0:0|t "
 local BADGE_UP = "|T" .. K.TEX .. "ic_badge_up:0:0:0:0|t "
 
--- Its price against its usual one, as a badge: the tag and "-23%" (good),
--- "+38%" (dear), "+2%" (about usual); nil: no usual price known
-local function DealBadge(itemID, price)
-    local usual = A.MarketPrice(itemID)
-    if not usual or usual <= 0 or not price or price <= 0 then return nil end
-    local pct = math.floor((price / usual - 1) * 100 + 0.5)
-    local text = BADGE_PRICE .. (pct > 0 and "+" or "") .. pct .. "%"
-    if pct <= -5 then return text, "good" end
-    if pct >= 5 then return text, "bad" end
-    return text, "plain"
-end
-
 -- Listed under what a vendor pays, an item's gain at the lowest price as a
 -- badge; in "Below vendor price" the cheapest stack's too ("+5c each ·
 -- +1s for 20"); nil: none
@@ -1991,7 +1979,7 @@ end
 -- For the other pages: the window's parts and looks
 BY.Glyph, BY.Panel, BY.FocusStroke, BY.ItemIcon, BY.FocusColor, BY.Atlas, BY.Deal =
     Glyph, Panel, FocusStroke, ItemIcon, FocusColor, Atlas, Deal
-BY.ItemRow, BY.DealBadge = ItemRow, DealBadge
+BY.ItemRow = ItemRow
 BY.W, BY.H = W, H
 function BY.IsShown() return win:IsShown() end
 function BY.Tab() return BY.tab end
