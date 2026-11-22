@@ -52,7 +52,6 @@ local function Build()
     catch:SetScript("OnClick", function(_, key) P.Press(key) end)
 
     panel:SetScript("OnShow", function(self)
-        if IF.InCombat() then return end
         local keys = { [BACK_KEY] = true }
         for n = 1, 8 do
             for _, key in ipairs({ GetBindingKey("GAMEPADACTIONBUTTON" .. n) }) do keys[key] = true end
@@ -70,7 +69,7 @@ local function Build()
     end)
     -- Closed when a game window takes the pad (the bags...): its own buttons
     panel:SetScript("OnUpdate", function()
-        if IF.Binds and not IF.Binds.InGame() then P.Close() end
+        if not IF.Binds.InGame() then P.Close() end
     end)
 
     local events = CreateFrame("Frame")
