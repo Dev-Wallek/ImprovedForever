@@ -335,38 +335,18 @@ local function Press(name, down)
     ScrollTo()
 end
 
-local catcher = K.NewFrame("Frame", nil, win)
-catcher:SetAllPoints(win)
-if catcher.EnableGamePadButton then
-    catcher:SetScript("OnGamePadButtonDown", function(_, button) if KEYS[button] then Press(KEYS[button], true) end end)
-    catcher:SetScript("OnGamePadButtonUp", function(_, button) if KEYS[button] then Press(KEYS[button], false) end end)
-    -- (setting the handler switches its input on: off until wanted)
-    catcher:EnableGamePadButton(false)
-end
-legend:SetPress(catcher)
+-- (Esc: closed)
+local pad = IF.UI.PadControls(win, KEYS, Press, function()
+    if dropdown:IsShown() then return dropdown:Close() end
+    win:Hide()
+end)
+legend:SetPress(pad.catcher)
 
 -- A pad button pressed and let go, as the catcher gets them (tools/loadcheck.lua)
 function BG.Press(button)
     if not KEYS[button] then return end
     Press(KEYS[button], true)
     Press(KEYS[button], false)
-end
-
-local function TakePad(on)
-    if catcher.EnableGamePadButton and not IF.InCombat() then catcher:EnableGamePadButton(on and true or false) end
-end
-
--- (Esc: closed, on its release)
-local escape = K.NewFrame("Button", "ImprovedForeverBagsEscape")
-escape:RegisterForClicks("AnyUp")
-escape:SetScript("OnClick", function()
-    if dropdown:IsShown() then return dropdown:Close() end
-    win:Hide()
-end)
-local function BindEscape(on)
-    if IF.InCombat() then return end
-    ClearOverrideBindings(win)
-    if on then SetOverrideBindingClick(win, true, "ESCAPE", escape:GetName()) end
 end
 
 -- (with the game's bags open: beside them, where it stays as they search;
@@ -380,9 +360,7 @@ switch = IF.Focus.Switch(win, {
     onChange = function(focus)
         local ours = focus == "ours"
         view.focus = ours and "ours" or "window"
-        TakePad(ours)
-        BindEscape(ours)
-        IF.Focus.DimNative(win, ours)
+        pad:Set(ours)
         view:Render()
     end,
 })
@@ -406,9 +384,7 @@ end
 function view:Away()
     if switch:Other() then return switch:Set("game") end
     self.away, self.selectHeld = true, true
-    TakePad(false)
-    BindEscape(false)
-    IF.Focus.DimNative(win, false)
+    pad:Set(false)
     GameTooltip:Hide()
     self:Render()
 end
@@ -416,9 +392,7 @@ end
 local function Back()
     view.away = false
     Hush(false)
-    TakePad(true)
-    BindEscape(true)
-    IF.Focus.DimNative(win, true)
+    pad:Set(true)
     view:Render()
 end
 
@@ -441,12 +415,10 @@ win:SetScript("OnHide", function()
     view.away = false
     Hush(false)
     view.focus, switch.focus = "ours", "ours"
-    TakePad(false)
-    IF.Focus.DimNative(win, false)
+    pad:Set(false)
     cursor:Hide()
     dropdown:Close()
     GameTooltip:Hide()
-    if not IF.InCombat() then ClearOverrideBindings(win) end
     PlaySound(SOUNDKIT and SOUNDKIT.IG_BACKPACK_CLOSE or 863)
 end)
 
@@ -461,8 +433,7 @@ win:SetScript("OnEvent", function(_, event)
         -- (opened in the fight: the pad's now)
         if openedInFight and win:IsShown() then
             openedInFight = false
-            TakePad(view.focus == "ours")
-            BindEscape(view.focus == "ours")
+            pad:Set(view.focus == "ours")
         end
     elseif not view.queued then
         -- (items' names and qualities coming: drawn again once, a moment later)
@@ -480,9 +451,7 @@ function BG.Open()
     switch:Take()
     if not win:IsShown() then PlaySound(SOUNDKIT and SOUNDKIT.IG_BACKPACK_OPEN or 862) end
     win:Show()
-    TakePad(true)
-    BindEscape(true)
-    IF.Focus.DimNative(win, true)
+    pad:Set(true)
     scroll:SetVerticalScroll(0)
     view:Render()
 end
