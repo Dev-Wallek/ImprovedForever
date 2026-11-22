@@ -48,7 +48,6 @@ local you = K.ChatText(bar, 10, KC.cream)
 
 -- The text under the bar: one font string, a line each
 local body = K.ChatText(card, 12, KC.cream)
-body:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -30)
 body:SetWidth(W - 2 * PAD)
 body:SetJustifyH("LEFT")
 body:SetSpacing(3)

@@ -231,9 +231,6 @@ function TK.OpenRecipe(task)
     end
 end
 
-local R = IF.Recipes
-local WindowUp, ShownRecipe, Craftable = R.WindowUp, R.Shown, R.Craftable
-
 -- The window's amount set as the craft's (its own Create All count shown)
 local function ShowAmount(count)
     local page = _G.ProfessionsFrame and _G.ProfessionsFrame.CraftingPage
@@ -245,7 +242,7 @@ end
 -- allow (0: none; said why)
 local function Amount(task)
     local left = math.max(0, task.count - (task.made or 0))
-    local craftable = Craftable(task.recipeID)
+    local craftable = IF.Recipes.Craftable(task.recipeID)
     local can = math.min(left, craftable)
     if can <= 0 then
         IF.Print("not enough reagents for " .. task.name .. " yet (" .. craftable .. " craftable, "
@@ -270,16 +267,16 @@ function HoldAmount(task)
             local t = holding
             if not t or skipConstrainCount then return end
             local recasts = C_TradeSkillUI.GetRemainingRecasts and C_TradeSkillUI.GetRemainingRecasts() or 0
-            if not WindowUp() or ShownRecipe() ~= t.recipeID or recasts > 0
+            if not IF.Recipes.WindowUp() or IF.Recipes.Shown() ~= t.recipeID or recasts > 0
                 or not tContains(TK.Tasks(), t) then
                 holding = nil
                 return
             end
-            local can = math.min(math.max(0, t.count - (t.made or 0)), Craftable(t.recipeID))
+            local can = math.min(math.max(0, t.count - (t.made or 0)), IF.Recipes.Craftable(t.recipeID))
             if can > 0 then ShowAmount(can) end
         end)
     end
-    local can = math.min(math.max(0, task.count - (task.made or 0)), Craftable(task.recipeID))
+    local can = math.min(math.max(0, task.count - (task.made or 0)), IF.Recipes.Craftable(task.recipeID))
     if can > 0 then ShowAmount(can) end
 end
 
@@ -298,9 +295,9 @@ opener:SetScript("OnUpdate", function(self)
     end
     -- (the window up a moment, on the recipe; its recipe not known there
     -- after 2 s: set all the same)
-    if WindowUp() then
+    if IF.Recipes.WindowUp() then
         p.seen = p.seen or now
-        local shown = ShownRecipe()
+        local shown = IF.Recipes.Shown()
         if now - p.seen >= 0.6 and (shown == p.task.recipeID or now - p.seen >= 2) then
             pending = nil
             self:Hide()
@@ -330,7 +327,7 @@ function TK.Craft(task)
     if IF.InCombat() then return end
     if TK.TakePad then TK.TakePad(false) end
     pending = { task = task, deadline = GetTime() + 5 }
-    if ShownRecipe() == task.recipeID then pending.seen = GetTime() - 1 end
+    if IF.Recipes.Shown() == task.recipeID then pending.seen = GetTime() - 1 end
     if not pending.seen then TK.OpenRecipe(task) end
     opener:Show()
 end

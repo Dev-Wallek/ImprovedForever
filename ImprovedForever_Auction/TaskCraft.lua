@@ -355,7 +355,6 @@ end)
 ---------------------------------------------------------------------------
 -- The profession window: on a recipe of its list, Cross held adds a task
 ---------------------------------------------------------------------------
-local CurrentRecipe = IF.Recipes.Shown
 
 local function CurrentAmount()
     local page = _G.ProfessionsFrame and _G.ProfessionsFrame.CraftingPage
@@ -478,7 +477,7 @@ addButton:SetSize(120, 24)
 addButton:SetFrameStrata("HIGH")
 addButton:SetText("Add Task")
 addButton:SetScript("OnClick", function()
-    local recipe = CurrentRecipe()
+    local recipe = IF.Recipes.Shown()
     if recipe then TC.Open(recipe, CurrentAmount()) end
 end)
 addButton:SetScript("OnEnter", function(self)
@@ -503,7 +502,7 @@ watch:SetScript("OnUpdate", function()
         addStart, addWasDown, addShown = nil, false, false
         return
     end
-    local mouseAdd = not IF.Input.Pad() and not panel:IsShown() and not IF.InCombat() and CurrentRecipe() ~= nil
+    local mouseAdd = not IF.Input.Pad() and not panel:IsShown() and not IF.InCombat() and IF.Recipes.Shown() ~= nil
     if mouseAdd and not addButton:IsShown() then
         addButton:ClearAllPoints()
         addButton:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -4)
@@ -521,7 +520,7 @@ watch:SetScript("OnUpdate", function()
     end
     addWasDown = down
     local holding = addStart and not addUsed
-    local legend = not panel:IsShown() and not IF.InCombat() and CurrentRecipe() and OnRecipeList()
+    local legend = not panel:IsShown() and not IF.InCombat() and IF.Recipes.Shown() and OnRecipeList()
         and ProfessionLegend()
     if legend then
         -- (in the game's legend, else in our own box under it)
@@ -547,7 +546,7 @@ watch:SetScript("OnUpdate", function()
             addUsed = true
             SetAddRing(0)
             if IF.Vibe then IF.Vibe.Confirm() end
-            TC.Open(CurrentRecipe(), CurrentAmount())
+            TC.Open(IF.Recipes.Shown(), CurrentAmount())
         end
     else
         SetAddRing(0)
@@ -559,7 +558,7 @@ function TC.Probe()
     local frame = _G.ProfessionsFrame
     local legend = ProfessionLegend()
     local x = inPrompt
-    IF.Print("addprobe: window " .. tostring(frame and frame:IsShown()) .. ", recipe " .. tostring(CurrentRecipe())
+    IF.Print("addprobe: window " .. tostring(frame and frame:IsShown()) .. ", recipe " .. tostring(IF.Recipes.Shown())
         .. ", cursor on list " .. tostring(OnRecipeList()) .. ", legend " .. tostring(legend ~= nil)
         .. (legend and (", wrap " .. tostring(legend.wrapAroundRowWidth)) or ""))
     if legend then
