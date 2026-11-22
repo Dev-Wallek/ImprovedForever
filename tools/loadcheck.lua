@@ -75,6 +75,8 @@ function frameMeta.SetWidth(self, w) self.__w = w end
 function frameMeta.SetHeight(self, h) self.__h = h end
 function frameMeta.SetSize(self, w, h) self.__w, self.__h = w, h end
 function frameMeta.GetSize(self) return self.__w or 100, self.__h or 20 end
+function frameMeta.GetVerticalScroll(self) return self.__scroll or 0 end
+function frameMeta.SetVerticalScroll(self, v) self.__scroll = v end
 function frameMeta.GetStringWidth() return 50 end
 function frameMeta.GetStringHeight() return 14 end
 function frameMeta.GetText(self) return self.__text end
@@ -426,6 +428,21 @@ end
 
 -- After loading: open each panel the modules give (what a player does first)
 local CHECKS = {
+    -- (drawn from a character with a bag and a bank tab written; every press once)
+    { name = "bags window", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local BG = IF and IF.Bags
+        if not BG then return end
+        BG.Chars()[BG.Me()] = { name = "Me", class = "WARRIOR", level = 8, money = 12345, bagsAt = 0,
+            bags = { { size = 12, slots = { [1] = "6948", [3] = "2589:20", [5] = "item:2036:15::::::::8#2" } } },
+            bank = { { item = 4496, size = 6, slots = { [2] = "2589:5" } } } }
+        BG.Open()
+        for _, b in ipairs({ "PADDDOWN", "PADDRIGHT", "PADDUP", "PADDLEFT", "PADRSHOULDER", "PADLSHOULDER",
+            "PADRSTICK", "PAD4", "PAD2" }) do
+            IF.Bags.Press(b)
+        end
+        BG.Toggle()
+    end },
     { name = "config panel", fn = function()
         local IF = rawget(_G, "ImprovedForever")
         if IF and IF.Menu and IF.Menu.Open then
