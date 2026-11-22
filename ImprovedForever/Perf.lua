@@ -41,7 +41,7 @@ function IF.Prof(name, fn)
 end
 
 -- One more of name (an event), while measuring
-function IF.Count(name)
+local function Count(name)
     if not perf then return end
     Record(name, 0)
     since[name] = (since[name] or 0) + 1
@@ -61,9 +61,9 @@ end
 local counter = CreateFrame("Frame")
 counter:SetScript("OnEvent", function(_, event, cvar)
     if event == "CVAR_UPDATE" then
-        IF.Count("CVAR_UPDATE " .. (type(cvar) == "string" and cvar or "?"))
+        Count("CVAR_UPDATE " .. (type(cvar) == "string" and cvar or "?"))
     else
-        IF.Count(event)
+        Count(event)
     end
 end)
 
@@ -122,16 +122,14 @@ local function Report(seconds)
     end
     spikesAtStart = nil
     -- (the game's own figure for each of our addons, all its code: per frame over the last 60)
-    local P, metric = C_AddOnProfiler, Enum.AddOnProfilerMetric
-    if P and P.GetAddOnMetric and metric and metric.RecentAverageTime then
-        for i = 1, C_AddOns.GetNumAddOns() do
-            local addon = C_AddOns.GetAddOnInfo(i)
-            if C_AddOns.IsAddOnLoaded(i) and addon:find("^ImprovedForever") then
-                local line = ("addon %s: %.3f ms/frame recent, %.3f ms peak"):format(addon,
-                    P.GetAddOnMetric(addon, metric.RecentAverageTime), P.GetAddOnMetric(addon, metric.PeakTime))
-                log[#log + 1] = line
-                IF.Print("  " .. line)
-            end
+    local metric = Enum.AddOnProfilerMetric
+    local recent = metric and metric.RecentAverageTime and AddOnCounts(metric.RecentAverageTime)
+    local peak = recent and AddOnCounts(metric.PeakTime)
+    for addon, ms in pairs(recent or {}) do
+        if addon:find("^ImprovedForever") then
+            local line = ("addon %s: %.3f ms/frame recent, %.3f ms peak"):format(addon, ms, peak[addon] or 0)
+            log[#log + 1] = line
+            IF.Print("  " .. line)
         end
     end
     log[#log + 1] = "timeline:"

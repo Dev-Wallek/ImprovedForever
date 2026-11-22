@@ -161,12 +161,10 @@ function IN.Inset()
     return math.max(0, math.floor((UIParent:GetWidth() - UIParent:GetHeight() * ratio) / 2 + 0.5))
 end
 
--- Handlers timed by the core's /if perf (ImprovedForever/Perf.lua)
-IN.Prof = IF.Prof
-
+-- Handlers timed by the core's /if perf (ImprovedForever/Perf.lua):
 -- frame:SetScript(script, fn), timed under name
 function IN.Script(frame, script, name, fn)
-    frame:SetScript(script, IN.Prof(name, fn))
+    frame:SetScript(script, IF.Prof(name, fn))
 end
 
 -- A watcher: fn() every `every` seconds. One that errors stops, said once
@@ -176,7 +174,7 @@ end
 function IN.Watcher(name, every, fn)
     local f = CreateFrame("Frame")
     local since = 0
-    fn = IN.Prof(name, fn)
+    fn = IF.Prof(name, fn)
     f:SetScript("OnUpdate", function(self, elapsed)
         since = since + elapsed
         if since < every then return end
