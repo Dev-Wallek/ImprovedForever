@@ -32,7 +32,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Minimap` | Names beside the minimap's dots (herbs, ore, quests, NPCs, party members: you choose), gathering alerts, a square minimap. Formerly Gather. |
 | `ImprovedForever_Map` | The peek map. |
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
-| `ImprovedForever_Auction` | The controller auction window, prices over time, tasks. Other addons read its prices (see Development). |
+| `ImprovedForever_Auction` | The controller auction window, prices over time, tasks, what is listed under a vendor's pay. Other addons read its prices (see Development). |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
 | `ImprovedForever_Addons` | Every installed addon with the controller: its commands, settings pages and launchers gathered per addon in the panel's Addons tab (`/if addons`): a heading per addon, L1 / R1 to the next one, A runs a command as typed or opens a page or launcher; a window that opens meanwhile gets the controller, the panel waits behind it. |
 | `ImprovedForever_Wiki` | Everything about an item. |
