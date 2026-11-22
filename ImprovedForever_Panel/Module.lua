@@ -1,6 +1,6 @@
--- Improved Forever: Panel. A slim bar of small displays (experience,
--- money), each a block of its own (P.Add, a file each), at an edge, in a
--- corner or under the minimap (its tab: PanelEditor.lua). Only frames of
+-- Improved Forever: Panel. A slim bar across the top of small displays
+-- (experience, money, gear), each a block of its own (P.Add, a file each;
+-- its tab: PanelEditor.lua). Only frames of
 -- ours, nothing of the game's moved; a block's text is set again on its
 -- own events alone, nothing runs on a timer.
 local IF = ImprovedForever
@@ -11,15 +11,16 @@ local P = {}
 IF.Panel = P
 
 local DEFAULTS = {
-    place = "top",    -- top, bottom (a bar across); left, right (a strip down); TOPLEFT... (a corner); minimap (under it)
     hidden = {},      -- block key -> true: not shown
     order = {},       -- block keys, first first (blocks added later after them)
     session = false,  -- money: this session's gain beside it
+    xpNumbers = false, -- experience: the points and those to go, not the share
 }
 
 function P.Settings()
     IF.db.panel = IF.db.panel or {}
     local s = IF.db.panel
+    s.place = nil
     for k, v in pairs(DEFAULTS) do
         if s[k] == nil then s[k] = type(v) == "table" and {} or v end
     end
@@ -30,6 +31,9 @@ local BAR_H, ROW_H, GAP, PAD = 20, 18, 20, 8
 
 local bar = CreateFrame("Frame", nil, UIParent)
 bar:SetFrameStrata("LOW")
+bar:SetPoint("TOPLEFT")
+bar:SetPoint("TOPRIGHT")
+bar:SetHeight(BAR_H)
 bar:Hide()
 local bg = bar:CreateTexture(nil, "BACKGROUND")
 bg:SetAllPoints()
@@ -108,51 +112,17 @@ end
 function P.Layout()
     if not IF.db then return end
     local s = P.Settings()
-    local shown, widest = {}, 0
+    local x = PAD
     for _, b in ipairs(P.Blocks()) do
         local on = not s.hidden[b.def.key] and b.value ~= nil
         b:SetShown(on)
         if on then
-            shown[#shown + 1] = b
-            widest = math.max(widest, b:GetWidth())
-        end
-    end
-    bar:SetShown(#shown > 0)
-    bar:ClearAllPoints()
-    local place = s.place
-    if place == "top" or place == "bottom" then
-        local edge = place == "top" and "TOP" or "BOTTOM"
-        bar:SetPoint(edge .. "LEFT")
-        bar:SetPoint(edge .. "RIGHT")
-        bar:SetHeight(BAR_H)
-        local x = PAD
-        for _, b in ipairs(shown) do
             b:ClearAllPoints()
             b:SetPoint("LEFT", bar, "LEFT", x, 0)
             x = x + b:GetWidth() + GAP
         end
-        return
     end
-    local width = widest + 2 * PAD
-    if place == "left" or place == "right" then
-        local edge = place == "left" and "LEFT" or "RIGHT"
-        bar:SetPoint("TOP" .. edge)
-        bar:SetPoint("BOTTOM" .. edge)
-        bar:SetWidth(width)
-    else
-        bar:SetHeight(#shown * ROW_H + PAD)
-        if place == "minimap" and Minimap then
-            bar:SetPoint("TOP", Minimap, "BOTTOM", 0, -PAD)
-            width = math.max(width, Minimap:GetWidth())
-        else
-            bar:SetPoint(place == "minimap" and "TOPRIGHT" or place)
-        end
-        bar:SetWidth(width)
-    end
-    for i, b in ipairs(shown) do
-        b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", bar, "TOPLEFT", PAD, -PAD / 2 - (i - 1) * ROW_H)
-    end
+    bar:SetShown(x > PAD)
 end
 
 -- Every block's line set again (a setting a block reads changed)
