@@ -61,7 +61,8 @@ end)
 
 local cursor = IF.Focus.Cursor(win)
 local legend = IF.InputLegend(win)
-legend:SetPoint("TOP", win, "BOTTOM", 0, -4)
+-- (growing left from its right edge: never under the game's bags beside it)
+legend:SetPoint("TOPRIGHT", win, "BOTTOMRIGHT", 0, -4)
 local dropdown = IF.Dropdown(win, { maxHeight = 360 })
 dropdown.frame:SetPoint("TOPLEFT", win, "TOPLEFT", 60, -40)
 
@@ -491,8 +492,8 @@ function BG.Toggle()
     BG.Open()
 end
 
--- A button beside the game's bags, the way here from them: outside their
--- top left corner, shown with them, clicked with the mouse; with the pad R1
+-- A button on top of the game's bags, the way here from them: over their
+-- top left corner (ours sits on their left), shown with them, clicked with the mouse; with the pad R1
 -- held + L3 while they have the game's focus (watched, never taken; L3
 -- alone sorts the bags, Bags.lua, which a held shoulder leaves alone).
 -- Ours, never a child of theirs, so the game's pad navigation in them stays
@@ -511,7 +512,7 @@ opener:SetScript("OnEnter", function(self)
 end)
 opener:SetScript("OnLeave", function() GameTooltip:Hide() end)
 opener.glyph = opener:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-opener.glyph:SetPoint("TOP", opener, "BOTTOM", 0, -2)
+opener.glyph:SetPoint("LEFT", opener, "RIGHT", 4, 0)
 opener:Hide()
 local combined = _G.ContainerFrameCombinedBags
 local l3Held = false
@@ -525,7 +526,7 @@ opener:SetScript("OnUpdate", function()
     l3Held = down
 end)
 if combined then
-    opener:SetPoint("TOPRIGHT", combined, "TOPLEFT", -4, -40)
+    opener:SetPoint("BOTTOMLEFT", combined, "TOPLEFT", 8, 4)
     combined:HookScript("OnShow", function() opener:Show() end)
     combined:HookScript("OnHide", function() opener:Hide() end)
 end

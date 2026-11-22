@@ -534,6 +534,10 @@ end
 local BESIDE_GAP = 10
 local function Beside(win, left, right, top)
     local w = win:GetWidth() * win:GetScale()
+    -- (its full width: side tabs hanging off its right side too)
+    if win:GetRight() then
+        w = w + RightEdge(win) - win:GetRight() * win:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    end
     local screen = UIParent:GetWidth() or 0
     local x
     if (left + right) / 2 > screen / 2 then
