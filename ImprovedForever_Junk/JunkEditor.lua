@@ -27,6 +27,15 @@ local ITEMS = {
         IV.Changed()
     end, "Find junk")),
     Item({
+        key = "alts", group = "junk", label = "Other characters",
+        tip = "Keeps what your other characters on this realm and faction can use for their professions:"
+            .. " reagents and recipes they could get by mail (not soulbound). A character counts once it has"
+            .. " logged in with Improved Forever, and drops out after 90 days without a login.",
+    }, OnOff(function() return S().alts end, function(on)
+        S().alts = on
+        IV.Changed()
+    end, "Other characters")),
+    Item({
         key = "icons", group = "junk", label = "Bag coins",
         tip = "The game's junk coin on every junk item in the bags.",
     }, OnOff(function() return S().icons end, function(on)
