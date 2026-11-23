@@ -153,6 +153,18 @@ local WINDOWS = {
         buttons = { "WorldMapMicroButton", "MiniMapWorldMapButton", "QuestLogMicroButton" } },
     { key = "achievements", label = "Achievements", hidden = true, icon = "Interface\\Icons\\INV_Misc_Note_01",
         buttons = { "AchievementMicroButton" } },
+    -- (the Group list's, a macro each, no button: AC.CATALOG)
+    { key = "invite", label = "Invite target", group = true, desc = "/invite", macro = "/invite",
+        icon = "Interface\\Icons\\INV_Letter_09" },
+    { key = "trade", label = "Trade with target", group = true, desc = "/trade", macro = "/trade",
+        icon = "Interface\\Icons\\INV_Misc_Coin_01" },
+    { key = "follow", label = "Follow target", group = true, desc = "/follow", macro = "/follow",
+        icon = "Interface\\Icons\\Ability_Tracking" },
+    { key = "inspect", label = "Inspect target", group = true, desc = "/inspect", macro = "/inspect",
+        icon = "Interface\\Icons\\INV_Misc_Spyglass_02" },
+    -- (/leave leaves a chat channel)
+    { key = "leavegroup", label = "Leave group", group = true, desc = "Leaves your party or raid",
+        macro = "/run C_PartyInfo.LeaveParty()", icon = "Interface\\Icons\\Spell_ChargeNegative" },
 }
 
 -- A window's art: the radial menu's, else its icon
@@ -238,11 +250,16 @@ local function ActionButton(key)
     end
 end
 
--- "none" first, then every action this client has a button for.
+-- Runs in this client: its macro, else a button of it found
+local function Usable(key)
+    return ACTION_BY_KEY[key].macro ~= nil or ActionButton(key) ~= nil
+end
+
+-- "none" first, then every action this client can run.
 function AC.Windows()
     local list = { "none" }
     for _, action in ipairs(WINDOWS) do
-        if not action.hidden and ActionButton(action.key) then
+        if not action.hidden and Usable(action.key) then
             list[#list + 1] = action.key
         end
     end
@@ -293,7 +310,7 @@ end
 function AC.InterfaceEntries(ours)
     local entries = {}
     for _, key in ipairs(AC.Windows()) do
-        if key ~= "none" and (ACTION_BY_KEY[key].ours or false) == (ours or false) then
+        if key ~= "none" and not ACTION_BY_KEY[key].group and (ACTION_BY_KEY[key].ours or false) == (ours or false) then
             entries[#entries + 1] = { action = key, name = AC.Label(key), icon = AC.Icon(key), sub = ACTION_BY_KEY[key].desc }
         end
     end
@@ -322,7 +339,7 @@ function AC.Label(key)
     if not action then
         return "Nothing"
     end
-    return ActionButton(key) and action.label or (action.label .. " (not in this client)")
+    return Usable(key) and action.label or (action.label .. " (not in this client)")
 end
 
 
@@ -475,7 +492,16 @@ local SPELLS = { key = "spells", label = "Spells", entries = SpellEntries }
 local ITEMS = { key = "items", label = "Items", entries = ItemEntries }
 local MACROS = { key = "macros", label = "Macros", entries = MacroEntries }
 local EMOTES = { key = "emotes", label = "Emotes", entries = EmoteEntries }
-AC.CATALOG = { SPELLS, ITEMS, MACROS, EMOTES }
+local GROUP = { key = "group", label = "Group", entries = function()
+    local entries = {}
+    for _, action in ipairs(WINDOWS) do
+        if action.group then
+            entries[#entries + 1] = { action = action.key, name = action.label, icon = action.icon, sub = action.desc }
+        end
+    end
+    return entries
+end }
+AC.CATALOG = { SPELLS, ITEMS, MACROS, EMOTES, GROUP }
 
 -- /if windows: each window an action can open, the button it would click
 -- and the art it shows (the radial menu's, or not found in this client)
