@@ -73,6 +73,8 @@ function frameMeta.SetText(self, t) self.__text = t end
 function frameMeta.GetName(self) return self.__name end
 function frameMeta.GetParent(self) return self.__parent end
 function frameMeta.GetLeft() return 0 end
+-- (a bag frame's item buttons: none)
+function frameMeta.EnumerateValidItems() return function() end end
 function frameMeta.GetRight() return 100 end
 function frameMeta.GetTop() return 100 end
 function frameMeta.GetBottom() return 0 end
