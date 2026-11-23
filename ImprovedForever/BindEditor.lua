@@ -984,9 +984,12 @@ function P:BindEntry(e)
             end
             local held, pressed = B.Parse(spec)
             if pressed == "PADBACK" and HasTouchpad() then return not held or touch.LayerOf(held) ~= nil end
-            return B.ActionFits(spec)
+            return B.ActionFits(spec) and not IF.Override.PeekClash(spec, e.action)
         end,
-        reject = function(spec) return B.GameOwns(spec) or ((e.name or "It") .. " can't go on that press") end,
+        reject = function(spec)
+            return B.GameOwns(spec) or (not def and IF.Override.PeekClash(spec, e.action))
+                or ((e.name or "It") .. " can't go on that press")
+        end,
         onDone = function(spec, info)
             local held, pressed, double = B.Parse(spec)
             -- (a def with an action of its own, the corner's: any def with its button; else as the corner is)

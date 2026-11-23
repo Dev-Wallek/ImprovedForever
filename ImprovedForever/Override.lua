@@ -69,6 +69,25 @@ function O.NeedsSingle(spec)
 end
 O.OutOfCombatOnly = O.NeedsSingle
 
+-- Why action can't go on spec, or nil: a press held as the peek map
+-- (PeekMap.lua's hold button, not ours) leaves its press twice nothing to
+-- run with
+function O.PeekClash(spec, action)
+    if not IF.PeekMap then return nil end
+    local B = IF.Binds
+    local held, pressed, double = B.Parse(spec)
+    local single = B.Spec(held, pressed)
+    if not B.KeyOf(single) then return nil end
+    local twice = B.Spec(held, pressed, true)
+    if double and action ~= "peekmap" and O.Get(single) == "peekmap" then
+        return B.Text(single) .. " holds the peek map: pressed twice it can't run anything"
+    end
+    if not double and action == "peekmap" and O.Get(twice) and O.Get(twice) ~= "peekmap" then
+        return B.Text(twice) .. " has " .. (O.ActionLabel(O.Get(twice)) or "an action")
+            .. ": with the peek map on " .. B.Text(single) .. " it can't run"
+    end
+end
+
 local owner = CreateFrame("Frame", "ImprovedForeverOverrides")
 local buttons = {}
 local pending = false
