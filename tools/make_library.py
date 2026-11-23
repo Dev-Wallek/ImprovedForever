@@ -16,8 +16,9 @@ or a class's tool is never taken for junk (ItemValue.lua):
 
 For levelling a profession: each recipe's skill where it
 turns yellow and grey (SkillLineAbility), the skill a recipe item asks to
-learn it, and the vendor price of one reagent (ItemSparse; whether a vendor
-sells it is QuestieDB's):
+learn it, and the vendor price of one of a reagent or of any item a vendor
+sells (ItemSparse; the vendors are WorldData.lua's, whether one sells it in
+game is QuestieDB's):
     trivial = { [spellID] = { yellow, grey } }, learnRank = { [itemID] = rank },
     buy = { [itemID] = copper }
 
@@ -153,6 +154,19 @@ def write_items(build, sparse):
     print(f"{len(rows)} items -> {ITEMS_OUT.name} ({ITEMS_OUT.stat().st_size / 1e6:.1f} MB)")
 
 
+def vendor_items():
+    """The items WorldData.lua (tools/make_library_data.py) names vendors for:
+    its items block, rows "npcDrops|objectDrops|itemDrops|vendors|..."."""
+    text = (ROOT / "ImprovedForever" / "WorldData.lua").read_text(encoding="utf-8")
+    block = text.split("\nitems = {\n", 1)[1].split("\n},", 1)[0]
+    found = set()
+    for item, fields in re.findall(r'^\[(\d+)\]="([^"]*)"', block, re.M):
+        parts = fields.split("|")
+        if len(parts) > 3 and parts[3]:
+            found.add(int(item))
+    return found
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     build = args[0] if args else forever_build()
@@ -217,8 +231,9 @@ def main():
 
     tools, class_tools = find_tools(build, sparse)
 
-    # (BuyPrice is for VendorStackCount items)
-    used = {reagents[s][i] for s in reagents for i in range(0, len(reagents[s]), 2)}
+    # (BuyPrice is for VendorStackCount items; kept for the reagents and
+    # every item a vendor sells, WorldData.lua's)
+    used = {reagents[s][i] for s in reagents for i in range(0, len(reagents[s]), 2)} | vendor_items()
     recipe_items = set(taught.values())
     learn_rank, buy = {}, {}
     for row in sparse:
