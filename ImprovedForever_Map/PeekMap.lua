@@ -14,8 +14,9 @@
 -- (a crossbar slot, a wheel, a press twice) its macro clicks the map's
 -- button, then our mark button, which shows the map it opened as the peek
 -- map: a tap, the next press (or B on its window) closes it.
--- While open, the map has the gamepad (its own buttons and sticks), as
--- it always does.
+-- While open, the map has the gamepad (its own buttons and sticks) when the
+-- game gave it the focus, as it does any window; the game's own Select
+-- (TOGGLEUIFOCUS) gives the pad back to the world, the peek staying open.
 local IF = ImprovedForever
 
 local K = IF.ConfigKit
@@ -497,9 +498,19 @@ local LEGEND = {
     { { "PADLTRIGGER", "PADRTRIGGER" }, { "PADLTRIGGER", "PADRTRIGGER" }, "Change quest" },
     { { "PADLSHOULDER", "PADRSHOULDER" }, { "PADLSHOULDER", "PADRSHOULDER" }, "Zoom map out / in" },
 }
+-- (the map took the pad as a window: the game's own Select, TOGGLEUIFOCUS,
+-- gives it back to the world, the right stick to the camera; then LEGEND)
+local LEGEND_FOCUSED = { { "PADBACK", "PADBACK", "Camera" } }
 
 function PeekMap.ShowLegend()
-    legend:Set(keysOn and peeking and PeekMap.Settings().legend and LEGEND or nil)
+    local list = keysOn and LEGEND or (not IF.InCombat() and LEGEND_FOCUSED) or nil
+    legend:Set(peeking and PeekMap.Settings().legend and list or nil)
+end
+
+-- The pad moved between the map and the world (Binds.lua): the keys while
+-- peeking bound or let go to match
+function PeekMap.Refocus()
+    if peeking then PeekMap.Keys(true) end
 end
 IF.Input.OnChange(function() PeekMap.ShowLegend() end)
 

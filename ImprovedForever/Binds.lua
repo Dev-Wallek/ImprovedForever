@@ -382,6 +382,7 @@ function B.FocusChanged()
     if IF.MyWheels then IF.MyWheels.ApplyWheelKeys() end
     if IF.Override then IF.Override.Apply() end
     if IF.Touch then IF.Touch.Apply() end
+    if IF.PeekMap then IF.PeekMap.Refocus() end
 end
 
 local focus = CreateFrame("Frame")
