@@ -929,7 +929,7 @@ local function SendQuery()
     BY.queryWaiting = false
     local ours = OursShown()
     if ours then
-        -- ponytail: the filters and the search box don't narrow these lists
+        -- ponytail: the filters don't narrow these lists (the search box does: FilterResults)
         BY.allResults = ours.list()
         BY.FilterResults()
         BY.browseSent, BY.searching = true, false
@@ -1008,6 +1008,17 @@ end
 -- not known yet join as their data come)
 function BY.FilterResults()
     local all = BY.allResults or {}
+    -- (one of our lists, which the server doesn't search: what's typed, in
+    -- its items' names; one whose name isn't loaded yet stays)
+    local typed = OursShown() and BY.search and BY.search ~= "" and BY.search:lower()
+    if typed then
+        local found = {}
+        for _, result in ipairs(all) do
+            local name = IF.ItemNameByID(result.itemKey.itemID)
+            if not name or name:lower():find(typed, 1, true) then found[#found + 1] = result end
+        end
+        all = found
+    end
     local list = all
     if S().buyUpgrades == "only" then
         list = {}
