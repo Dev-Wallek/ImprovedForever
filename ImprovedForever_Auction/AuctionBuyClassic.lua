@@ -1737,14 +1737,32 @@ do
     BY.searchBox = box
 end
 
+-- The Chat module's keyboard, when it's here and on (else the pad's
+-- search is the box, typed into by the Steam or a real keyboard)
+local function Keyboard()
+    local CK = IF.ChatKeyboard
+    return CK and CK.Settings().enabled and CK or nil
+end
+
+-- Square in the list: the search typed on the keyboard, else the box focused
+function BY.Search()
+    local CK = Keyboard()
+    if CK then
+        return CK.Edit("Search", BY.search, function(text) BY.searchBox:SetText(text) end, "Type to search")
+    end
+    BY.searchBox:Show()
+    BY.searchBox:SetFocus()
+end
+
 ---------------------------------------------------------------------------
 -- Drawing
 ---------------------------------------------------------------------------
 local function RenderSide()
     local mains = Mains()
-    -- (with the mouse: the search box in its place)
-    sideTitle:SetText(Mouse() and "" or (Glyph("LS", 18) .. " Category"))
-    BY.searchBox:SetShown(Mouse())
+    -- (with the mouse, or the pad without the keyboard: the search box in its place)
+    local box = Mouse() or not Keyboard()
+    sideTitle:SetText(box and "" or (Glyph("LS", 18) .. " Category"))
+    BY.searchBox:SetShown(box)
     local top = math.max(1, math.min(BY.main - math.floor(SIDE_ROWS / 2), #mains - SIDE_ROWS + 1))
     local fr, fg, fb = FocusColor()
     for i, r in ipairs(sideRows) do
@@ -2184,7 +2202,7 @@ function BY.Render()
             .. " Category   " .. Glyph("B") .. " Back"
     else
         text = Glyph("A") .. " Open   " .. Glyph("DPAD") .. " Move   " .. Glyph("LS") .. " Filters   "
-            .. Glyph("Y") .. " " .. scanLabel .. "   " .. Glyph("B") .. " Close"
+            .. Glyph("X") .. " Search   " .. Glyph("Y") .. " " .. scanLabel .. "   " .. Glyph("B") .. " Close"
     end
     local mouseList
     if filterBox:IsShown() then
@@ -2289,6 +2307,9 @@ end
 BY.DetailPress = DetailPress
 
 function BY.Press(name, fast)
+    -- (the search's keyboard up: its presses, none ours)
+    local CK = IF.ChatKeyboard
+    if CK and CK.IsOpen() then return end
     -- (a popup up, AuctionConfirm.lua: its press)
     if IF.AuctionConfirm.Press(name) then return BY.Render() end
     if name == "RS" then
@@ -2345,6 +2366,8 @@ function BY.Press(name, fast)
         end
         BY.detailFocus = D ~= nil
         return BY.Render()
+    elseif name == "X" then
+        return BY.Search()
     elseif name == "LS" then
         if not Selectable(ENTRIES[BY.filterRow]) then
             BY.filterRow = 0

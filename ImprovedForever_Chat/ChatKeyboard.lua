@@ -211,12 +211,19 @@ local PROMPTS = {
 
 local PROMPTS_A = { PROMPTS[1], PROMPTS[2], PROMPTS[3], PROMPTS[4] }
 local PROMPTS_B = { PROMPTS[5], PROMPTS[6], PROMPTS[7], PROMPTS[8] }
+-- (CK.Edit's: no channel, Start hands the text back)
+local DONE = { "PADFORWARD", "START", "Done" }
+local EDIT_PROMPTS = { PROMPTS[1], PROMPTS[2], PROMPTS[3], PROMPTS[4], PROMPTS[5], DONE, PROMPTS[8] }
+local EDIT_B = { PROMPTS[5], DONE, PROMPTS[8] }
+
+local editing   -- opened by CK.Edit: { done = fn(text), hint }, else nil
+
 local function SetLegends()
     if side then
         legend:Set(PROMPTS_A)
-        legend2:Set(PROMPTS_B)
+        legend2:Set(editing and EDIT_B or PROMPTS_B)
     else
-        legend:Set(PROMPTS)
+        legend:Set(editing and EDIT_PROMPTS or PROMPTS)
         legend2:Hide()
     end
 end
@@ -408,7 +415,7 @@ local function ChannelRender()
     local c = channels[channelIndex]
     if not c then return end
     global = c.type == "GLOBAL"
-    hint:SetText(global and "Global: each key goes to the game" or HINT)
+    hint:SetText(global and "Global: each key goes to the game" or editing and editing.hint or HINT)
     local r, g, b = TypeColor(c.type)
     channelText:SetText(c.label)
     channelText:SetTextColor(r, g, b)
@@ -461,7 +468,7 @@ end
 function Suggest(full)
     local old = matches
     matches = {}
-    if full:sub(1, 1) == "/" and not full:find("%s") then
+    if not editing and full:sub(1, 1) == "/" and not full:find("%s") then
         if not commands then BuildCommands() end
         local low = full:lower()
         for _, cmd in ipairs(commandList) do
@@ -528,20 +535,20 @@ local function Close()
     if board.EnableGamePadButton then pcall(board.EnableGamePadButton, board, false) end
     F.DimNative(board, false)
     F.Fade(NativeLegend(chat), false)
-    chat, held, previewing = nil, nil, nil
+    chat, held, previewing, editing = nil, nil, nil, nil
 end
 CK.Close = Close
 
 function CK.IsOpen() return board:IsShown() and not previewing end
 
-function CK.Open(window)
-    if IF.InCombat() then return end
+-- Shown with the pad taken: from the chat window (nil: anywhere), its
+-- channels, the one picked
+local function Show(window, list, index)
     CK.Place()
     chat, held, cx, cy = window, nil, 1, 2
     chars, caretAt, bytes, layer = {}, 0, 0, "lower"
     commands, sugSel = nil, nil
-    channels = Channels(window)
-    channelIndex = StartIndex(window, channels)
+    channels, channelIndex = list, index
     board:Show()
     Layout()
     ChannelRender()
@@ -553,6 +560,12 @@ function CK.Open(window)
     if IF.Vibe then IF.Vibe.Play("pulse") end
 end
 
+function CK.Open(window)
+    if IF.InCombat() then return end
+    local list = Channels(window)
+    Show(window, list, StartIndex(window, list))
+end
+
 ---------------------------------------------------------------------------
 -- Typing
 ---------------------------------------------------------------------------
@@ -561,6 +574,18 @@ local function Split(text)
     local out = {}
     for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do out[#out + 1] = ch end
     return out
+end
+
+-- For another window's text box (the auction house's search): title over
+-- the text, which starts as text; Start hands it to done (Circle: nothing).
+-- The pad is the keyboard's until it closes.
+function CK.Edit(title, text, done, hint)
+    if IF.InCombat() then return end
+    editing = { done = done, hint = hint }
+    Show(nil, { { type = "SAY", label = title } }, 1)
+    chars = Split(text or "")
+    caretAt, bytes = #chars, #(text or "")
+    MessageRender()
 end
 
 local function Insert(text)
@@ -675,6 +700,11 @@ end
 local function Send()
     if global then return end
     local text = Joined():gsub("^%s+", ""):gsub("%s+$", "")
+    if editing then
+        local done = editing.done
+        Close()
+        return done(text)
+    end
     local c = channels[channelIndex]
     if text == "" or not c then return end
     -- (a slash command runs, whatever the channel)
