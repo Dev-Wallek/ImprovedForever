@@ -419,11 +419,10 @@ function IV.Judge(bag, slot, opts)
         if mine then return done("keep", "A recipe for your " .. SkillName(skill), "Recipe") end
         return sell("Recipe", 4)
     end
-    -- A reagent the character's professions use
-    if classID ~= 2 and classID ~= 4 then
-        local skill = UsedBy(id)
-        if skill then return done("keep", "Used by your " .. SkillName(skill), "Reagent") end
-    end
+    -- A reagent the character's professions use (gear too: a Linen Cloak
+    -- goes into an engineer's SAF-T Tabs)
+    local skill = UsedBy(id)
+    if skill then return done("keep", "Used by your " .. SkillName(skill), "Reagent") end
     -- A tool: kept for the character's professions or class; another's sold,
     -- never junk by itself
     local tool, toolFor = Tool(id, classID, subclassID)
