@@ -1,7 +1,7 @@
 -- A card beside the profession window about the recipe it shows: its
 -- colours on a bar with your skill on it, the chance of a point, about how
 -- many crafts are left until it turns grey, what its reagents cost (a
--- vendor's price where a vendor sells one, else the auction's) and what the
+-- vendor's price where a vendor sells one and the auction's) and what the
 -- result brings at a vendor and at the auction house. Only to look at: the
 -- game's window keeps the controller.
 local IF = ImprovedForever
@@ -56,14 +56,13 @@ local function Money(copper)
     return GetMoneyString(math.floor(copper + 0.5), true)
 end
 
--- A reagent's price and where from: a vendor's where one sells it, else the
--- auction's; nil: no price known
-local function ReagentPrice(itemID)
+-- A reagent's prices: a vendor's where one sells it, the auction's; each
+-- nil when not known
+local function ReagentPrices(itemID)
     local buy = IF.RecipeData.buy[itemID]
-    if buy and IF.GameData.SoldByVendor(itemID) then return buy, "vendor" end
+    local vendor = buy and IF.GameData.SoldByVendor(itemID) and buy or nil
     local A = IF.Auction
-    local price = A and A.Price and A.Price(itemID)
-    if price then return price, "auction" end
+    return vendor, A and A.Price and A.Price(itemID)
 end
 
 -- The thresholds: orange from where it's learnt, yellow, green, grey
@@ -117,10 +116,15 @@ local function Lines(recipe, skill, difficulty)
     local cost = 0
     for _, r in ipairs(recipe.reagents) do
         local item = (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(r.itemID)) or ("item " .. r.itemID)
-        local price, from = ReagentPrice(r.itemID)
+        local vendor, auction = ReagentPrices(r.itemID)
+        -- (the cost: the cheaper of the two)
+        local price = vendor and auction and math.min(vendor, auction) or vendor or auction
         if price and cost then cost = cost + price * r.per else cost = nil end
+        local prices = {}
+        if vendor then prices[#prices + 1] = Money(vendor * r.per) .. " |cff9d917a(vendor)|r" end
+        if auction then prices[#prices + 1] = Money(auction * r.per) .. " |cff9d917a(auction)|r" end
         add(("%s ×%d  %s"):format(item, r.per,
-            price and (Money(price * r.per) .. " |cff9d917a(" .. from .. ")|r") or "|cff9d917a?|r"))
+            #prices > 0 and table.concat(prices, "  ") or "|cff9d917a?|r"))
     end
     add("|cffffd24aReagents per craft:|r " .. (cost and Money(cost) or "?"))
     local out = recipe.output
