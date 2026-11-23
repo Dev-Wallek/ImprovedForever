@@ -500,8 +500,44 @@ function GD.PlayerSkills()
     return skills
 end
 
+-- Every character's professions, account-wide, for the item verdict:
+-- IF.db.charSkills = { ["<realm>-<name>"] = { realm, faction, name,
+-- skills (PlayerSkills'), seen (time()) } }; one not logged in for
+-- ALT_DAYS is dropped (a character deleted)
+local ALT_DAYS = 90
+
+function GD.RecordSkills()
+    local db = IF.db
+    if not db then return end
+    db.charSkills = db.charSkills or {}
+    local now = time()
+    for key, c in pairs(db.charSkills) do
+        if now - (c.seen or 0) > ALT_DAYS * 86400 then db.charSkills[key] = nil end
+    end
+    local realm, name = GetRealmName(), UnitName("player")
+    if not (realm and name) then return end
+    db.charSkills[realm .. "-" .. name] = {
+        realm = realm, faction = UnitFactionGroup("player"), name = name, skills = GD.PlayerSkills(), seen = now,
+    }
+end
+
+-- The other characters an item can be mailed to (same realm and
+-- faction): { { name, skills } }
+function GD.AltSkills()
+    local list = {}
+    local realm, me, faction = GetRealmName(), UnitName("player"), UnitFactionGroup("player")
+    for _, c in pairs(IF.db and IF.db.charSkills or {}) do
+        if c.realm == realm and c.faction == faction and c.name ~= me then list[#list + 1] = c end
+    end
+    return list
+end
+
 local skillEvents = CreateFrame("Frame")
 for _, event in ipairs({ "SKILL_LINES_CHANGED", "TRADE_SKILL_LIST_UPDATE", "LEARNED_SPELL_IN_TAB" }) do
     pcall(skillEvents.RegisterEvent, skillEvents, event)
 end
-skillEvents:SetScript("OnEvent", function() skills = nil end)
+skillEvents:SetScript("OnEvent", function()
+    skills = nil
+    GD.RecordSkills()
+end)
+IF.OnLogin(GD.RecordSkills)

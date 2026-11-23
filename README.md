@@ -54,7 +54,7 @@ the core, **Improved Forever**:
 - **Button overrides** for L3 click and double-click.
 - **Vibration** on game events and spell casts, with per-action patterns.
 - **Junk**: what the bags no longer need is marked junk (the game's coin on its slot), from quests (QuestieDB's
-  data), your professions' recipes, auction prices, your class and whether it's soulbound. L2 + L3 on a bag item
+  data), the recipes of your professions and of your other characters' on the realm, auction prices, your class and whether it's soulbound. L2 + L3 on a bag item
   marks it junk or not junk, remembered per character. A vendor's Sell All Junk sells it all. Its **Destroy**
   panel throws junk away from the controller; from the loot window when the bags are full, it destroys junk
   and loots in its place. The auction window's Sell tab sorts the bags by the same verdict.

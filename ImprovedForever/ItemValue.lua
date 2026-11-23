@@ -7,7 +7,9 @@
 --     not shut out by a choice made: QuestieDB, GameData.lua), or one it
 --     starts; an upgrade (Upgrades.lua); a container, a reagent,
 --     ammunition, a key; a reagent, a recipe or a tool for a profession
---     the character has, or its class's tool (RecipeData.lua); can't be sold;
+--     the character has, or its class's tool (RecipeData.lua); not bound,
+--     a reagent or a recipe for a profession of another character it can
+--     mail to (same realm and faction: GameData.lua's AltSkills); can't be sold;
 --   junk: marked "junk" by the player; grey; gear and odds and ends that
 --     are white (or green and bound) and unusable for the class, of an
 --     armor type it doesn't wear, low level or cheap;
@@ -26,6 +28,7 @@ IV.PROFIT_SHARE = 1.25         -- "worth more": over a vendor's pay by a quarter
 
 local DEFAULTS = {
     auto = true,               -- the verdict marks junk by itself (off: greys and the player's marks only)
+    alts = true,               -- the other characters' professions count (AltNeed)
 }
 
 function IV.Settings()
@@ -203,11 +206,12 @@ local function SkillName(skill)
     return names and names[skill] or "profession"
 end
 
--- The profession of the character's that uses the item, or nil
-local function UsedBy(itemID)
+-- The profession of the character's (or of skills: another's) that uses
+-- the item, or nil
+local function UsedBy(itemID, skills)
     local GD = IF.GameData
     if not GD then return nil end
-    local idx, mine = GD.Recipes(), GD.PlayerSkills()
+    local idx, mine = GD.Recipes(), skills or GD.PlayerSkills()
     for _, spell in ipairs(idx.uses[itemID] or {}) do
         local row = idx.rows[spell]
         if row and mine[row[1]] then return row[1] end
@@ -248,6 +252,23 @@ local function Teaches(itemID)
     local row = spell and idx.rows[spell]
     if not row then return nil end
     return row[1], GD.PlayerSkills()[row[1]] ~= nil
+end
+
+-- Another character the item can be mailed to whose profession uses it
+-- (teaches: a recipe's profession, had by that one) -> its name, the
+-- profession's; or nil
+local function AltNeed(itemID, teaches)
+    local GD = IF.GameData
+    if not (GD and IV.Settings().alts) then return nil end
+    for _, alt in ipairs(GD.AltSkills()) do
+        local skill
+        if teaches then
+            skill = alt.skills[teaches] and teaches
+        else
+            skill = UsedBy(itemID, alt.skills)
+        end
+        if skill then return alt.name, SkillName(skill) end
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -422,12 +443,20 @@ function IV.Judge(bag, slot, opts)
             return sell("Known", 2)
         end
         if mine then return done("keep", "A recipe for your " .. SkillName(skill), "Recipe") end
+        if skill and not bound then
+            local alt, altSkill = AltNeed(id, skill)
+            if alt then return done("keep", "A recipe for " .. alt .. "'s " .. altSkill, "Recipe") end
+        end
         return sell("Recipe", 4)
     end
     -- A reagent the character's professions use (gear too: a Linen Cloak
     -- goes into an engineer's SAF-T Tabs)
     local skill = UsedBy(id)
     if skill then return done("keep", "Used by your " .. SkillName(skill), "Reagent") end
+    if not bound then
+        local alt, altSkill = AltNeed(id)
+        if alt then return done("keep", "Used by " .. alt .. "'s " .. altSkill, "Reagent") end
+    end
     -- A tool: kept for the character's professions or class; another's sold,
     -- never junk by itself
     local tool, toolFor = Tool(id, classID, subclassID)
