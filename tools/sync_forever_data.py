@@ -186,6 +186,10 @@ def main():
         run([sys.executable, "tools/make_library.py"], env=env)
         step("Wiki data: QuestieDB with its corrections, trainers, portraits")
         run([sys.executable, "tools/make_library_data.py"], env=env)
+        # (the vendor prices are kept for the items WorldData.lua names vendors
+        # for, and WorldData.lua reads the recipes: the recipes once more)
+        step("Recipes again: vendor prices for WorldData.lua's vendors")
+        run([sys.executable, "tools/make_library.py"], env=env)
     step("Hardcoded data against Forever's")
     problems = check_code()
     for p in problems:
