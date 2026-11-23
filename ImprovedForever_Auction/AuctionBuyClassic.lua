@@ -1892,6 +1892,9 @@ local function RenderDetail()
     local parts = {}
     if lowest then parts[#parts + 1] = "Lowest now " .. A.Money(lowest) end
     if usual then parts[#parts + 1] = "usually " .. A.Money(usual) end
+    -- (what a vendor sells one for, where one does: RecipeData.lua's buy, with the Professions data)
+    local buy = IF.RecipeData.buy and IF.RecipeData.buy[D.itemID]
+    if buy and IF.GameData.SoldByVendor(D.itemID) then parts[#parts + 1] = "a vendor sells it for " .. A.Money(buy) end
     dInfo:SetText(table.concat(parts, "   ·   "))
 
     local fr, fg, fb = FocusColor()
