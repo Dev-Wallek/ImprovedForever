@@ -381,6 +381,7 @@ local function ApplyAll()
     if IF.MyWheels then IF.Run("focus: wheel keys", IF.MyWheels.ApplyWheelKeys) end
     if IF.Override then IF.Run("focus: overrides", IF.Override.Apply) end
     if IF.Touch then IF.Run("focus: touchpad", IF.Touch.Apply) end
+    if IF.PeekMap then IF.Run("focus: peek map", IF.PeekMap.Refocus) end
 end
 
 function B.FocusChanged()

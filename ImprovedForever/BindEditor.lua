@@ -350,7 +350,7 @@ local function Lists()
     add("misc", "Misc", function()
         local entries, named = Ours(false), {}
         for _, e in ipairs(entries) do named[e.name] = true end
-        for _, e in ipairs(touch.InterfaceEntries(true)) do
+        for _, e in ipairs(touch.InterfaceEntries(true, true)) do
             if not named[e.name] then entries[#entries + 1] = e end
         end
         return entries
@@ -983,11 +983,12 @@ function P:BindEntry(e)
                 return def.accepts(spec)
             end
             local held, pressed = B.Parse(spec)
+            if IF.Override.Refusal(spec, e.action) then return false end
             if pressed == "PADBACK" and HasTouchpad() then return not held or touch.LayerOf(held) ~= nil end
-            return B.ActionFits(spec) and not IF.Override.PeekClash(spec, e.action)
+            return B.ActionFits(spec)
         end,
         reject = function(spec)
-            return B.GameOwns(spec) or (not def and IF.Override.PeekClash(spec, e.action))
+            return B.GameOwns(spec) or (not def and IF.Override.Refusal(spec, e.action))
                 or ((e.name or "It") .. " can't go on that press")
         end,
         onDone = function(spec, info)
@@ -1631,6 +1632,16 @@ function P:Render()
         for _, def in ipairs(B.Bound(spec)) do names[#names + 1] = def.label end
         local color = B.Clashing(spec) and "|cffff7a5c" or "|cffd8ccb0"
         runs = "Runs:  " .. color .. table.concat(names, ", ") .. "|r"
+        -- (the game's autorun, on L3 alone until the Autorun action moves it: it runs held with a
+        -- shoulder or a trigger too)
+        local held, pressed, double = B.Parse(spec)
+        if pressed == "PADLSTICK" and not double and IF.Override.AutorunOnL3() then
+            if held then
+                runs = runs .. "  |cffff7a5c+ Autorun (game): move it with the Autorun action|r"
+            elseif #names == 0 then
+                runs = "Runs:  |cffd8ccb0Autorun (game)|r"
+            end
+        end
     end
     f.runs:SetText(runs)
     local toast = menu.toast

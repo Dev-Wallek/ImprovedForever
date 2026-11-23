@@ -69,13 +69,17 @@ function O.NeedsSingle(spec)
 end
 O.OutOfCombatOnly = O.NeedsSingle
 
--- Why action can't go on spec, or nil: a press held as the peek map
+-- Why action can't go on spec, or nil: Autorun is the game's binding,
+-- so only on a press with a key of its own; a press held as the peek map
 -- (PeekMap.lua's hold button, not ours) leaves its press twice nothing to
 -- run with
-function O.PeekClash(spec, action)
-    if not IF.PeekMap then return nil end
+function O.Refusal(spec, action)
     local B = IF.Binds
     local held, pressed, double = B.Parse(spec)
+    if action == "autorun" and (double or not B.KeyOf(spec)) then
+        return "Autorun goes only on a press of its own: not pressed twice, a crossbar slot or a wheel"
+    end
+    if not IF.PeekMap then return nil end
     local single = B.Spec(held, pressed)
     if not B.KeyOf(single) then return nil end
     local twice = B.Spec(held, pressed, true)
@@ -89,6 +93,16 @@ function O.PeekClash(spec, action)
 end
 
 local owner = CreateFrame("Frame", "ImprovedForeverOverrides")
+local nothing = CreateFrame("Button", "ImprovedForeverNothing", UIParent)
+
+-- The game's autorun still on L3 alone: no Autorun action set, and nothing
+-- of ours on L3
+function O.AutorunOnL3()
+    for _, action in pairs(O.Settings()) do
+        if action == "autorun" then return false end
+    end
+    return O.Get("PADLSTICK") == nil and #IF.Binds.Bound("PADLSTICK") == 0
+end
 local buttons = {}
 local pending = false
 
@@ -182,12 +196,14 @@ function O.Apply()
     local get = C_CVar and C_CVar.GetCVar or GetCVar
     local onDown = get and get("ActionButtonUseKeyDown") ~= "0"
     -- Per key bound: its single and double press's macros
-    local macros, peekKeys = {}, {}
+    local macros, peekKeys, autorunKeys = {}, {}, {}
     for spec, action in pairs(O.Settings()) do
         local key, macro = O.BindingKey(spec), O.Macro(action)
         local _, _, double = IF.Binds.Parse(spec)
         if key and peek and action == "peekmap" and not double then
             peekKeys[key] = true
+        elseif key and action == "autorun" and not double then
+            autorunKeys[key] = true
         elseif key and macro then
             macros[key] = macros[key] or {}
             macros[key][double and "double" or "single"] = macro
@@ -220,6 +236,13 @@ function O.Apply()
             -- would win over a plain override)
             SetOverrideBindingClick(owner, true, key, b:GetName(), "LeftButton")
         end
+    end
+    -- Autorun moved: the game's binding on its press; L3, its own press,
+    -- given a button that does nothing when nothing else is on it, so L3
+    -- held with a shoulder no longer runs the game's autorun too
+    for key in pairs(autorunKeys) do SetOverrideBinding(owner, true, key, "TOGGLEAUTORUN") end
+    if next(autorunKeys) and not O.Get("PADLSTICK") and #IF.Binds.Bound("PADLSTICK") == 0 then
+        SetOverrideBindingClick(owner, true, "PADLSTICK", nothing:GetName())
     end
     -- Square with a wand: shoot instead of the melee swing (WandShoot.lua),
     -- bound only while an enemy is targeted, unless the player set an
@@ -274,6 +297,8 @@ function O.ApplyKeys()
             b:SetAttribute("ic-single", macro)
             b:SetAttribute("ic-double", nil)
             SetOverrideBindingClick(keyOwner, false, key, b:GetName(), "LeftButton")
+        elseif action == "autorun" then
+            SetOverrideBinding(keyOwner, false, key, "TOGGLEAUTORUN")
         end
     end
 end
