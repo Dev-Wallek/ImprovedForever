@@ -104,20 +104,31 @@ function MW.RingKey(id)
     return "my" .. id
 end
 
--- (a chat phrase is its own name: WheelKinds.lua)
+-- (a chat phrase is its own name: WheelKinds.lua; a window, its action's)
 function MW.ActionName(action)
     local phrase = IF.WheelKinds.PhraseText(action)
     if phrase then return phrase end
+    if IF.Actions.IsWindow(action) then return IF.Actions.Label(action) end
     return (IF.ActionInfo(action))
 end
 
 function MW.ActionIcon(action)
     if IF.WheelKinds.PhraseText(action) then return IF.WheelKinds.PHRASE_ICON end
+    if IF.Actions.IsWindow(action) then return IF.Actions.Icon(action) end
     return select(2, IF.ActionInfo(action))
 end
 
 MW.CATALOG = IF.Actions.CATALOG
 local SPELLS, ITEMS, MACROS, EMOTES = unpack(MW.CATALOG)
+-- The Improved Forever wheel's list: our own functions
+-- ponytail: no peek map, a wheel's /click of the map's button opens the plain map; it joins once the peek map is an action of its own
+local OURS = { key = "ours", label = "Improved Forever", entries = function()
+    local list = {}
+    for _, e in ipairs(IF.Actions.InterfaceEntries(true)) do
+        if e.action ~= "peekmap" then list[#list + 1] = e end
+    end
+    return list
+end }
 
 -- As a ring: the filled slots in order, or what its kind fills it with
 local function Builder(id)
@@ -262,10 +273,11 @@ function MW.Wheels(all)
         wheels[#wheels + 1] = { key = extra.key, label = IF.RING_LABELS[extra.key], builtin = true,
             max = IF.MAX_SLOTS, info = extra.info }
     end
-    wheels[#wheels + 1] = { key = "panels", label = IF.RING_LABELS.panels, builtin = true, max = IF.MAX_SLOTS,
-        info = "Fills itself with Improved Forever's own windows, each one whose module you have: this"
-            .. " settings panel, the Journal, the Wiki, the Fish Collection, the Destroy panel. Nothing to set"
-            .. " here but its hotkey." }
+    wheels[#wheels + 1] = { key = "panels", label = IF.RING_LABELS.panels, builtin = true,
+        slots = IF.GetPanelSlots(), max = IF.MAX_SLOTS, lists = { OURS },
+        info = "Improved Forever's own windows and functions, a slot each. A function whose module you don't"
+            .. " have stays off the wheel. Change any slot.",
+        reset = IF.ResetPanelSlots, resetLabel = "Default windows" }
     -- (the player's own, by kind: slots to fill, or none, it fills itself)
     for _, w in ipairs(MW.List()) do
         local kind = IF.WheelKinds.Get(w.kind)

@@ -23,6 +23,13 @@ end
 
 -- An action as a ring entry, or nil (a macro deleted...)
 function IF.ActionEntry(action)
+    -- (a window: its button clicked, when its module is here)
+    local AC = IF.Actions
+    if AC.IsWindow(action) then
+        local macro = AC.Macro(action)
+        return macro and { label = AC.Label(action), icon = AC.Icon(action), type = "macro", value = macro,
+            action = action }
+    end
     local kind, value = Parse(action)
     if kind == "phrase" then
         return IF.WheelKinds and IF.WheelKinds.PhraseEntry(action)
@@ -241,22 +248,23 @@ end
 
 IF.BuildConsumables = BuildConsumables
 
--- Improved Forever's own windows: each one whose module is here (its
--- button made: Actions.lua), opened by a /click of it
-local PANELS = { "icmenu", "journal", "wiki", "fishcollection", "destroy" }
+-- The Improved Forever wheel: Improved Forever's own functions, the
+-- player's pick (account), by default its windows
+local DEFAULT_PANELS = { "icmenu", "journal", "wiki", "fishcollection", "destroy" }
+
+function IF.ResetPanelSlots()
+    local slots = {}
+    for i, key in ipairs(DEFAULT_PANELS) do slots[i] = key end
+    IF.db.panelSlots = slots
+end
+
+function IF.GetPanelSlots()
+    if not IF.db.panelSlots then IF.ResetPanelSlots() end
+    return IF.db.panelSlots
+end
+
 local function BuildPanels()
-    local AC = IF.Actions
-    local here = {}
-    for _, key in ipairs(AC.Windows()) do here[key] = true end
-    local entries = {}
-    for _, key in ipairs(PANELS) do
-        local macro = here[key] and AC.Macro(key)
-        if macro then
-            entries[#entries + 1] = { label = AC.Label(key), icon = AC.Icon(key), type = "macro", value = macro,
-                action = key }
-        end
-    end
-    return entries
+    return IF.SlotEntries(IF.GetPanelSlots(), IF.MAX_SLOTS)
 end
 
 -- (Quest items: WheelKinds.lua adds its own)
