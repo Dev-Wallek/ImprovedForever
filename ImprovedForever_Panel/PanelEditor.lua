@@ -56,7 +56,7 @@ end, "Experience as numbers"))
 
 ITEMS[#ITEMS + 1] = Item({
     key = "session", group = "blocks", label = "Money this session",
-    tip = "Beside your money, what this session brought (green) or cost (red), since login or the last /reload.",
+    tip = "Beside your money, what this session brought (green) or cost (red), since login (a /reload keeps it).",
 }, OnOff(function() return S().session end, function(on)
     S().session = on
     P.Refresh()
