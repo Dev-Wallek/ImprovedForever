@@ -148,6 +148,11 @@ local WINDOWS = {
     -- lost on key-down presses, the button answering only its release)
     { key = "reload", label = "Reload", ours = true, desc = "Reloads the interface (/reload)", macro = "/reload",
         icon = IF.TEX .. "ic_fn_reload", macroIcon = "Interface\\Icons\\Spell_Nature_Reincarnation", buttons = { "ImprovedForeverReload" } },
+    -- (the game's binding, put on a press's own key by Override.lua: no
+    -- button, no macro, so no crossbar slot, wheel or corner; presses: only
+    -- among the Bindings tab's)
+    { key = "autorun", label = "Autorun", ours = true, presses = true, binding = "TOGGLEAUTORUN",
+        desc = "The game's autorun, moved off L3", icon = "Interface\\Icons\\Ability_Rogue_Sprint" },
     -- (no longer offered; kept for what holds it already)
     { key = "map", label = "World Map", hidden = true, icon = "Interface\\Icons\\INV_Misc_Map_01",
         buttons = { "WorldMapMicroButton", "MiniMapWorldMapButton", "QuestLogMicroButton" } },
@@ -250,9 +255,10 @@ local function ActionButton(key)
     end
 end
 
--- Runs in this client: its macro, else a button of it found
+-- Runs in this client: its macro or the game's binding, else a button of it found
 local function Usable(key)
-    return ACTION_BY_KEY[key].macro ~= nil or ActionButton(key) ~= nil
+    local action = ACTION_BY_KEY[key]
+    return action.macro ~= nil or action.binding ~= nil or ActionButton(key) ~= nil
 end
 
 -- "none" first, then every action this client can run.
@@ -306,11 +312,13 @@ end
 
 -- The windows a press or a corner can open, for the picker: the game's
 -- (ours = false), or our own (ours = true: the minimap labels, the peek map,
--- this panel)
-function AC.InterfaceEntries(ours)
+-- this panel); presses: with those that go on a press alone (Autorun)
+function AC.InterfaceEntries(ours, presses)
     local entries = {}
     for _, key in ipairs(AC.Windows()) do
-        if key ~= "none" and not ACTION_BY_KEY[key].group and (ACTION_BY_KEY[key].ours or false) == (ours or false) then
+        local action = ACTION_BY_KEY[key]
+        if key ~= "none" and not action.group and (presses or not action.presses)
+            and (action.ours or false) == (ours or false) then
             entries[#entries + 1] = { action = key, name = AC.Label(key), icon = AC.Icon(key), sub = ACTION_BY_KEY[key].desc }
         end
     end
