@@ -26,12 +26,14 @@ function P.Settings()
     return s
 end
 
-local BAR_H, ROW_H, GAP, PAD = 20, 18, 20, 8
+-- (EDGE: the bar's gap to the screen's sides, so it doesn't run under a
+-- display's rounded or overscanned edge)
+local BAR_H, ROW_H, GAP, PAD, EDGE = 20, 18, 20, 8, 12
 
 local bar = CreateFrame("Frame", nil, UIParent)
 bar:SetFrameStrata("LOW")
-bar:SetPoint("TOPLEFT")
-bar:SetPoint("TOPRIGHT")
+bar:SetPoint("TOPLEFT", EDGE, 0)
+bar:SetPoint("TOPRIGHT", -EDGE, 0)
 bar:SetHeight(BAR_H)
 bar:Hide()
 local bg = bar:CreateTexture(nil, "BACKGROUND")
@@ -41,8 +43,9 @@ bg:SetColorTexture(0, 0, 0, 0.55)
 local blocks, byEvent = {}, {}
 local events = CreateFrame("Frame")
 
--- def: { key, label, events = { event... }, text = fn() -> its line (nil:
--- nothing to show now, false: kept as it is), tip = fn(tooltip) }
+-- def: { key, label, events = { event... }, text = fn(event, ...) -> its line
+-- (the event's name and arguments, none on a refresh; nil: nothing to show
+-- now, false: kept as it is), tip = fn(tooltip) }
 function P.Add(def)
     local b = CreateFrame("Frame", nil, bar)
     b:SetHeight(ROW_H)
@@ -100,8 +103,8 @@ function P.Move(key, dir)
     P.Layout()
 end
 
-local function Refresh(b)
-    local value = b.def.text()
+local function Refresh(b, ...)
+    local value = b.def.text(...)
     if value == false then return end
     b.value = value
     b.text:SetText(value or "")
@@ -130,9 +133,9 @@ function P.Refresh()
     P.Layout()
 end
 
-events:SetScript("OnEvent", function(_, event)
+events:SetScript("OnEvent", function(_, event, ...)
     if not IF.db then return end
-    for _, b in ipairs(byEvent[event]) do Refresh(b) end
+    for _, b in ipairs(byEvent[event]) do Refresh(b, event, ...) end
     P.Layout()
 end)
 

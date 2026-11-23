@@ -1,13 +1,12 @@
 -- The panel's money: what you carry, and (its setting) what this session
--- brought or cost, since login or the last /reload
+-- brought or cost since login; the money at login is kept per character
+-- (IF.charDB.moneyAtLogin), so a /reload doesn't start it again
 local IF = ImprovedForever
-
-local start
 
 local function Gain()
     local money = GetMoney()
-    start = start or money
-    return money - start
+    IF.charDB.moneyAtLogin = IF.charDB.moneyAtLogin or money
+    return money - IF.charDB.moneyAtLogin
 end
 
 local function Signed(gain)
@@ -17,7 +16,8 @@ end
 IF.Panel.Add({
     key = "money", label = "Money",
     events = { "PLAYER_ENTERING_WORLD", "PLAYER_MONEY" },
-    text = function()
+    text = function(event, isInitialLogin)
+        if event == "PLAYER_ENTERING_WORLD" and isInitialLogin then IF.charDB.moneyAtLogin = GetMoney() end
         local gain = Gain()
         local text = GetMoneyString(GetMoney(), true)
         if IF.Panel.Settings().session and gain ~= 0 then text = text .. "  " .. Signed(gain) end
