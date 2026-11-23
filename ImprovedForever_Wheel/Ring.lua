@@ -1679,3 +1679,41 @@ function IF.SetRingRelease(on)
     IF.db.ringRelease = on and true or nil
     IF.ApplyRingBindings()
 end
+
+-- /if ringlog: a probe for "Use on release". Each click of the stick's
+-- direction keys and of R2, the sticks taken or let go, the wheel hidden:
+-- with the pick kept, the setting, the aim stick's length. Kept in
+-- IF.db.ringLog (a fresh log per run), read after a /reload.
+local probing = false
+local function AimLength()
+    local ok, state = pcall(C_GamePad.GetDeviceMappedState, C_GamePad.GetActiveDeviceID())
+    local stick = ok and type(state) == "table" and state.sticks and state.sticks[ring:GetAttribute("ic-stick") or 0]
+    return stick and type(stick.x) == "number" and math.sqrt(stick.x * stick.x + stick.y * stick.y) or -1
+end
+local function Log(what)
+    if not probing then return end
+    local log = IF.db.ringLog
+    log[#log + 1] = ("%.2f %s shown=%s sticky=%s release=%s capture=%s len=%.2f"):format(GetTime() % 1000, what,
+        tostring(ring:IsShown()), tostring(ring:GetAttribute("ic-sticky")), tostring(ring:GetAttribute("ic-release")),
+        tostring(capturing), AimLength())
+end
+aim:HookScript("OnClick", function(_, button, down) Log("aim " .. tostring(button) .. (down and " down" or " up")) end)
+use:HookScript("OnClick", function(_, _, down) Log("R2" .. (down and " down" or " up")) end)
+ring:HookScript("OnHide", function() Log("hidden") end)
+local logCapture = CreateFrame("Frame", nil, ring)
+local lastCapture
+logCapture:SetScript("OnUpdate", function()
+    if capturing ~= lastCapture then
+        lastCapture = capturing
+        Log("capture " .. tostring(capturing))
+    end
+end)
+IF.AddCommand("ringlog", function()
+    probing = not probing
+    if probing then
+        IF.db.ringLog = { date("%Y-%m-%d %H:%M:%S") }
+        IF.Print("Wheel probe on: open a wheel, aim at a slot, let the stick go; /if ringlog again to stop")
+    else
+        IF.Print("Wheel probe off: " .. (#IF.db.ringLog - 1) .. " lines, /reload to save them")
+    end
+end, ": logs the wheel's stick keys and R2 (Use on release), /reload to save")
