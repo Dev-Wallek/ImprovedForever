@@ -151,6 +151,9 @@ function O.Apply()
         return
     end
     pending = false
+    -- (the peek map's presses: its hold button's, PeekMap.lua)
+    local peek = IF.PeekMap ~= nil
+    if peek then IF.PeekMap.Apply() end
     ClearOverrideBindings(owner)
     if IF.WandShoot then IF.WandShoot.Bind(nil) end
     -- Only while the game has the gamepad's focus (Binds.lua), and the switch is on
@@ -160,11 +163,13 @@ function O.Apply()
     local get = C_CVar and C_CVar.GetCVar or GetCVar
     local onDown = get and get("ActionButtonUseKeyDown") ~= "0"
     -- Per key bound: its single and double press's macros
-    local macros = {}
+    local macros, peekKeys = {}, {}
     for spec, action in pairs(O.Settings()) do
         local key, macro = O.BindingKey(spec), O.Macro(action)
-        if key and macro then
-            local _, _, double = IF.Binds.Parse(spec)
+        local _, _, double = IF.Binds.Parse(spec)
+        if key and peek and action == "peekmap" and not double then
+            peekKeys[key] = true
+        elseif key and macro then
             macros[key] = macros[key] or {}
             macros[key][double and "double" or "single"] = macro
         end
@@ -203,7 +208,7 @@ function O.Apply()
     local wand, layers
     if IF.WandShoot then wand, layers = IF.WandShoot.Macro() end
     local square = O.BindingKey("PAD3")
-    if wand and square and not macros[square] then
+    if wand and square and not macros[square] and not peekKeys[square] then
         local b = SecureButton(square)
         b:SetAttribute("ic-down", onDown)
         b:SetAttribute("useOnKeyDown", onDown)
@@ -237,10 +242,12 @@ function O.ApplyKeys()
         return
     end
     ClearOverrideBindings(keyOwner)
+    local peek = IF.PeekMap ~= nil
+    if peek then IF.PeekMap.Apply() end
     local get = C_CVar and C_CVar.GetCVar or GetCVar
     local onDown = get and get("ActionButtonUseKeyDown") ~= "0"
     for key, action in pairs(O.KeySettings()) do
-        local macro = O.Macro(action)
+        local macro = not (peek and action == "peekmap") and O.Macro(action)
         if macro then
             local b = SecureButton(key)
             b:SetAttribute("ic-down", onDown)

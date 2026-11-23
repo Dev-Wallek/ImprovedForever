@@ -121,14 +121,7 @@ end
 MW.CATALOG = IF.Actions.CATALOG
 local SPELLS, ITEMS, MACROS, EMOTES = unpack(MW.CATALOG)
 -- The Improved Forever wheel's list: our own functions
--- ponytail: no peek map, a wheel's /click of the map's button opens the plain map; it joins once the peek map is an action of its own
-local OURS = { key = "ours", label = "Improved Forever", entries = function()
-    local list = {}
-    for _, e in ipairs(IF.Actions.InterfaceEntries(true)) do
-        if e.action ~= "peekmap" then list[#list + 1] = e end
-    end
-    return list
-end }
+local OURS = { key = "ours", label = "Improved Forever", entries = function() return IF.Actions.InterfaceEntries(true) end }
 
 -- As a ring: the filled slots in order, or what its kind fills it with
 local function Builder(id)

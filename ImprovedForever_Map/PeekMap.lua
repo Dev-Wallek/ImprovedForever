@@ -5,12 +5,15 @@
 -- closes it. The native map, so its quests, markers and arrow are all
 -- there.
 -- Opening a game window from addon code taints it on Forever (Touchpad.lua),
--- so the hotkey is an override binding on a secure button that runs
--- "/click <the map's micro button>" (press: opens, release: closes; on
--- Forever the quest log's, which toggles the Map & Quest Log), in combat
--- too. Set in the Bindings tab (Binds.lua); IF.db.peekMapKey. A
--- touchpad corner can hold it too (Touchpad.lua: its Interface list): it
--- clicks the map's button itself, then PeekMap.Opened.
+-- so the peek map is an action (Actions.lua, "peekmap") put on presses in
+-- the Bindings tab. On a press an override binding takes, and on a key, it
+-- is bound to a secure button of ours that runs "/click <the map's micro
+-- button>" (press: opens, release: closes, or tapped as the setting says;
+-- on Forever the quest log's, which toggles the Map & Quest Log), in combat
+-- too. A touchpad corner holds it the same way (Touchpad.lua). Anywhere else
+-- (a crossbar slot, a wheel, a press twice) its macro clicks the map's
+-- button, then our mark button, which shows the map it opened as the peek
+-- map: a tap, the next press (or B on its window) closes it.
 -- While open, the map has the gamepad (its own buttons and sticks), as
 -- it always does.
 local IF = ImprovedForever
@@ -171,10 +174,13 @@ refade:SetScript("OnUpdate", function()
     if pointer and pointer:GetAlpha() > 0 then IF.Focus.DimNative(place, true) end
 end)
 
+local shownAt   -- GetTime() of the map's last OnShow
+
 IF.OnLogin(function()
     local map = WorldMapFrame
     if not map then return end
     map:HookScript("OnShow", function()
+        shownAt = GetTime()
         PeekMap.Say("peek: map OnShow, peeking: " .. tostring(peeking))
     end)
     map:HookScript("OnHide", function()
@@ -536,6 +542,16 @@ function PeekMap.Opened()
     end
 end
 
+-- The action's macro clicks this right after the map's button: a map shown
+-- in this same frame was opened by it
+local mark = CreateFrame("Button", "ImprovedForeverPeekMapMark", UIParent)
+mark:RegisterForClicks("AnyDown", "AnyUp")
+mark:SetScript("OnClick", function()
+    local opened = WorldMapFrame and WorldMapFrame:IsShown() and shownAt == GetTime()
+    PeekMap.Say("peek: action press, map opened by it: " .. tostring(opened))
+    if opened then PeekMap.Opened() end
+end)
+
 ---------------------------------------------------------------------------
 -- The hold button: the hotkey's press opens the map (if closed), its
 -- release closes it (if open), each on its own phase whatever
@@ -624,20 +640,34 @@ hold:SetScript("PostClick", function(self, button, down)
 end)
 
 ---------------------------------------------------------------------------
--- The hotkey: a button, or one held + one pressed ("PADLSHOULDER+PADDUP"),
--- taken over: an override binding on the hold button. Out of combat. A
--- key: its binding's keyboard / mouse press (Binds.lua: a click of the
--- hold button, pressed and released as the key is).
+-- The hold button's keys: each press with the peek map's action that an
+-- override binding takes (Override.lua leaves them to it) and each key
+-- with it. Out of combat.
 ---------------------------------------------------------------------------
 function PeekMap.IsPeeking()
     return peeking
 end
 
-function PeekMap.Key()
-    return IF.db and IF.db.peekMapKey
+function PeekMap.HoldKeys()
+    local B, O, keys = IF.Binds, IF.Override, {}
+    if B.PadOverrides() then
+        for spec, action in pairs(O.Settings()) do
+            local _, _, double = B.Parse(spec)
+            local key = action == "peekmap" and not double and B.KeyOf(spec)
+            if key then keys[#keys + 1] = key end
+        end
+    end
+    for key, action in pairs(O.KeySettings()) do
+        if action == "peekmap" then keys[#keys + 1] = key end
+    end
+    table.sort(keys)
+    return keys
 end
 
 local pending = false
+-- (what the hold button is bound with: unchanged, left as it is, so a
+-- press held through a rebind keeps its release)
+local applied
 
 function PeekMap.Apply()
     if IF.InCombat() then
@@ -654,28 +684,48 @@ function PeekMap.Apply()
     end
     hold:SetAttribute("ic-macro", macro)
     hold:SetAttribute("ic-tap", PeekMap.Settings().tap or nil)
+    local keys = macro and PeekMap.HoldKeys() or {}
+    local now = table.concat(keys, " ")
+    if now == applied then return end
+    applied = now
     ClearOverrideBindings(hold)
-    local key = PeekMap.Key() and IF.Binds.KeyOf(PeekMap.Key())
     -- (kept while the map has the gamepad: its release closes it)
-    if key and macro then SetOverrideBindingClick(hold, true, key, hold:GetName(), "LeftButton") end
+    for _, key in ipairs(keys) do SetOverrideBindingClick(hold, true, key, hold:GetName(), "LeftButton") end
 end
 
-function PeekMap.SetKey(key)
-    IF.db.peekMapKey = key
+-- Saved presses of the peek map's own binding (IF.db.peekMapKey, its key
+-- in IF.db.keyBinds) go on as its action, on the same press
+local function Migrate()
+    local db, B, O = IF.db, IF.Binds, IF.Override
+    local spec = db.peekMapKey
+    if spec and B.KeyOf(spec) and O.Settings()[spec] == nil then O.Settings()[spec] = "peekmap" end
+    db.peekMapKey = nil
+    local key = db.keyBinds and db.keyBinds.peekmap
+    if type(key) == "string" and not B.IsClick(key) and O.KeySettings()[key] == nil then
+        O.KeySettings()[key] = "peekmap"
+    end
+    if db.keyBinds then db.keyBinds.peekmap = nil end
+end
+
+IF.OnLogin(function()
+    Migrate()
     PeekMap.Apply()
-end
+end)
 
-IF.OnLogin(PeekMap.Apply)
-
--- /if peek: what the hotkey is bound to and what a press does (each press
--- printed until /if peek again)
+-- /if peek: what the hold button is bound to and what a press does (each
+-- press printed until /if peek again)
 function PeekMap.Probe()
     PeekMap.debug = not PeekMap.debug
     if PeekMap.debug then IF.db.peekLog = { date("%Y-%m-%d %H:%M:%S") } end
-    local spec = PeekMap.Key()
-    local key = spec and IF.Binds.KeyOf(spec)
-    PeekMap.Say("peek: hotkey " .. tostring(spec) .. " -> key " .. tostring(key)
-        .. ", bound to: " .. tostring(key and GetBindingAction(key, true)))
+    local bound = {}
+    for _, key in ipairs(PeekMap.HoldKeys()) do bound[#bound + 1] = key .. " -> " .. tostring(GetBindingAction(key, true)) end
+    PeekMap.Say("peek: hold keys " .. (#bound > 0 and table.concat(bound, ", ") or "none"))
+    local slots = {}
+    for _, b in ipairs(IF.Native and IF.Native.Bound() or {}) do
+        if b.action == "peekmap" then slots[#slots + 1] = b.spec end
+    end
+    PeekMap.Say("peek: crossbar slots " .. (#slots > 0 and table.concat(slots, ", ") or "none")
+        .. ", action macro: " .. tostring(IF.Actions.Macro("peekmap")):gsub("\n", " | "))
     PeekMap.Say("peek: macro " .. tostring(hold:GetAttribute("ic-macro")) .. ", map frame: "
         .. tostring(WorldMapFrame ~= nil) .. ", map scroll: " .. tostring(WorldMapFrame and WorldMapFrame.ScrollContainer ~= nil)
         .. ", in combat: " .. tostring(IF.InCombat()) .. ", pending: " .. tostring(pending))
@@ -695,25 +745,3 @@ events:SetScript("OnEvent", function()
     -- (the peek's buttons, left bound when it ended in combat)
     if not peeking then PeekMap.Keys(false) end
 end)
-
--- Its binding, on the Bindings tab (Binds.lua)
-local B = IF.Binds
-B.Add({
-    id = "peekmap", label = "Peek map", group = "Other", tab = "bindings",
-    corner = true,   -- (also a touchpad corner: BindEditor.lua; its action is this id)
-    icon = IF.TEX .. "ic_fn_peekmap", context = "world", order = 31,
-    desc = "Held: a see-through map; let go and it closes",
-    tip = "Held: the game's Map & Quest Log shows with only its map, see-through (placed and sized in"
-        .. " the Map tab); let go and it closes. Works in combat. Takes the press over while bound, and"
-        .. " while held the map has the controller, as it always does. A touchpad corner can open it too"
-        .. " (its Interface list).",
-    -- (an override binding: a press one can go on)
-    accepts = function(spec)
-        local _, _, double = B.Parse(spec)
-        return not double and B.KeyOf(spec) ~= nil
-    end,
-    specs = function() return B.One(IF.PeekMap.Key()) end,
-    set = function(spec) IF.PeekMap.SetKey(spec) end,
-    -- (a key holds it too: the same secure button)
-    button = "ImprovedForeverPeekMapHold",
-})
