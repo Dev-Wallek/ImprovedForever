@@ -18,8 +18,9 @@
 -- spell, item or macro dropped on ours with the mouse goes into the slot
 -- it shows, and one dragged off is picked up (out of combat). Its two
 -- class action buttons (L1 + L2, R1 + R2) too, beside the diamonds, their two-glyph
--- prompt over them. The game's pet flyouts (L1 + L2 with a pet: its commands;
--- R1 + R2: its spells) are drawn at 0 and ours draws each above its class tile.
+-- prompt over them. The game's flyouts (L1 + L2 with a pet: its commands;
+-- R1 + R2: its spells; forms, stances, a slot's flyout spell) are drawn at 0
+-- and ours draws each above the tile it opened from.
 -- A cooldown can be a secret (Forever restricts them at times): its ring
 -- and countdown then aren't shown.
 local IF = ImprovedForever
@@ -1374,12 +1375,16 @@ local function MirrorClass(b, native)
 end
 
 ---------------------------------------------------------------------------
--- The game's pet flyouts open round the game's class buttons, which lie
--- under ours at the screen's bottom: the pet commands (GamepadPetActionFlyout,
--- L1 + L2 with a pet) and the pet's spells (GamepadPetSpellFlyout, R1 + R2
--- for a hunter or warlock, Camelot/PetSpellFlyout.lua). Each is drawn at 0
--- (IF.Focus.Fade, from the moment it shows) and ours draws its open state
--- above the class tile it opened from: its ring, each slot and icon where
+-- The game's flyouts open round the game's button they come from, which
+-- lies under ours at the screen's bottom: the pet commands
+-- (GamepadPetActionFlyout, L1 + L2 with a pet), the pet's spells
+-- (GamepadPetSpellFlyout, R1 + R2 for a hunter or warlock,
+-- Camelot/PetSpellFlyout.lua) and any other choice (GamepadSpellFlyout: a
+-- druid's forms, a paladin's auras, a warrior's stances on the class
+-- buttons, Camelot/ClassSpellFlyout.lua; a slot's flyout spell, portals).
+-- Each is drawn at 0 (IF.Focus.Fade, from the moment it shows) and ours
+-- draws its open state above the tile it opened from (a class tile, the
+-- slot's key tile, else the bar's middle): its ring, each slot and icon where
 -- the game has them, the one the right stick points at lit, the game's
 -- arrow at it. The presses stay the game's.
 ---------------------------------------------------------------------------
@@ -1468,8 +1473,20 @@ do
         CopyTexture("arrow", "OVERLAY", 2, arrow and arrow.Texture, flyout, arrow ~= nil and arrow:IsShown())
     end
 
+    -- Where ours goes: over the tile showing the game's button it opened
+    -- from (a class tile: over its prompt), else over the bar's middle
+    local function Above(flyout)
+        local from, pu = flyout.flyoutButton, PageUnit()
+        if pu and from == pu.RightClassAction then return classRight, CLASS.glyph + 4 end
+        if pu and from == pu.LeftClassAction then return classLeft, CLASS.glyph + 4 end
+        for tile in pairs(tiles) do
+            if from and tile.native == from and tile:IsShown() then return tile, 4 end
+        end
+        return holder, 4
+    end
+
     -- Ours shown while the game's is open and the pad's bar is up, above
-    -- the class tile it opened from
+    -- the tile it opened from
     local function Sync(flyout)
         local petRing = Ring(flyout)
         local open = padShown and flyout:IsShown()
@@ -1478,10 +1495,9 @@ do
             petRing:Hide()
             return
         end
-        local pu = PageUnit()
-        local tile = (pu and flyout.flyoutButton == pu.RightClassAction) and classRight or classLeft
+        local tile, gap = Above(flyout)
         petRing:ClearAllPoints()
-        petRing:SetPoint("BOTTOM", tile, "TOP", 0, CLASS.glyph + 4)
+        petRing:SetPoint("BOTTOM", tile, "TOP", 0, gap)
         if not petRing:IsShown() then
             petRing:Show()
             DrawPetRing(flyout)
@@ -1489,8 +1505,8 @@ do
     end
 
     local hooked = {}
-    local NAMES = { "GamepadPetActionFlyout", "GamepadPetSpellFlyout" }
-    IN.Watcher("pet flyouts", 0.05, function()
+    local NAMES = { "GamepadPetActionFlyout", "GamepadPetSpellFlyout", "GamepadSpellFlyout" }
+    IN.Watcher("flyouts", 0.05, function()
         for _, name in ipairs(NAMES) do
             local flyout = _G[name]
             if flyout then
