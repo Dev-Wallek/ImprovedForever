@@ -154,7 +154,7 @@ local ITEMS = {
     })),
     Item({
         key = "square", group = "look", label = "Square minimap",
-        tip = "The minimap square instead of round, without its round frame. Addon buttons on its edge follow"
+        tip = "The minimap square instead of round, in a square frame. Addon buttons on its edge follow"
             .. " when the addon asks the minimap's shape.",
     }, OnOff(function() return S().square end, function(on)
         S().square = on

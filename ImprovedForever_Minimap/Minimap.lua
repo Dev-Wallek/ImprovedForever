@@ -956,7 +956,8 @@ end
 
 ---------------------------------------------------------------------------
 -- Square minimap: the game's minimap masked square, its round frame art
--- faded by an animation of ours. One of the exceptions in docs/taint.md.
+-- faded by an animation of ours, a square frame of ours round it. One of
+-- the exceptions in docs/taint.md.
 -- The game sets the mask again as the rotateMinimap option changes
 -- (MinimapCluster:UpdateMinimapConfig), so ours goes back on after it.
 -- GetMinimapShape tells other addons (LibDBIcon's buttons) its edge.
@@ -969,8 +970,32 @@ local ROUND_ART = { "MinimapCompassTexture", "MinimapCompassTextureUnderlay" }
 -- ponytail: 1 assumed to be the game's own scale (there's no getter).
 local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetTaskBlobRingScalar", "SetArchBlobRingScalar" }
 
+-- Ours round the square: a frame of our own on the minimap (shown and
+-- hidden with it), its band just outside the map's edge
+-- (ic_minimap_square, tools/make_minimap_frame.py: the band 9 of the
+-- corner's 32 texels in)
+local FRAME_CORNER = 24
+local FRAME_OUT = math.floor(FRAME_CORNER * 9 / 32 + 0.5)
+local squareFrame
+
+local function SquareFrame()
+    if squareFrame then return squareFrame end
+    squareFrame = CreateFrame("Frame", nil, Minimap)
+    squareFrame:EnableMouse(false)
+    squareFrame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -FRAME_OUT, FRAME_OUT)
+    squareFrame:SetPoint("BOTTOMRIGHT", Minimap, "BOTTOMRIGHT", FRAME_OUT, -FRAME_OUT)
+    K.NineSlice(squareFrame, "ic_minimap_square", 128, 128, 32, FRAME_CORNER, "ARTWORK")
+    return squareFrame
+end
+
 function MM.ApplySquare()
     local square = MM.Settings().square
+    if square or squareFrame then
+        local f = SquareFrame()
+        f:SetFrameStrata(Minimap:GetFrameStrata())
+        f:SetFrameLevel(Minimap:GetFrameLevel() + 5)
+        f:SetShown(square)
+    end
     -- docs/taint.md, exceptions: the minimap's mask and blob rings
     Minimap:SetMaskTexture(square and SQUARE_MASK or ROUND_MASK)
     for _, method in ipairs(BLOB_RINGS) do
