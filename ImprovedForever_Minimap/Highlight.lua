@@ -1,10 +1,10 @@
 -- What can be looted or gathered, easier to see:
 -- - every interact icon (the game's "Interact icons: show all": corpses,
 --   chests, herbs, ore, quest objects), over what the interact key would
---   reach, not over everything in sight. The values before are kept and
---   set back when it's turned off. Forever's Gamepad UI sets these as it
---   starts and stops (Blizzard_Gamepad/Core.lua), so they're set again
---   after a login and a switch of the pad.
+--   reach, not over everything in sight. Set as temporary values over the
+--   saved ones, as Forever's Gamepad UI sets its own (Blizzard_Gamepad/Core.lua:
+--   SetupTempCVar), so the player's saved choice stays; set again after a
+--   login and a switch of the pad, which put the game's back.
 -- - Find Herbs / Find Minerals on, for the gathering skills you have (the
 --   tracking list only has those), whatever their level.
 local IF = ImprovedForever
@@ -15,18 +15,27 @@ local H = {}
 MM.Highlight = H
 
 local ICONS = { "SoftTargetIconEnemy", "SoftTargetIconInteract", "SoftTargetIconGameObject", "SoftTargetLowPriorityIcons" }
+-- (the Gamepad UI's own temporary values, put back when turned off with it on)
+local PAD_VALUES = { SoftTargetIconEnemy = "0", SoftTargetIconInteract = "1", SoftTargetIconGameObject = "1" }
+
+local applied
 
 local function ApplyIcons()
-    local s = MM.Settings()
-    if s.interactIcons then
-        if not s.iconsBefore then
-            s.iconsBefore = {}
-            for _, cvar in ipairs(ICONS) do s.iconsBefore[cvar] = GetCVar(cvar) end
+    if MM.Settings().interactIcons then
+        for _, cvar in ipairs(ICONS) do
+            if GetCVar(cvar) ~= "1" then C_CVar.SetTempCVar(cvar, "1") end
         end
-        for _, cvar in ipairs(ICONS) do SetCVar(cvar, "1") end
-    elseif s.iconsBefore then
-        for cvar, value in pairs(s.iconsBefore) do SetCVar(cvar, value) end
-        s.iconsBefore = nil
+        applied = true
+    elseif applied then
+        local pad = GetCVarBool("GamePadEnable")
+        for _, cvar in ipairs(ICONS) do
+            if pad and PAD_VALUES[cvar] then
+                C_CVar.SetTempCVar(cvar, PAD_VALUES[cvar])
+            else
+                C_CVar.RemoveTempCVar(cvar)
+            end
+        end
+        applied = false
     end
 end
 
@@ -47,9 +56,16 @@ function H.Apply()
     ApplyTracking()
 end
 
--- (a moment after: the Gamepad UI sets its values in the same events)
+-- (a moment after: the Gamepad UI sets its values in the same events; a
+-- skill learnt only changes the tracking)
 local events = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "GAME_PAD_ACTIVE_CHANGED", "SKILL_LINES_CHANGED" }) do
     events:RegisterEvent(e)
 end
-events:SetScript("OnEvent", function() C_Timer.After(1, H.Apply) end)
+events:SetScript("OnEvent", function(_, event)
+    if event == "SKILL_LINES_CHANGED" then
+        if IF.db then ApplyTracking() end
+        return
+    end
+    C_Timer.After(1, H.Apply)
+end)
