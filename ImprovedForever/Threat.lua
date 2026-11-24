@@ -12,7 +12,7 @@ T.UNITS = { "player", "pet", "party1", "party2", "party3", "party4" }
 local PULL_AT = 90 -- (scaled percent; at 100 the aggro goes over)
 
 local function Value(v)
-    if type(issecretvalue) == "function" and issecretvalue(v) then return nil end
+    if IF.Secret(v) then return nil end
     return v
 end
 
