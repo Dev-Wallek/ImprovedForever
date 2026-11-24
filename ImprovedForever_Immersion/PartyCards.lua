@@ -61,9 +61,7 @@ local POWER_FILL = "UI-HUD-UnitFrame-Target-PortraitOn-Bar-"
 
 local Try, Flag, Text, Bar = UF.Try, UF.Flag, UF.Text, UF.Bar
 
-local function Secret(v)
-    return type(issecretvalue) == "function" and issecretvalue(v)
-end
+local Secret = IF.Secret
 
 ---------------------------------------------------------------------------
 -- A card: the avatar (UnitFrames.lua, as the player's), along its foot on
