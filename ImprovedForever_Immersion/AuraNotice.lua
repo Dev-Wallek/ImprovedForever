@@ -198,7 +198,7 @@ local events = CreateFrame("Frame")
 events:RegisterUnitEvent("UNIT_AURA", "player")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:SetScript("OnEvent", function(_, event, _, updateInfo)
+IN.Script(events, "OnEvent", "AuraNotice events", function(_, event, _, updateInfo)
     if event == "PLAYER_ENTERING_WORLD" then
         known, queue, current = nil, {}, nil
     end
@@ -207,7 +207,7 @@ events:SetScript("OnEvent", function(_, event, _, updateInfo)
 end)
 
 local ticker = CreateFrame("Frame")
-ticker:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(ticker, "OnUpdate", "AuraNotice ticker", function(_, elapsed)
     local now = GetTime()
     if current and now >= shownFor then current = nil end
     if not current and #queue > 0 then

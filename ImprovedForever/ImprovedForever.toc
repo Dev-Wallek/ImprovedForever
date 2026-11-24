@@ -13,6 +13,7 @@
 ## SavedVariablesPerCharacter: ImprovedForeverCharDB
 
 Core.lua
+Perf.lua
 Pad.lua
 Input.lua
 Actions.lua

@@ -807,24 +807,13 @@ function MM.SetKey(key)
     IF.db.minimapKey = key
 end
 
-local keyWatch = CreateFrame("Frame")
-local wasDown = false
-keyWatch:SetScript("OnUpdate", function()
-    local key = MM.Key()
-    -- (only while the game has the gamepad's focus, Binds.lua)
-    if not key or not IsKeyDown or (IF.Menu and IF.Menu.IsOpen()) or not IF.Binds.InGame() then
-        wasDown = false
-        return
-    end
-    local held, pressed = Parts(key)
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held))
-    -- The moment the combination is made
-    if down and not wasDown then
+IF.Binds.Watch({
+    name = "minimap labels", key = MM.Key, when = IF.Binds.WorldWatch,
+    run = function()
         lastToggle = 0
         MM.Toggle()
-    end
-    wasDown = down
-end)
+    end,
+})
 
 ---------------------------------------------------------------------------
 -- Alerts

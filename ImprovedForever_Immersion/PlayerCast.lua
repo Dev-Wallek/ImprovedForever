@@ -47,13 +47,16 @@ local Try, Secret = UF.Try, function(v)
     return type(issecretvalue) == "function" and issecretvalue(v)
 end
 
--- A spell icon's main colour ({ r, g, b }), or nil (not listed, or secret)
+-- A spell icon's main colour ({ r, g, b }, shared: read only), or nil (not listed, or secret)
+local iconColors = {}
 local function IconColor(texture)
     local map = IN.IconColors and IN.IconColors.icons
     if not map or Secret(texture) or type(texture) ~= "number" then return nil end
+    if iconColors[texture] then return iconColors[texture] end
     local c = map[texture]
     if not c then return nil end
-    return { math.floor(c / 65536) / 255, math.floor(c / 256) % 256 / 255, c % 256 / 255 }
+    iconColors[texture] = { math.floor(c / 65536) / 255, math.floor(c / 256) % 256 / 255, c % 256 / 255 }
+    return iconColors[texture]
 end
 
 PlayerCast.IconColor = IconColor
@@ -493,7 +496,7 @@ end
 
 local driver = CreateFrame("Frame")
 local pickSince = 1
-driver:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(driver, "OnUpdate", "PlayerCast driver", function(_, elapsed)
     pickSince = pickSince + elapsed
     if pickSince >= 1 then
         pickSince = 0
@@ -504,7 +507,7 @@ driver:SetScript("OnUpdate", function(_, elapsed)
     hub:SetShown(line:IsShown())
 end)
 
-line:SetScript("OnUpdate", function(self)
+IN.Script(line, "OnUpdate", "PlayerCast line", function(self)
     local now = GetTime()
     -- (the cast's diamond while it's cast)
     if self.kind or self.holdUntil then Mirror() end
@@ -555,12 +558,12 @@ end)
 -- (and while it's shown, ours played again each frame: the game's own fade-out and flash of the bar
 -- on a cast's end would else draw it over ours)
 local keeper = CreateFrame("Frame")
-keeper:SetScript("OnUpdate", function()
+IN.Script(keeper, "OnUpdate", "PlayerCast keeper", function()
     local bar = _G.PlayerCastingBarFrame
     if PlayerCast.on and bar and bar:IsShown() then IF.Focus.Refade(bar) end
 end)
 
-events:SetScript("OnEvent", function(_, event)
+IN.Script(events, "OnEvent", "PlayerCast events", function(_, event)
     if not PlayerCast.on then return end
     KeepHidden()
     if event == "UNIT_SPELLCAST_INTERRUPTED" then

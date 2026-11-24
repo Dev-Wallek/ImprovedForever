@@ -211,7 +211,7 @@ end
 
 local driver = CreateFrame("Frame")
 local since = 0
-driver:SetScript("OnUpdate", function(self, elapsed)
+IN.Script(driver, "OnUpdate", "Breath driver", function(self, elapsed)
     if not IF.db then return end
     since = since + elapsed
     if since < 0.03 then return end

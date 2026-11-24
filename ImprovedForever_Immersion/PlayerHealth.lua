@@ -296,6 +296,7 @@ local powerPulse, powerBeat = Pulse(power, 0.2, 0.6)
 local healthLine = { halves = {}, trail = {} }
 local powerLine = { halves = {}, trail = {} }
 local halves, powerHalves = healthLine.halves, powerLine.halves
+local bothLines = { healthLine, powerLine }
 
 for i = 1, 1 do
     local left = false
@@ -595,7 +596,7 @@ local function PowerGoal()
     return (not PlayerHealth.health or PowerWanted()) and 1 or 0
 end
 
-holder:SetScript("OnUpdate", function(self, elapsed)
+IN.Script(holder, "OnUpdate", "PlayerHealth holder", function(self, elapsed)
     local now = GetTime()
     if healthLine.trail.at and now >= healthLine.trail.at then TrailTo(healthLine, true, 1) end
     if powerLine.trail.at and now >= powerLine.trail.at then TrailTo(powerLine, true, 0) end
@@ -619,7 +620,7 @@ holder:SetScript("OnUpdate", function(self, elapsed)
     for _, p in ipairs(powerHalves) do
         Beat(p.cost, p.cost.base, flash)
     end
-    for _, L in ipairs({ healthLine, powerLine }) do
+    for _, L in ipairs(bothLines) do
         if L.flareAt then
             local t = (now - L.flareAt) / FLARE_TIME
             if t >= 1 then
@@ -742,7 +743,7 @@ events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("PLAYER_DEAD")
 events:RegisterEvent("PLAYER_ALIVE")
 events:RegisterEvent("PLAYER_UNGHOST")
-events:SetScript("OnEvent", function(_, event, _, castGUID, spellID)
+IN.Script(events, "OnEvent", "PlayerHealth events", function(_, event, _, castGUID, spellID)
     if event == "UNIT_SPELLCAST_START" then
         if PlayerHealth.power and not demo then CastStart(castGUID, spellID) end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then

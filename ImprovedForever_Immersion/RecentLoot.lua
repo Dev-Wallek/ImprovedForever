@@ -117,7 +117,7 @@ local function Tiles(bar)
         -- (landing: the tile flashing in the item's colour, fading)
         local flash = CreateFrame("Frame", nil, b)
         flash:Hide()
-        flash:SetScript("OnUpdate", function(self)
+        IN.Script(flash, "OnUpdate", "RecentLoot flash", function(self)
             local f = 1 - (GetTime() - self.at) / LAND_TIME
             if f <= 0 then
                 b.flashFill:SetAlpha(0)
@@ -240,7 +240,7 @@ RL.Refresh = Refresh
 
 local regen = CreateFrame("Frame")
 regen:RegisterEvent("PLAYER_REGEN_ENABLED")
-regen:SetScript("OnEvent", function()
+IN.Script(regen, "OnEvent", "RecentLoot regen", function()
     if combatPending then
         combatPending = nil
         Refresh()
@@ -486,7 +486,7 @@ local function Fly(item, from)
     -- (shown, unseen until its turn: a hidden frame's OnUpdate never runs)
     f:SetAlpha(0)
     f:Show()
-    f:SetScript("OnUpdate", Step)
+    IN.Script(f, "OnUpdate", "RecentLoot fly", Step)
 end
 
 ---------------------------------------------------------------------------
@@ -567,7 +567,7 @@ end
 local watch = CreateFrame("Frame")
 watch:Hide()
 local since = 0
-watch:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(watch, "OnUpdate", "RecentLoot watch", function(_, elapsed)
     since = since + elapsed
     if since < 0.1 then return end
     since = 0
@@ -579,7 +579,7 @@ for _, e in ipairs({ "LOOT_READY", "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLO
     "PLAYER_ENTERING_WORLD" }) do
     pcall(events.RegisterEvent, events, e)
 end
-events:SetScript("OnEvent", function(_, event, slot)
+IN.Script(events, "OnEvent", "RecentLoot events", function(_, event, slot)
     -- (off: the game's loot window isn't touched at all)
     if not On() and (event == "LOOT_READY" or event == "LOOT_OPENED" or event == "LOOT_SLOT_CLEARED") then
         watch:Hide()
@@ -770,7 +770,7 @@ function RL.Demo(parent)
     end
     for _ = 1, 3 do Land() end
     flashAt = nil
-    f:SetScript("OnUpdate", function(_, elapsed)
+    IN.Script(f, "OnUpdate", "RecentLoot test", function(_, elapsed)
         since = since + elapsed
         if since >= 2.4 then
             since = 0
@@ -820,7 +820,7 @@ pulse.tex = pulse:CreateTexture(nil, "OVERLAY", nil, 6)
 pulse.tex:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
 pulse.tex:SetBlendMode("ADD")
 pulse.tex:SetVertexColor(1, 0.85, 0.3)
-pulse:SetScript("OnUpdate", function(self)
+IN.Script(pulse, "OnUpdate", "RecentLoot pulse", function(self)
     local t = GetTime() - self.at
     if t > 3 or not self.button:IsVisible() then
         self:Hide()
@@ -1027,24 +1027,10 @@ function RL.Key()
     return IF.db and IN.Settings().recentLootKey or nil
 end
 
--- (its press, watched, not taken over: a button, or one held + one pressed
--- ("PADLTRIGGER+PAD4"); the buttons keep their own actions too)
-local keyWatch = CreateFrame("Frame")
-local wasDown = false
-keyWatch:SetScript("OnUpdate", function()
-    local key = RL.Key()
-    -- (only while the game has the gamepad's focus, Binds.lua)
-    if not key or not IsKeyDown or (IF.Menu and IF.Menu.IsOpen()) or not IF.Binds.InGame() then
-        wasDown = false
-        return
-    end
-    local held, pressed = key:match("^(.-)%+(.+)$")
-    pressed = pressed or key
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held)) or false
-    -- (the moment the combination is made)
-    if down and not wasDown and not focused then RL.Focus() end
-    wasDown = down
-end)
+IF.Binds.Watch({
+    name = "recent loot", key = RL.Key, when = IF.Binds.WorldWatch,
+    run = function() if not focused then RL.Focus() end end,
+})
 
 IF.Binds.Add({
     id = "recentloot", label = "Recent loot", group = "Other",

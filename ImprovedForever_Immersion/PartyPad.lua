@@ -500,7 +500,7 @@ local function Resize()
 end
 Resize()
 if GB.OnStyle then GB.OnStyle(Resize) end
-cluster:SetScript("OnUpdate", function(_, elapsed)
+IN.Script(cluster, "OnUpdate", "PartyPad cluster", function(_, elapsed)
     since = since + elapsed
     if since >= MIRROR_EVERY then
         since = 0
@@ -700,7 +700,7 @@ for _, event in ipairs({ "PLAYER_ROLES_ASSIGNED", "GROUP_ROSTER_UPDATE", "PLAYER
     "PLAYER_REGEN_DISABLED", "UPDATE_BINDINGS", "UPDATE_MACROS", "SPELLS_CHANGED" }) do
     pcall(events.RegisterEvent, events, event)
 end
-events:SetScript("OnEvent", function(_, event)
+IN.Script(events, "OnEvent", "PartyPad events", function(_, event)
     if event == "PLAYER_REGEN_DISABLED" then
         local mode = Mode()
         if mode then Bind(true, mode) end

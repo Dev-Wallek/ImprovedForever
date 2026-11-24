@@ -320,7 +320,7 @@ local function Timeline(name, source)
         end
     end
 
-    holder:SetScript("OnUpdate", function(_, elapsed)
+    IN.Script(holder, "OnUpdate", "BuffTimeline row", function(_, elapsed)
         T.since = T.since + elapsed
         if T.dirty or T.since >= LAYOUT_EVERY then
             T.dirty, T.since = false, 0
@@ -818,7 +818,7 @@ local repeating, repeatEnded = false, nil
 local repeats = CreateFrame("Frame")
 repeats:RegisterEvent("START_AUTOREPEAT_SPELL")
 repeats:RegisterEvent("STOP_AUTOREPEAT_SPELL")
-repeats:SetScript("OnEvent", function(_, event)
+IN.Script(repeats, "OnEvent", "BuffTimeline repeats", function(_, event)
     repeating = event == "START_AUTOREPEAT_SPELL"
     if not repeating then repeatEnded = GetTime() end
 end)
@@ -890,7 +890,7 @@ end
 -- rank of it) starts its timer, its length learnt; a trinket's use too)
 local casts = CreateFrame("Frame")
 casts:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-casts:SetScript("OnEvent", function(_, _, _, _, spellID)
+IN.Script(casts, "OnEvent", "BuffTimeline casts", function(_, _, _, _, spellID)
     if Secret(spellID) or type(spellID) ~= "number" then return end
     local now = GetTime()
     local name = SpellName(spellID)

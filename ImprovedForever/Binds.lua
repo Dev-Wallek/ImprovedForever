@@ -51,6 +51,51 @@ function B.HeldList(held)
     return list
 end
 
+---------------------------------------------------------------------------
+-- Watched presses: read with IsKeyDown, never taken, so the buttons keep
+-- their own actions too
+---------------------------------------------------------------------------
+-- Every button of spec down now. alone: a press of one button counts only
+-- with no shoulder or trigger held (it's another press's part then).
+function B.IsDown(spec, alone)
+    local held, pressed = B.Parse(spec)
+    if not IsKeyDown(pressed) then return false end
+    if held then
+        for _, key in ipairs(B.HeldList(held)) do
+            if not IsKeyDown(key) then return false end
+        end
+    elseif alone then
+        for _, key in ipairs(B.HOLDS) do
+            if IsKeyDown(key) then return false end
+        end
+    end
+    return true
+end
+
+local watches = {}
+
+-- opts: { name, key() -> its spec (nil: none), when() -> false while it
+-- doesn't count (optional), alone (B.IsDown), run() the moment the press is
+-- made }. All of them are read on one frame, each timed by /if perf.
+function B.Watch(opts)
+    local was = false
+    watches[#watches + 1] = IF.Prof("key watch: " .. opts.name, function()
+        local key = IF.db and opts.key()
+        local down = key and (not opts.when or opts.when()) and B.IsDown(key, opts.alone) or false
+        if down and not was then opts.run() end
+        was = down
+    end)
+end
+
+-- (while the game has the gamepad's focus and our panel is shut)
+function B.WorldWatch()
+    return not (IF.Menu and IF.Menu.IsOpen()) and B.InGame()
+end
+
+CreateFrame("Frame"):SetScript("OnUpdate", function()
+    for _, check in ipairs(watches) do check() end
+end)
+
 function B.Spec(held, pressed, double)
     return (held and (held .. "+") or "") .. pressed .. (double and ":double" or "")
 end
@@ -376,12 +421,17 @@ function B.PadOverrides()
 end
 
 -- The focus moved: every world binding re-applied (each one checks B.InGame)
+local function ApplyAll()
+    if IF.ApplyRingBindings then IF.Run("focus: ring bindings", IF.ApplyRingBindings) end
+    if IF.MyWheels then IF.Run("focus: wheel keys", IF.MyWheels.ApplyWheelKeys) end
+    if IF.Override then IF.Run("focus: overrides", IF.Override.Apply) end
+    if IF.Touch then IF.Run("focus: touchpad", IF.Touch.Apply) end
+end
+
 function B.FocusChanged()
     if IF.InCombat() or not IF.db then return end
-    if IF.ApplyRingBindings then IF.ApplyRingBindings() end
-    if IF.MyWheels then IF.MyWheels.ApplyWheelKeys() end
-    if IF.Override then IF.Override.Apply() end
-    if IF.Touch then IF.Touch.Apply() end
+    local took = IF.Run("focus changed", ApplyAll)
+    if took then IF.Note(("focus changed, in game %s: %.2f ms"):format(tostring(B.InGame()), took)) end
 end
 
 local focus = CreateFrame("Frame")
