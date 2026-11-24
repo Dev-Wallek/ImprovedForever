@@ -16,7 +16,7 @@ for _, e in ipairs({ "PLAYER_ENTERING_WORLD", "UPDATE_EXHAUSTION", "PLAYER_XP_UP
     events:RegisterEvent(e)
 end
 events:SetScript("OnEvent", function(_, event)
-    if not (IF.db and P.Settings().restReminder) then return end
+    if not (IF.db and P.Settings().restReminder and P.Gaining()) then return end
     if event == "PLAYER_CAMPING" then
         if not IsResting() and not P.RestFull() then
             Say("Logging out outside an inn or a city: your rested experience grows slower.",
@@ -24,10 +24,9 @@ events:SetScript("OnEvent", function(_, event)
         end
         return
     end
-    local full = P.RestFull()
-    if full and not told then
+    if P.RestFull() and not told then
         Say("Your rested experience is full: more rest is lost.",
             "Spend it: kills give double experience until the blue part of the bar is used up.")
+        told = true
     end
-    told = full
 end)
