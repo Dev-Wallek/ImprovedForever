@@ -324,6 +324,7 @@ end)
 -- is on (Forever's spells and their icons)
 ---------------------------------------------------------------------------
 local FIND_SPELLS = { [2383] = true, [8387] = true, [2580] = true, [8388] = true }
+N.FIND_SPELLS = FIND_SPELLS
 local FIND_ICONS = { [133939] = true, [134183] = true, [136025] = true }
 
 -- The player has professions, and neither is Herbalism nor Mining

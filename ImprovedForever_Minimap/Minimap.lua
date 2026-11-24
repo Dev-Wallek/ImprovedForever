@@ -28,6 +28,8 @@ local DEFAULTS = {
     alertFor = "skill",  -- skill (gives skill), gather (can gather), any (any herb / ore), all (any dot)
     alertWith = "both",  -- both, vibe, sound, show (the message only)
     interval = 3,        -- seconds between alert scans
+    interactIcons = false, -- every interact icon (Highlight.lua)
+    trackGathering = false, -- Find Herbs / Find Minerals kept on (Highlight.lua)
 }
 
 function MM.Settings()

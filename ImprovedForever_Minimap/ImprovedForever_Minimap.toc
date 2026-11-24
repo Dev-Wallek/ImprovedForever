@@ -14,4 +14,5 @@
 Module.lua
 NodeScan.lua
 Minimap.lua
+Highlight.lua
 MinimapEditor.lua
