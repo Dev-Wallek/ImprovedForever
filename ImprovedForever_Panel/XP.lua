@@ -17,6 +17,7 @@ local function Gaining()
     local rules = GameRulesUtil
     return not (rules and rules.CanShowExperienceBar) or rules.CanShowExperienceBar()
 end
+IF.Panel.Gaining = Gaining
 
 -- Rested experience at its cap (150% of the level) while experience is gained
 function IF.Panel.RestFull()
