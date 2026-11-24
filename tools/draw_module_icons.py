@@ -4,6 +4,7 @@
   ic_mod_panel       a bar, a green fill along it, a coin over its end
   ic_mod_bags        a backpack, its front pocket and two strap tabs green
   ic_mod_professions an anvil, a green hammer over it
+  ic_mod_threat      a shield, a green "!" on it
 
 Run: python3 tools/draw_module_icons.py   (needs Pillow)
 """
@@ -106,8 +107,19 @@ def anvil():
     return [(body, CREAM), (hammer, GREEN)]
 
 
+def shield():
+    body, d = mask()
+    d.polygon([(p(64), p(10)), (p(108), p(26)), (p(104), p(70)), (p(64), p(118)),
+               (p(24), p(70)), (p(20), p(26))], fill=255)
+    mark, dm = mask()
+    rr(dm, (57, 30, 71, 76), 7)                   # the "!" stroke
+    dm.ellipse([p(56), p(84), p(72), p(100)], fill=255)   # its dot
+    body = ImageChops.subtract(body, mark.filter(ImageFilter.MaxFilter(3 * S + 1)))
+    return [(body, CREAM), (mark, GREEN)]
+
+
 for name, layers in (("ic_mod_addons", puzzle()), ("ic_mod_panel", panel()), ("ic_mod_bags", backpack()),
-                     ("ic_mod_professions", anvil())):
+                     ("ic_mod_professions", anvil()), ("ic_mod_threat", shield())):
     path = os.path.join(TEX, name + ".tga")
     compose(layers).save(path)
     print("wrote", path)
