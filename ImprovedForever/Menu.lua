@@ -512,23 +512,31 @@ function menu.Open(tab)
     menu.Disarm()
     menu.rightY, menu.leftX, menu.leftY = 0, 0, 0
     frame:Show()
-    PageOf(CurrentTab()):Show()
-    -- (it has the pad while up: the game's cursor and focus dimmed)
-    menu.sw:Take()
-    menu.HavePad(true)
+    -- (a page that fails to build would leave the window up without the pad: closed, the error said)
+    local ok, err = pcall(function()
+        PageOf(CurrentTab()):Show()
+        -- (it has the pad while up: the game's cursor and focus dimmed)
+        menu.sw:Take()
+        menu.HavePad(true)
+    end)
+    if not ok then
+        menu.Close()
+        return IF.Print("the panel failed to open, please report: " .. tostring(err))
+    end
     PlaySound(SOUNDKIT.IG_MAINMENU_OPEN)
 end
 
+-- The window and the pad let go first: a page failing to hide can't keep them
 function menu.Close()
     if not menu.IsOpen() then return end
     menu.behind = nil
     menu.Disarm()
-    CurrentPage():Hide()
     menu.UnbindPad()
     IF.Focus.DimNative(frame, false)
     frame:Hide()
     menu.repeatName = nil
     PlaySound(SOUNDKIT.IG_MAINMENU_CLOSE)
+    CurrentPage():Hide()
 end
 
 function menu.Toggle()
@@ -577,7 +585,7 @@ end)
 IF.OnPadStyleChanged(function() menu.Render() end)
 
 -- The controller's Menu / Options button pressed twice quickly opens this
--- panel (once still opens the game's own menu wheel: the button is only
+-- panel, or closes it (once still opens the game's own menu wheel: the button is only
 -- watched, never taken). The game's wheel, opened by the first press, is
 -- closed. Out of combat; off with IF.db.menuDouble = false (Bindings tab).
 local DOUBLE = 0.35
@@ -590,12 +598,12 @@ menuKey:SetScript("OnUpdate", function()
         local now = GetTime()
         if now - lastPress <= DOUBLE then
             lastPress = 0
-            if IF.db and IF.db.menuDouble ~= false and not InCombatLockdown() and not (menu.IsOpen() and not menu.Behind()) then
+            if IF.db and IF.db.menuDouble ~= false and not InCombatLockdown() then
                 -- (on the next frame: the game handles the press first)
                 C_Timer.After(0, function()
                     local radial = _G.GamepadRadial
                     if radial and radial:IsShown() then radial:Hide() end
-                    if not InCombatLockdown() then menu.Open() end
+                    if not InCombatLockdown() then menu.Toggle() end
                 end)
             end
         else
