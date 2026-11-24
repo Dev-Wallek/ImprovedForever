@@ -182,6 +182,23 @@ function A.MarketPrice(itemID, days)
     return math.floor((values[math.floor(mid)] + values[math.ceil(mid)]) / 2 + 0.5), #values
 end
 
+-- Its latest day's market price against the median of the days before it, over the chart's days:
+-- "rising +12%" / "falling -8%" in its colour, nil when within 5% or known for under 4 days
+local TREND_DAYS, TREND_MIN = 4, 5
+function A.TrendText(itemID)
+    local days = A.History(itemID)
+    if #days < TREND_DAYS then return nil end
+    local values = {}
+    for i = 1, #days - 1 do values[i] = days[i].market end
+    table.sort(values)
+    local mid = (#values + 1) / 2
+    local before = (values[math.floor(mid)] + values[math.ceil(mid)]) / 2
+    if before <= 0 then return nil end
+    local pct = math.floor((days[#days].market / before - 1) * 100 + 0.5)
+    if math.abs(pct) < TREND_MIN then return nil end
+    return pct > 0 and ("|cffe0a050rising +" .. pct .. "%|r") or ("|cff7fb0e0falling " .. pct .. "%|r")
+end
+
 -- What it brings a unit here after the cut, at its usual price (nil: unknown)
 function A.UnitNet(itemID)
     local market = A.MarketPrice(itemID)
@@ -547,6 +564,8 @@ local function TooltipPrices(tooltip, data)
     local ago = A.Today() - day
     local r, g, b = 0.79, 0.64, 0.35
     if market then tooltip:AddDoubleLine("Auction: usually", A.Money(market), r, g, b, 1, 1, 1) end
+    local trend = A.TrendText(itemID)
+    if trend then tooltip:AddDoubleLine("Auction: lately", trend, r, g, b) end
     tooltip:AddDoubleLine("Auction: lowest" .. (ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")),
         A.Money(lowest), r, g, b, 1, 1, 1)
     -- A bag stack: what it all brings
