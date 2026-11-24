@@ -476,7 +476,8 @@ function menu.Open(tab)
     end)
     if not ok then
         menu.Close()
-        return IF.Print("the panel failed to open, please report: " .. tostring(err))
+        IF.Print("the panel failed to open, please report: " .. tostring(err))
+        return geterrorhandler()(err)
     end
     PlaySound(SOUNDKIT.IG_MAINMENU_OPEN)
 end
