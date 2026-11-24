@@ -12,16 +12,18 @@ local UP = 3                   -- parent maps tried when the player's own has no
 local Rares = setmetatable({}, { __index = LB.PageClass })
 Rares.__index = Rares
 
--- The player's map with rares on it, and them
+-- The player's map with rares on it, and them (none found: the player's own map, no rares)
 local function Here()
     local all = IF.GameData.Rares()
-    local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    local own = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    local map = own
     for _ = 0, UP do
         if not map or all[map] then break end
         local info = C_Map.GetMapInfo(map)
         map = info and info.parentMapID
     end
-    return map, map and all[map] or {}
+    if map and all[map] then return map, all[map] end
+    return own, {}
 end
 
 function Rares:heading()
