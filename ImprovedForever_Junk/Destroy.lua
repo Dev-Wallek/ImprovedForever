@@ -830,11 +830,7 @@ end)
 -- Watched, not taken over; an R3 combo it uses is left to it by the wheels
 -- while the bags are open.
 ---------------------------------------------------------------------------
-local function Parts(spec)
-    local held, pressed = spec:match("^(.-)%+(.+)$")
-    if held then return held, pressed end
-    return nil, spec
-end
+local Parts = IF.Binds.Parse
 
 -- Its name: "R2 + R3"; glyphs too with size
 function DS.OpenKeyText(size)

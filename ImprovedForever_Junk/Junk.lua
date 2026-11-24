@@ -334,11 +334,7 @@ function J.SetMarkKey(key)
     J.Settings().markKey = key ~= DEFAULT_MARK_KEY and key or nil
 end
 
-local function Parts(spec)
-    local held, pressed = spec:match("^(.-)%+(.+)$")
-    if held then return held, pressed end
-    return nil, spec
-end
+local Parts = IF.Binds.Parse
 
 -- Its name: "L2 + L3"; glyphs too with size
 function J.MarkKeyText(size)
