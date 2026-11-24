@@ -27,7 +27,8 @@ local ITEMS = {
             .. " item's page or a waypoint; L2 / R2 turn the page, Circle goes back. Triangle searches it by name"
             .. " (items, creatures, quests, chests and nodes), typed with the letters on the page; L3 there"
             .. " filters it: kind, rarity, level, type, weapon or armor type, slot."
-            .. " A short R3 press still shows or hides the tooltip.",
+            .. " A short R3 press still shows or hides the tooltip. The target's page (where it is, what it drops"
+            .. " and sells): the wheel's \"Wiki: target\" slot, or /if wiki target.",
         -- (the mouse's way, while it's the one in hand)
         note = function()
             if IF.Input.Pad() then return nil end
