@@ -958,8 +958,8 @@ end
 -- Square minimap: the game's minimap masked square, its round frame art
 -- faded by an animation of ours, a square frame of ours round it. One of
 -- the exceptions in docs/taint.md.
--- The game sets the mask again as the rotateMinimap option changes
--- (MinimapCluster:UpdateMinimapConfig), so ours goes back on after it.
+-- Round while the rotateMinimap option is on (MM.IsSquare); the game sets the
+-- mask again as it changes (MinimapCluster:UpdateMinimapConfig), so ours follows after it.
 -- GetMinimapShape tells other addons (LibDBIcon's buttons) its edge.
 ---------------------------------------------------------------------------
 local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
@@ -973,8 +973,7 @@ local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetTaskBlobRingScalar", "SetArch
 -- Ours round the square, made of the game's own round frame: each edge
 -- unrolls a quarter of its ring (the band cut in short pieces, its notches
 -- where they fall), the corners mitred (ic_minimap_miter_*,
--- tools/make_minimap_frame.py), the north arrow on top while the map
--- doesn't turn. Sizes in texels of the atlas elements (506 square, the
+-- tools/make_minimap_frame.py), the north arrow on top. Sizes in texels of the atlas elements (506 square, the
 -- ring's centre in the middle): the band from radius 184 to 214 with its
 -- shadows, the map's edge at 190, the band's middle at 199.
 local RING_ATLAS, ARROW_ATLAS = "UI-HUD-Minimap-Frame-Circle", "UI-HUD-Minimap-Frame-Pointer"
@@ -1099,12 +1098,15 @@ local function LayoutSquare()
     arrow:ClearAllPoints()
     arrow:SetPoint("TOPLEFT", Minimap, "TOPLEFT", w / 2 + (ARROW_BOX[1] - EL / 2) * k, (EL / 2 - R_EDGE - ARROW_BOX[2]) * k)
     arrow:SetSize((ARROW_BOX[3] - ARROW_BOX[1]) * k, (ARROW_BOX[4] - ARROW_BOX[2]) * k)
-    -- (a turning map has no fixed north)
-    arrow:SetShown(not GetCVarBool("rotateMinimap"))
+end
+
+-- Square as set, round while the game's Rotate Minimap is on (a turning map keeps its circle)
+function MM.IsSquare()
+    return MM.Settings().square and not GetCVarBool("rotateMinimap")
 end
 
 function MM.ApplySquare()
-    local square = MM.Settings().square
+    local square = MM.IsSquare()
     if square or squareFrame then
         local f = SquareFrame()
         f:SetFrameStrata(Minimap:GetFrameStrata())
@@ -1122,13 +1124,14 @@ end
 
 if not GetMinimapShape then
     function GetMinimapShape()
-        return IF.db and MM.Settings().square and "SQUARE" or "ROUND"
+        return IF.db and MM.IsSquare() and "SQUARE" or "ROUND"
     end
 end
 
 IF.OnLogin(function()
     if MM.Settings().square then MM.ApplySquare() end
     if MinimapCluster and MinimapCluster.UpdateMinimapConfig then
+        -- (Rotate Minimap turned on or off: round or square again)
         hooksecurefunc(MinimapCluster, "UpdateMinimapConfig", function()
             if MM.Settings().square then MM.ApplySquare() end
         end)

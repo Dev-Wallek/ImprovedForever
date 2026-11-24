@@ -155,7 +155,8 @@ local ITEMS = {
     Item({
         key = "square", group = "look", label = "Square minimap",
         tip = "The minimap square instead of round, in a square frame. Addon buttons on its edge follow"
-            .. " when the addon asks the minimap's shape.",
+            .. " when the addon asks the minimap's shape. Round while the game's Rotate Minimap option is on,"
+            .. " square again once it's off.",
     }, OnOff(function() return S().square end, function(on)
         S().square = on
         MM.ApplySquare()
