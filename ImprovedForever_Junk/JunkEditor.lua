@@ -1,6 +1,6 @@
 -- The Junk tab, a tab of settings (IF.SettingsPage, SettingsPage.lua): what
 -- is marked junk and where it shows (Junk.lua, the core's ItemValue.lua),
--- and the Destroy panel: on / off, the press that opens it (Destroy.lua).
+-- and the Destroy panel: opened from the bags or not, the press that does it (Destroy.lua).
 local IF = ImprovedForever
 
 local J = IF.Junk
@@ -84,15 +84,15 @@ local ITEMS = {
     }),
 
     Item({
-        key = "enabled", group = "destroy", label = "Destroy panel",
-        tip = "The panel of the junk, safe to throw away, opened while a bag is open. With the bags full, the top"
-            .. " face button (Triangle / Y) opens it from the loot window too: there each destroy loots the item"
-            .. " that didn't fit in the junk's place. At a vendor it sells. A wheel's slot and /if destroy"
-            .. " open it either way.",
+        key = "enabled", group = "destroy", label = "Open from the bags",
+        tip = "The Destroy panel (the junk, safe to throw away) opens with its press below while a bag is open."
+            .. " With the bags full, the top face button (Triangle / Y) opens it from the loot window too: there"
+            .. " each destroy loots the item that didn't fit in the junk's place. At a vendor it sells."
+            .. " Off: only a wheel's slot, the panel bar, a key or /if destroy open it.",
     }, OnOff(function() return DS.Enabled() end, function(on)
         -- (its own press back, without taking it from anything)
         B.Get("destroy").set(on and DS.OpenKey() or nil)
-    end, "Destroy panel")),
+    end, "Open from the bags")),
     {
         key = "key", group = "destroy", label = "Opens with",
         tip = "The press that opens the panel while a bag is open: one button, or hold one and press another."
