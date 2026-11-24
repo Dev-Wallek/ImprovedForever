@@ -27,6 +27,12 @@ function IF.InCombat()
     return type(InCombatLockdown) == "function" and InCombatLockdown()
 end
 
+-- A value the game keeps from addons: comparing it, indexing with it or
+-- tostring on it errors; only widgets take it
+function IF.Secret(v)
+    return type(issecretvalue) == "function" and issecretvalue(v) or false
+end
+
 -- Called after anything that changes what the rings hold (the Wheel
 -- module answers it)
 function IF.RefreshRings()
