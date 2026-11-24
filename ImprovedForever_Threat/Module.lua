@@ -66,15 +66,14 @@ local function ImmersionHeader()
     return IN and IN.Settings and IN.Settings().target and _G.ImprovedForeverTargetHeader
 end
 
-local fontSet
 local function Place()
-    local over = ImmersionHeader() or TargetFrame
+    local immersion = ImmersionHeader()
     meter:ClearAllPoints()
-    meter:SetPoint("TOP", over, "BOTTOM", 0, -4)
-    if ImmersionHeader() and not fontSet then
-        local HS = IF.Interface.HeaderSlot
-        header:SetFont(HS.FONT, 13, "")
-        fontSet = true
+    meter:SetPoint("TOP", immersion or TargetFrame, "BOTTOM", 0, -4)
+    if immersion then
+        header:SetFont(IF.Interface.HeaderSlot.FONT, 13, "")
+    else
+        header:SetFontObject("GameFontNormalSmall")
     end
 end
 
@@ -102,6 +101,8 @@ local function Refresh()
     local s = TM.Settings()
     local list = s.meter and UnitCanAttack("player", "target") and Entries() or {}
     if #list == 0 or (#list == 1 and not s.solo) then return meter:Hide() end
+    -- (before the header's colour: a font object brings its own)
+    Place()
     local warning = s.warnings and WARNINGS[T.Warning("target") or ""]
     if warning then
         header:SetText(warning[1])
@@ -123,7 +124,6 @@ local function Refresh()
         end
     end
     meter:SetHeight(2 * PAD + (#list + 1) * ROW_H)
-    Place()
     meter:Show()
 end
 TM.Refresh = Refresh
