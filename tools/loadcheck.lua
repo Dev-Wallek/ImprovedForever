@@ -425,8 +425,12 @@ local CHECKS = {
         local def = B.Get("destroy")
         def.set(nil)
         assert(DS.Enabled() and DS.OpenKey() == nil, "unbinding turned the panel off or kept the press")
+        def.set("PADLSHOULDER+PADRSTICK")
+        assert(DS.OpenKey() == "PADLSHOULDER+PADRSTICK", "a press set")
+        assert(not def.accepts("PAD4") and not def.accepts("PADRSTICK") and not def.accepts("PADRTRIGGER+PAD1"),
+            "a press the bags use accepted")
         def.set("PAD4")
-        assert(DS.OpenKey() == "PAD4", "a press set")
+        assert(DS.OpenKey() == "PADRTRIGGER+PADRSTICK", "a saved press the bags use kept")
         def.reset()
         assert(DS.OpenKey() == "PADRTRIGGER+PADRSTICK", "reset: the default press")
     end },

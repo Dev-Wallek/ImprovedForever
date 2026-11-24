@@ -896,7 +896,7 @@ function IF.SettingsPage(tab, GROUPS, ITEMS, hooks)
         local keyed = B.TakesKey(def)
         IF.Recorder.Start({
             title = "Bind " .. item.label, chord = item.chord and true or false,
-            accept = def and def.accepts, reject = item.label .. " can't go on that press",
+            accept = def and def.accepts, reject = def and def.refuse or (item.label .. " can't go on that press"),
             onDone = function(spec) G:Offer(item, spec) end,
             keys = keyed and (def.run ~= nil or def.button ~= nil or def.click ~= nil),
             clicks = keyed and def.click ~= nil,
