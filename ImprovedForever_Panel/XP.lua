@@ -30,17 +30,16 @@ IF.Panel.Add({
         if not Gaining() then return nil end
         local level, cur, max, rest = Values()
         if not level then return false end
+        local full = IF.Panel.RestFull() and " |cff4fa3ff(full)|r" or ""
         if IF.Panel.Settings().xpNumbers then
             local n = BreakUpLargeNumbers
             local text = ("Level %d  %s / %s  (%s to go)"):format(level, n(cur), n(max), n(max - cur))
             if rest > 0 then text = text .. ("  |cff4fa3ff+%s rested|r"):format(n(rest)) end
-            if IF.Panel.RestFull() then text = text .. " |cff4fa3ff(full)|r" end
-            return text
+            return text .. full
         end
         local text = ("Level %d  %d%%"):format(level, math.floor(cur / max * 100))
         if rest > 0 then text = text .. ("  |cff4fa3ff+%d%% rested|r"):format(math.floor(rest / max * 100)) end
-        if IF.Panel.RestFull() then text = text .. " |cff4fa3ff(full)|r" end
-        return text
+        return text .. full
     end,
     tip = function(tip)
         local level, cur, max, rest = Values()
