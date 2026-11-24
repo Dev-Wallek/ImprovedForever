@@ -830,12 +830,6 @@ end)
 -- Watched, not taken over; an R3 combo it uses is left to it by the wheels
 -- while the bags are open.
 ---------------------------------------------------------------------------
--- (nil: unbound, IF.db.bagCleanKey false; the panel itself stays on)
-function DS.OpenKey()
-    if not IF.db or IF.db.bagCleanKey == false then return nil end
-    return IF.db.bagCleanKey or DEFAULT_KEY
-end
-
 local function Parts(spec)
     local held, pressed = spec:match("^(.-)%+(.+)$")
     if held then return held, pressed end
@@ -872,6 +866,20 @@ local function Combo(spec)
     if not spec then return nil end
     local held, pressed = Parts(spec)
     if pressed == "PADRSTICK" then return held and COMBO_OF[held] or "R3" end
+end
+
+-- R3 with a shoulder or trigger held: the bags give those no use of their own
+function DS.Accepts(spec)
+    local combo = Combo(spec)
+    return combo ~= nil and combo ~= "R3"
+end
+
+-- (nil: unbound, IF.db.bagCleanKey false; the panel itself stays on;
+-- a saved press it doesn't accept: the default)
+function DS.OpenKey()
+    if not IF.db or IF.db.bagCleanKey == false then return nil end
+    local key = IF.db.bagCleanKey
+    return key and DS.Accepts(key) and key or DEFAULT_KEY
 end
 
 local suppressed
@@ -1184,13 +1192,14 @@ B.Add({
     icon = IF.TEX .. "ic_mod_destroy", context = "bags", order = 21,
     -- Watched, not taken; on an R3 combo the wheels leave it to the panel
     -- while the bags are open (Destroy.lua)
-    desc = "Opens the Destroy panel while your bags are open",
+    desc = "Opens the Destroy panel while your bags are open: R3 with L1, L2, R1 or R2 held",
     tip = "Opens the Destroy panel: the junk, safe to throw away. Only while a bag is open. With the bags full,"
         .. " the top face button (Triangle / Y) opens it from the loot window too: there each destroy"
         .. " loots the item that didn't fit in the junk's place.",
-    accepts = B.NotDouble,
+    accepts = function(spec) return IF.Destroy.Accepts(spec) end,
+    refuse = "Destroy: only R3 with L1, L2, R1 or R2 held (the bags use the other buttons)",
     -- (unbound: only the press goes, the panel stays on; off is the Junk tab's)
-    specs = function() return IF.Destroy.Enabled() and IF.Destroy.OpenKey() and B.One(IF.Destroy.OpenKey()) or {} end,
+    specs = function() return IF.Destroy.Enabled() and B.One(IF.Destroy.OpenKey()) or {} end,
     set = function(spec) IF.Destroy.SetOpenKey(spec) end,
     reset = function() IF.db.bagCleanKey = nil end,
     run = function(down) if down then OpenByHand() end end,

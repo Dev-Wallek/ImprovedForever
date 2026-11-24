@@ -216,7 +216,8 @@ end
 ---------------------------------------------------------------------------
 -- The bindings: { id, label, icon, group, tab (where else it is set), desc
 -- (what it does, a short line under its name), context ("world": while the game has the gamepad's focus, or "bags":
--- while a bag is open), accepts(spec), specs() (what it is bound to now), set(spec)
+-- while a bag is open), accepts(spec), refuse (optional: why a press it doesn't
+-- accept can't go), specs() (what it is bound to now), set(spec)
 -- (nil: unbound), unbind(spec) (optional: just that one) }
 ---------------------------------------------------------------------------
 local ICON = "Interface\\Icons\\"

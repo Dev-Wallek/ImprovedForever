@@ -989,7 +989,7 @@ function P:BindEntry(e)
         end,
         reject = function(spec)
             return B.GameOwns(spec) or (not def and IF.Override.Refusal(spec, e.action))
-                or ((e.name or "It") .. " can't go on that press")
+                or (def and def.refuse) or ((e.name or "It") .. " can't go on that press")
         end,
         onDone = function(spec, info)
             local held, pressed, double = B.Parse(spec)
