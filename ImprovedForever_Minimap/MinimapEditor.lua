@@ -160,6 +160,10 @@ local ITEMS = {
     }, OnOff(function() return S().square end, function(on)
         S().square = on
         MM.ApplySquare()
+        if on and GetCVarBool("rotateMinimap") then
+            IF.Print("square minimap: stays round while the game's Rotate Minimap option is on (a turning map"
+                .. " keeps its circle); square once you turn rotating off.")
+        end
     end, "Square minimap")),
     Item({
         key = "skills", group = "skills", label = "Your skills",
