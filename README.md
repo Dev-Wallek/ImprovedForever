@@ -26,7 +26,7 @@ the core, **Improved Forever**:
 
 | Addon | What it does |
 |---|---|
-| `ImprovedForever` | The core: button glyphs, the configuration panel, the Bindings tab (every press on one drawing of the controller, and its keyboard / mouse press), bag clean-up, touchpad corners, other addons' windows that close with Escape in L2 / R2 with a cursor in them, the game data (QuestieDB's, recipes) and the item verdict every module shares. Required. Holds the former Controller module. |
+| `ImprovedForever` | The core: button glyphs, the configuration panel, the Bindings tab (every press on one drawing of the controller, and its keyboard / mouse press), bag clean-up, mail to your bank character (a press puts a bag item into the mail, nothing sent by itself), touchpad corners, other addons' windows that close with Escape in L2 / R2 with a cursor in them, the game data (QuestieDB's, recipes) and the item verdict every module shares. Required. Holds the former Controller module. |
 | `ImprovedForever_Wheel` | Wheels on R3 combos, the recent action slot. |
 | `ImprovedForever_Vibration` | Vibration on game events and spell casts. |
 | `ImprovedForever_Minimap` | Names beside the minimap's dots (herbs, ore, quests, NPCs, party members: you choose), gathering alerts, a square minimap, all interact icons (corpses, chests, herbs, ore) and Find Herbs / Find Minerals kept on, each if you like. Formerly Gather. |

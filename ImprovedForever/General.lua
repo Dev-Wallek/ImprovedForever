@@ -75,6 +75,31 @@ local ITEMS = {
         confirm = true, confirmText = "Reset every binding to its default?",
     }),
     Item({
+        key = "bankMail", group = "mail", label = "Mail to Bank",
+        tip = "At the mailbox's send tab, the Mail to Bank press (Bindings tab; Ctrl + right-click with the "
+            .. "mouse) puts a bag item into the mail, and your bank character shows beside the recipient. "
+            .. "Nothing is sent by itself.",
+    }, OnOff(function() return IF.BankMail.Settings().on ~= false end, function(on)
+        IF.BankMail.Settings().on = on
+        IF.BankMail.Update()
+    end, "Mail to Bank")),
+    Item({
+        key = "bankName", group = "mail", label = "Bank character",
+        tip = "The character your items go to: one of yours on this realm and side (each one logged in once "
+            .. "with Improved Forever). Kept even when that character hasn't logged in for a long time.",
+        value = function() return IF.BankMail.Settings().name or "" end,
+        text = function() return IF.BankMail.Settings().name or "|cffff7a5cNone|r" end,
+        options = function()
+            local list = { { action = "", name = "None" } }
+            for _, c in ipairs(IF.GameData.AltSkills()) do list[#list + 1] = { action = c.name, name = c.name } end
+            return list
+        end,
+        choose = function(name)
+            IF.BankMail.Settings().name = name ~= "" and name or nil
+            IF.BankMail.Update()
+        end,
+    }),
+    Item({
         key = "whatsNew", group = "updates", label = "What's new",
         tip = "Shows what the latest version of each Improved Forever module changed, again: the list that "
             .. "appears after an update. Nothing is noted as seen by it.",
@@ -99,6 +124,7 @@ local ITEMS = {
 
 local GROUPS = {
     { key = "gamepad", label = "Gamepad" },
+    { key = "mail", label = "Mail" },
     { key = "updates", label = "Updates" },
 }
 

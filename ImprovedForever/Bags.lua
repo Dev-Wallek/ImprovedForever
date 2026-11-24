@@ -57,6 +57,25 @@ sortButton:SetScript("OnClick", function(_, _, down)
     SortAllBags()
 end)
 
+-- The bag slot the game's cursor is on: bag, slot (nil: none)
+function IF.FocusedBagSlot()
+    local bag, slot
+    pcall(function()
+        local nav = _G.SmartNavigation
+        local button = nav and nav.GetCurrentButton and nav:GetCurrentButton()
+        for _, f in ipairs({ button, button and button:GetParent() }) do
+            if f and f.GetBagID and f.GetID then
+                local b, s = f:GetBagID(), f:GetID()
+                if b and s and C_Container.GetContainerItemInfo(b, s) then
+                    bag, slot = b, s
+                    return
+                end
+            end
+        end
+    end)
+    return bag, slot
+end
+
 local bagFrames = {}
 
 local function AnyBagOpen()
