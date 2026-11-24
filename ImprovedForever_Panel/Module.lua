@@ -26,14 +26,14 @@ function P.Settings()
     return s
 end
 
--- (EDGE: the bar's gap to the screen's sides, so it doesn't run under a
+-- (PAD: the text's gap to the screen's side, so it doesn't run under a
 -- display's rounded or overscanned edge)
-local BAR_H, ROW_H, GAP, PAD, EDGE = 20, 18, 20, 8, 12
+local BAR_H, ROW_H, GAP, PAD = 20, 18, 20, 20
 
 local bar = CreateFrame("Frame", nil, UIParent)
 bar:SetFrameStrata("LOW")
-bar:SetPoint("TOPLEFT", EDGE, 0)
-bar:SetPoint("TOPRIGHT", -EDGE, 0)
+bar:SetPoint("TOPLEFT")
+bar:SetPoint("TOPRIGHT")
 bar:SetHeight(BAR_H)
 bar:Hide()
 local bg = bar:CreateTexture(nil, "BACKGROUND")
