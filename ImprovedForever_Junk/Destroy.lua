@@ -860,8 +860,10 @@ end)
 -- Watched, not taken over; an R3 combo it uses is left to it by the wheels
 -- while the bags are open.
 ---------------------------------------------------------------------------
+-- (nil: unbound, IF.db.bagCleanKey false; the panel itself stays on)
 function DS.OpenKey()
-    return IF.db and IF.db.bagCleanKey or DEFAULT_KEY
+    if not IF.db or IF.db.bagCleanKey == false then return nil end
+    return IF.db.bagCleanKey or DEFAULT_KEY
 end
 
 local function Parts(spec)
@@ -872,6 +874,7 @@ end
 
 -- Its name: "R2 + R3"; glyphs too with size
 function DS.OpenKeyText(size)
+    if not DS.OpenKey() then return "Not bound" end
     local held, pressed = Parts(DS.OpenKey())
     local function one(key)
         return (size and (IF.GlyphText(key, size) .. " ") or "") .. IF.ButtonName(key)
@@ -896,6 +899,7 @@ end
 -- The R3 combo its key is, if any ("R2")
 local COMBO_OF = { PADLSHOULDER = "L1", PADLTRIGGER = "L2", PADRSHOULDER = "R1", PADRTRIGGER = "R2" }
 local function Combo(spec)
+    if not spec then return nil end
     local held, pressed = Parts(spec)
     if pressed == "PADRSTICK" then return held and COMBO_OF[held] or "R3" end
 end
@@ -911,8 +915,13 @@ local function Suppress()
     suppressed = want
 end
 
+-- key: a spec, or nil for none
 function DS.SetOpenKey(key)
-    IF.db.bagCleanKey = key ~= DEFAULT_KEY and key or nil
+    if key == nil then
+        IF.db.bagCleanKey = false
+    else
+        IF.db.bagCleanKey = key ~= DEFAULT_KEY and key or nil
+    end
     Suppress()
 end
 
@@ -922,7 +931,7 @@ local tipsBefore      -- the tooltip setting before the opening press
 watcher:SetScript("OnUpdate", function()
     if not IF.db then return end
     Suppress()
-    if not DS.Enabled() or panel:IsShown() or IF.InCombat() or not IsKeyDown then
+    if not DS.Enabled() or not DS.OpenKey() or panel:IsShown() or IF.InCombat() or not IsKeyDown then
         wasDown = false
         return
     end
@@ -1183,10 +1192,11 @@ end)
 
 ---------------------------------------------------------------------------
 -- Opened by hand: its binding's key, /if destroy, a wheel's slot (from the loot
--- window while the bags are full, else the bags), whether the bags' press is on or not
+-- window while the bags are full, else the bags), with the bags' press bound or not
 ---------------------------------------------------------------------------
 local function OpenByHand()
     if panel:IsShown() then return DS.Close() end
+    if not DS.Enabled() then return IF.Print("the Destroy panel is off (the Junk tab).") end
     if IF.InCombat() then return IF.Print("the Destroy panel opens after combat.") end
     local loot = _G.LootFrame
     local fromLoot = loot and loot:IsShown() and (lootFull or FreeSlots() == 0)
@@ -1209,11 +1219,9 @@ B.Add({
         .. " the top face button (Triangle / Y) opens it from the loot window too: there each destroy"
         .. " loots the item that didn't fit in the junk's place.",
     accepts = B.NotDouble,
-    specs = function() return IF.Destroy.Enabled() and B.One(IF.Destroy.OpenKey()) or {} end,
-    set = function(spec)
-        IF.db.bagClean = spec ~= nil
-        if spec then IF.Destroy.SetOpenKey(spec) end
-    end,
-    reset = function() IF.db.bagClean = nil end,
+    -- (unbound: only the press goes, the panel stays on; off is the Junk tab's)
+    specs = function() return IF.Destroy.Enabled() and IF.Destroy.OpenKey() and B.One(IF.Destroy.OpenKey()) or {} end,
+    set = function(spec) IF.Destroy.SetOpenKey(spec) end,
+    reset = function() IF.db.bagCleanKey = nil end,
     run = function(down) if down then OpenByHand() end end,
 })
