@@ -970,22 +970,137 @@ local ROUND_ART = { "MinimapCompassTexture", "MinimapCompassTextureUnderlay" }
 -- ponytail: 1 assumed to be the game's own scale (there's no getter).
 local BLOB_RINGS = { "SetQuestBlobRingScalar", "SetTaskBlobRingScalar", "SetArchBlobRingScalar" }
 
--- Ours round the square: a frame of our own on the minimap (shown and
--- hidden with it), its band just outside the map's edge
--- (ic_minimap_square, tools/make_minimap_frame.py: the band 9 of the
--- corner's 32 texels in)
-local FRAME_CORNER = 24
-local FRAME_OUT = math.floor(FRAME_CORNER * 9 / 32 + 0.5)
-local squareFrame
+-- Ours round the square, made of the game's own round frame: each edge
+-- unrolls a quarter of its ring (the band cut in short pieces, its notches
+-- where they fall), the corners mitred (ic_minimap_miter_*,
+-- tools/make_minimap_frame.py), the north arrow on top while the map
+-- doesn't turn. Sizes in texels of the atlas elements (506 square, the
+-- ring's centre in the middle): the band from radius 184 to 214 with its
+-- shadows, the map's edge at 190, the band's middle at 199.
+local RING_ATLAS, ARROW_ATLAS = "UI-HUD-Minimap-Frame-Circle", "UI-HUD-Minimap-Frame-Pointer"
+local EL, R_IN, R_OUT, R_EDGE, R_MID = 506, 184, 214, 190, 199
+local ARROW_BOX = { 222, 22, 287, 67 }   -- the pointer's box (left, top, right, bottom)
+-- Per edge: the ring's angles swept from its first piece to its last (0
+-- east, counter-clockwise), the screen axis (1 x, 2 y) along which the
+-- band runs out and the side where its outer edge is, and the axis and
+-- direction along which it runs
+local SIDES = {
+    top = { from = 135, to = 45, rAxis = 2, rOuter = 0, sAxis = 1, sSign = 1 },
+    right = { from = 45, to = -45, rAxis = 1, rOuter = 1, sAxis = 2, sSign = 1 },
+    bottom = { from = 225, to = 315, rAxis = 2, rOuter = 1, sAxis = 1, sSign = -1 },
+    left = { from = 135, to = 225, rAxis = 1, rOuter = 0, sAxis = 2, sSign = -1 },
+}
+-- Per corner: its anchor, its angle on the ring, and the two bands meeting
+-- there, each with the mask of its half
+local CORNERS = {
+    { point = "TOPLEFT", x = -1, y = 1, angle = 135, { "top", "ur" }, { "left", "ll" } },
+    { point = "TOPRIGHT", x = 1, y = 1, angle = 45, { "top", "ul" }, { "right", "lr" } },
+    { point = "BOTTOMLEFT", x = -1, y = -1, angle = 225, { "left", "ul" }, { "bottom", "lr" } },
+    { point = "BOTTOMRIGHT", x = 1, y = -1, angle = 315, { "right", "ur" }, { "bottom", "ll" } },
+}
+local squareFrame, arrow
+local pieces = { top = {}, right = {}, bottom = {}, left = {} }
+
+-- The band at angle theta drawn on tex running along side, half a piece
+-- (in texels) either side of that angle
+local function SetBand(tex, info, theta, side, half)
+    local a = math.rad(theta)
+    local nx, ny = math.cos(a), -math.sin(a)
+    local coords = {}
+    -- (the texture's corners in the order SetTexCoord takes: UL, LL, UR, LR)
+    for _, c in ipairs({ { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } }) do
+        local r = c[side.rAxis] == side.rOuter and R_OUT or R_IN
+        local s = side.sSign * (c[side.sAxis] == 0 and -half or half)
+        local x = EL / 2 + nx * r - ny * s
+        local y = EL / 2 + ny * r + nx * s
+        coords[#coords + 1] = info.leftTexCoord + (info.rightTexCoord - info.leftTexCoord) * x / EL
+        coords[#coords + 1] = info.topTexCoord + (info.bottomTexCoord - info.topTexCoord) * y / EL
+    end
+    tex:SetTexture(info.file)
+    tex:SetTexCoord(unpack(coords))
+end
+
+local function NewPiece(mask)
+    local t = squareFrame:CreateTexture(nil, "ARTWORK")
+    t:SetSnapToPixelGrid(false)
+    t:SetTexelSnappingBias(0)
+    if mask then
+        local m = squareFrame:CreateMaskTexture()
+        m:SetTexture(IF.TEX .. "ic_minimap_miter_" .. mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        m:SetAllPoints(t)
+        t:AddMaskTexture(m)
+    end
+    return t
+end
 
 local function SquareFrame()
     if squareFrame then return squareFrame end
     squareFrame = CreateFrame("Frame", nil, Minimap)
     squareFrame:EnableMouse(false)
-    squareFrame:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -FRAME_OUT, FRAME_OUT)
-    squareFrame:SetPoint("BOTTOMRIGHT", Minimap, "BOTTOMRIGHT", FRAME_OUT, -FRAME_OUT)
-    K.NineSlice(squareFrame, "ic_minimap_square", 128, 128, 32, FRAME_CORNER, "ARTWORK")
+    squareFrame:SetAllPoints()
+    local ring = C_Texture.GetAtlasInfo(RING_ATLAS)
+    local half = (R_OUT - R_IN) / 2
+    for _, corner in ipairs(CORNERS) do
+        for _, band in ipairs(corner) do
+            local t = NewPiece(band[2])
+            band.tex = t
+            SetBand(t, ring, corner.angle, SIDES[band[1]], half)
+        end
+    end
+    local info = C_Texture.GetAtlasInfo(ARROW_ATLAS)
+    arrow = squareFrame:CreateTexture(nil, "OVERLAY")
+    arrow:SetTexture(info.file)
+    local function U(x) return info.leftTexCoord + (info.rightTexCoord - info.leftTexCoord) * x / EL end
+    local function V(y) return info.topTexCoord + (info.bottomTexCoord - info.topTexCoord) * y / EL end
+    arrow:SetTexCoord(U(ARROW_BOX[1]), U(ARROW_BOX[3]), V(ARROW_BOX[2]), V(ARROW_BOX[4]))
     return squareFrame
+end
+
+-- The pieces laid out for the minimap's size, the band as thick as the
+-- round frame's
+local function LayoutSquare()
+    local ring = C_Texture.GetAtlasInfo(RING_ATLAS)
+    local k = ring.width / EL
+    local w, h = Minimap:GetSize()
+    local inside, outside, thick = (R_EDGE - R_IN) * k, (R_OUT - R_EDGE) * k, (R_OUT - R_IN) * k
+    for _, corner in ipairs(CORNERS) do
+        for _, band in ipairs(corner) do
+            band.tex:ClearAllPoints()
+            band.tex:SetPoint(corner.point, Minimap, corner.point, corner.x * outside, corner.y * outside)
+            band.tex:SetSize(thick, thick)
+        end
+    end
+    for key, side in pairs(SIDES) do
+        local across = side.sAxis == 1
+        local span = (across and w or h) - 2 * inside
+        local n = math.ceil(span / thick)
+        local len = span / n
+        local half = R_MID * math.pi / 2 / n / 2
+        local list = pieces[key]
+        for i = 1, math.max(n, #list) do
+            local t = list[i]
+            if i > n then
+                t:Hide()
+            else
+                t = t or NewPiece()
+                list[i] = t
+                SetBand(t, ring, side.from + (side.to - side.from) * (i - 0.5) / n, side, half)
+                t:ClearAllPoints()
+                local along = inside + (i - 1) * len
+                if key == "top" then t:SetPoint("TOPLEFT", Minimap, "TOPLEFT", along, outside)
+                elseif key == "bottom" then t:SetPoint("BOTTOMLEFT", Minimap, "BOTTOMLEFT", along, -outside)
+                elseif key == "left" then t:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -outside, -along)
+                else t:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", outside, -along) end
+                t:SetSize(across and len or thick, across and thick or len)
+                t:Show()
+            end
+        end
+    end
+    arrow:ClearAllPoints()
+    arrow:SetPoint("TOPLEFT", Minimap, "TOPLEFT", w / 2 + (ARROW_BOX[1] - EL / 2) * k, (EL / 2 - R_EDGE - ARROW_BOX[2]) * k)
+    arrow:SetSize((ARROW_BOX[3] - ARROW_BOX[1]) * k, (ARROW_BOX[4] - ARROW_BOX[2]) * k)
+    -- (a turning map has no fixed north)
+    arrow:SetShown(not GetCVarBool("rotateMinimap"))
 end
 
 function MM.ApplySquare()
@@ -995,6 +1110,7 @@ function MM.ApplySquare()
         f:SetFrameStrata(Minimap:GetFrameStrata())
         f:SetFrameLevel(Minimap:GetFrameLevel() + 5)
         f:SetShown(square)
+        if square then LayoutSquare() end
     end
     -- docs/taint.md, exceptions: the minimap's mask and blob rings
     Minimap:SetMaskTexture(square and SQUARE_MASK or ROUND_MASK)
