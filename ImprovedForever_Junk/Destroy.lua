@@ -864,11 +864,7 @@ function DS.OpenKey()
     return IF.db and IF.db.bagCleanKey or DEFAULT_KEY
 end
 
-local function Parts(spec)
-    local held, pressed = spec:match("^(.-)%+(.+)$")
-    if held then return held, pressed end
-    return nil, spec
-end
+local Parts = IF.Binds.Parse
 
 -- Its name: "R2 + R3"; glyphs too with size
 function DS.OpenKeyText(size)
