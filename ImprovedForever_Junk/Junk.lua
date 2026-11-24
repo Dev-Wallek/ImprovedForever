@@ -359,25 +359,6 @@ function J.MarkKeyText(size)
     return held and (one(held) .. " + " .. one(pressed)) or one(pressed)
 end
 
--- The bag slot the game's cursor is on: bag, slot (nil: none)
-function J.FocusedSlot()
-    local bag, slot
-    pcall(function()
-        local nav = _G.SmartNavigation
-        local button = nav and nav.GetCurrentButton and nav:GetCurrentButton()
-        for _, f in ipairs({ button, button and button:GetParent() }) do
-            if f and f.GetBagID and f.GetID then
-                local b, s = f:GetBagID(), f:GetID()
-                if b and s and SlotInfo(b, s) then
-                    bag, slot = b, s
-                    return
-                end
-            end
-        end
-    end)
-    return bag, slot
-end
-
 -- The item's mark flipped (junk / not junk), said in the chat
 function J.Toggle(bag, slot)
     local e = IV.Toggle(bag, slot)
@@ -409,7 +390,7 @@ watcher:SetScript("OnUpdate", function()
     local down = IsKeyDown(pressed) and (held and IsKeyDown(held) or (not held and not Modified()))
     -- The moment the combination is made, on a bag item
     if down and not wasDown and AnyBagOpen() then
-        local bag, slot = J.FocusedSlot()
+        local bag, slot = IF.FocusedBagSlot()
         if bag then J.Toggle(bag, slot) end
     end
     wasDown = down
@@ -539,7 +520,7 @@ end
 -- Why a bag item has its verdict: the item under the cursor (the pad's,
 -- else the mouse's), else the first of an item id or link given
 local function Why(msg)
-    local bag, slot = J.FocusedSlot()
+    local bag, slot = IF.FocusedBagSlot()
     if not bag then
         local item = IF.Input.Hovered()
         if item and item.bag then bag, slot = item.bag, item.slot end

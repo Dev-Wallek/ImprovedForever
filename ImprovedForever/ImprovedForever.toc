@@ -30,6 +30,7 @@ Menu.lua
 Recorder.lua
 SettingsPage.lua
 Bags.lua
+BankMail.lua
 Touchpad.lua
 BindEditor.lua
 General.lua
