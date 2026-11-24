@@ -1090,6 +1090,26 @@ local CHECKS = {
         assert(PR.CraftsToGrey(2329, 95) == 0 and PR.CraftsToGrey(-1, 5) == nil, "crafts to grey: grey, unknown")
         trivial[-1], trivial[-2] = nil, nil
     end },
+    -- (an item's trend: its last day against the median of the days before)
+    { name = "auction trend", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local history = A.History
+        local function days(...)
+            local list = {}
+            for i, m in ipairs({ ... }) do list[i] = { day = i, market = m } end
+            A.History = function() return list end
+        end
+        days(100, 100, 100, 112)
+        assert(A.TrendText(1):find("rising +12%", 1, true), "rising")
+        days(100, 90, 110, 92)
+        assert(A.TrendText(1):find("falling -8%", 1, true), "falling")
+        days(100, 100, 100, 104)
+        assert(A.TrendText(1) == nil, "within 5%")
+        days(100, 100, 150)
+        assert(A.TrendText(1) == nil, "too few days")
+        A.History = history
+    end },
 }
 
 local args = { ... }

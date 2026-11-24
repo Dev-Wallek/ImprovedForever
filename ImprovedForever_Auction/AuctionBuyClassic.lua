@@ -1817,7 +1817,8 @@ local function RenderResults()
                 icon = info and info.iconFileID, quality = info and info.quality,
                 name = info and info.itemName or "...", price = priceText, upgrade = upgrade,
                 line = result.totalQuantity .. (ours and ours.line or " available")
-                    .. (ReqLevel(result.itemKey.itemID) and ("  ·  " .. ReqLevel(result.itemKey.itemID)) or ""),
+                    .. (ReqLevel(result.itemKey.itemID) and ("  ·  " .. ReqLevel(result.itemKey.itemID)) or "")
+                    .. (A.TrendText(result.itemKey.itemID) and ("  ·  " .. A.TrendText(result.itemKey.itemID)) or ""),
                 gain = gainText and { gainText, gainColor },
                 deal = VendorBadge(result) or BargainBadge(result),
             })
