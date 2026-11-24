@@ -136,6 +136,8 @@ local WINDOWS = {
     -- (other modules' windows: each there with its module)
     { key = "wiki", label = "Wiki", ours = true, desc = "Opens the Wiki on its search", icon = IF.TEX .. "ic_mod_wiki",
         macroIcon = "Interface\\Icons\\INV_Misc_Book_09", buttons = { "ImprovedForeverWikiToggle" } },
+    { key = "wikitarget", label = "Wiki: target", ours = true, desc = "The target's Wiki page: where it is, what it drops and sells",
+        icon = IF.TEX .. "ic_mod_wiki", macroIcon = "Interface\\Icons\\INV_Misc_Book_09", buttons = { "ImprovedForeverWikiTarget" } },
     { key = "fishcollection", label = "Fish Collection", ours = true, desc = "Opens the Fish Collection",
         icon = IF.TEX .. "ic_mod_fishing", macroIcon = "Interface\\Icons\\Trade_Fishing",
         buttons = { "ImprovedForeverFishCollectionToggle" } },

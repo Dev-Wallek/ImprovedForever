@@ -928,3 +928,19 @@ function LB.Open(item, origin)
     book:Open(LB.Page("item", item),
         { dim = origin ~= "auction", extra = origin == "ui" and { LB.originFrame } or nil })
 end
+
+-- The target's page (a creature: where it is, what it drops and sells), out of combat
+function LB.OpenTarget()
+    if IF.InCombat() then return IF.Print("the Wiki opens after combat.") end
+    local guid = UnitGUID("target")
+    local kind, npc
+    if type(guid) == "string" and not (issecretvalue and issecretvalue(guid)) then
+        -- ("Creature-0-server-instance-zone-npcID-spawn")
+        kind, npc = guid:match("^(%a+)%-[^-]*%-[^-]*%-[^-]*%-[^-]*%-(%d+)")
+    end
+    if kind ~= "Creature" then return IF.Print("Wiki: target a creature first.") end
+    local p = LB.Page("npc", tonumber(npc))
+    if not p then return IF.Print("Wiki: " .. (UnitName("target") or "it") .. " isn't in the Wiki.") end
+    LB.origin = nil
+    book:Open(p, {})
+end
