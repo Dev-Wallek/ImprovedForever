@@ -933,14 +933,13 @@ end
 function LB.OpenTarget()
     if IF.InCombat() then return IF.Print("the Wiki opens after combat.") end
     local guid = UnitGUID("target")
-    local kind, npc
-    if type(guid) == "string" and not (issecretvalue and issecretvalue(guid)) then
-        -- ("Creature-0-server-instance-zone-npcID-spawn")
-        kind, npc = guid:match("^(%a+)%-[^-]*%-[^-]*%-[^-]*%-[^-]*%-(%d+)")
-    end
+    if issecretvalue and issecretvalue(guid) then guid = nil end
+    -- ("Creature-0-server-instance-zone-npcID-spawn")
+    local kind, _, _, _, _, npc = strsplit("-", guid or "")
     if kind ~= "Creature" then return IF.Print("Wiki: target a creature first.") end
     local p = LB.Page("npc", tonumber(npc))
     if not p then return IF.Print("Wiki: " .. (UnitName("target") or "it") .. " isn't in the Wiki.") end
     LB.origin = nil
     book:Open(p, {})
 end
+IF.Actions.PressButton("ImprovedForeverWikiTarget", function() LB.OpenTarget() end)

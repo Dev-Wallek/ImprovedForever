@@ -463,7 +463,6 @@ function LB.ToggleSearch()
     book:Open(p, {})
 end
 IF.Actions.PressButton("ImprovedForeverWikiToggle", function() LB.ToggleSearch() end)
-IF.Actions.PressButton("ImprovedForeverWikiTarget", function() LB.OpenTarget() end)
 
 -- Triangle on a page of the Wiki: the search, what was typed last in it
 function LB.Search()
