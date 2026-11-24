@@ -9,10 +9,26 @@ local _, IF = ...
 local M = {}
 IF.BankMail = M
 
--- { on (false: off), name (the bank character), key (its press) }
+-- { on (false: off), names ("<realm>-<faction>": the bank character), key (its press) }
 function M.Settings()
     IF.db.bankMail = IF.db.bankMail or {}
     return IF.db.bankMail
+end
+
+local function Here()
+    return GetRealmName() .. "-" .. (UnitFactionGroup("player") or "")
+end
+
+-- The bank character of this realm and faction
+function M.Name()
+    return (M.Settings().names or {})[Here()]
+end
+
+function M.SetName(name)
+    local s = M.Settings()
+    s.names = s.names or {}
+    s.names[Here()] = name
+    M.Update()
 end
 
 local function On()
@@ -39,13 +55,15 @@ end
 
 -- (the bank character beside the recipient field)
 local hint = CreateFrame("Frame", nil, UIParent)
+-- (over the mail frame, a toplevel window at MEDIUM)
+hint:SetFrameStrata("HIGH")
 hint:SetSize(1, 1)
 hint:Hide()
 hint.text = hint:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 hint.text:SetPoint("LEFT")
 
 function M.Update()
-    local name = On() and M.Settings().name
+    local name = On() and M.Name()
     if not (name and SendOpen()) then return hint:Hide() end
     hint:ClearAllPoints()
     hint:SetPoint("LEFT", SendMailNameEditBox, "RIGHT", 8, 0)
@@ -58,7 +76,7 @@ SendMailFrame:HookScript("OnHide", M.Update)
 
 local B = IF.Binds
 B.Watch({
-    name = "mail to bank", key = function() return On() and M.Settings().key end, when = SendOpen,
+    name = "mail to bank", key = function() return On() and M.Settings().key end, when = SendOpen, alone = true,
     run = function()
         local bag, slot = IF.FocusedBagSlot()
         if bag then M.Attach(bag, slot) end
