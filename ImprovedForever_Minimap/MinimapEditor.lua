@@ -146,6 +146,22 @@ local ITEMS = {
         { "show", "Message only" },
     })),
     Item({
+        key = "interactIcons", group = "highlight", label = "All interact icons",
+        tip = "An icon over every corpse, chest, herb, ore and quest object the interact key reaches, not only"
+            .. " the usual ones (the game's Interact icons: show all). Icons show near you, not over everything"
+            .. " in sight. Off sets back what you had before.",
+    }, OnOff(function() return S().interactIcons end, function(on)
+        S().interactIcons = on
+        MM.Highlight.Apply()
+    end, "All interact icons")),
+    Item({
+        key = "trackGathering", group = "highlight", label = "Track your gathering",
+        tip = "Keeps Find Herbs and Find Minerals on for the gathering skills you have, whatever their level.",
+    }, OnOff(function() return S().trackGathering end, function(on)
+        S().trackGathering = on
+        MM.Highlight.Apply()
+    end, "Track your gathering")),
+    Item({
         key = "interval", group = "alert", label = "Look every",
         tip = "How often the minimap is read for alerts.",
     }, Choice("interval", "Look every", {
@@ -183,6 +199,7 @@ local GROUPS = {
     { key = "labels", label = "Labels" },
     { key = "alert", label = "Alerts" },
     { key = "look", label = "Look" },
+    { key = "highlight", label = "Loot and gathering" },
     { key = "skills", label = "Skills" },
 }
 

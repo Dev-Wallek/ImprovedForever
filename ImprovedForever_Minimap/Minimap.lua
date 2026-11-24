@@ -29,6 +29,8 @@ local DEFAULTS = {
     alertWith = "both",  -- both, vibe, sound, show (the message only)
     interval = 3,        -- seconds between alert scans
     square = false,      -- the minimap square (MM.ApplySquare)
+    interactIcons = false, -- every interact icon (Highlight.lua)
+    trackGathering = false, -- Find Herbs / Find Minerals kept on (Highlight.lua)
 }
 
 function MM.Settings()
