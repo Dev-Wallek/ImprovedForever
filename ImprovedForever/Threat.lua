@@ -29,7 +29,8 @@ function T.Of(unit, mob)
     if status == nil then
         status = T.Status(unit, mob)
         if status == nil then return nil end
-        return { status = status, tanking = status >= 2 }
+        -- (a boss: its values secret, the lead, a status, mostly not)
+        return { status = status, tanking = status >= 2, lead = Value(UnitThreatLeadSituation(unit, mob)) }
     end
     return {
         status = status,
