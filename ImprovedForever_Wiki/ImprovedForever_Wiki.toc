@@ -17,4 +17,5 @@ WikiPage.lua
 WikiMap.lua
 WikiItems.lua
 WikiSearch.lua
+WikiRares.lua
 WikiEditor.lua

@@ -467,6 +467,35 @@ function GD.Recipes()
     return index
 end
 
+---------------------------------------------------------------------------
+-- Rare creatures (rank 4 rare, 2 rare elite), by the map their spawns are on (our data:
+-- WorldData.lua): [uiMapID] = { { id, name, lo, hi, elite, points = { { x, y } } } },
+-- built once
+---------------------------------------------------------------------------
+local rares
+function GD.Rares()
+    if rares then return rares end
+    rares = {}
+    local data = IF.WorldData
+    local toUi = data and data.areaToUi or {}
+    for id, row in pairs(data and data.npcs or {}) do
+        local f = SplitRow(row)
+        if f[4] == "2" or f[4] == "4" then
+            local lo = tonumber(f[2])
+            for area, points in pairs(Spawns(f[8] or "") or {}) do
+                local map = toUi[area]
+                -- (instances: -1, -1)
+                if map and map ~= 0 and points[1] and points[1][1] >= 0 then
+                    rares[map] = rares[map] or {}
+                    table.insert(rares[map], { id = id, name = f[1], lo = lo, hi = tonumber(f[3]) or lo,
+                        elite = f[4] == "2", points = points })
+                end
+            end
+        end
+    end
+    return rares
+end
+
 -- After a recipe seen is added: the index built again when next asked
 function GD.ResetRecipes()
     index = nil

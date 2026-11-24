@@ -5,8 +5,9 @@ local IF = ImprovedForever
 
 IF.AddModule({ key = "wiki", label = "Wiki", icon = IF.TEX .. "ic_mod_wiki", addon = ... })
 
--- /if wiki <item id or link>: an item's Wiki page
+-- /if wiki <item id or link>: an item's Wiki page; /if wiki rares: the zone's rares
 IF.AddCommand("wiki", function(args, msg)
+    if args[1] == "rares" then return IF.Wiki.OpenRares() end
     local id = tonumber(args[1]) or tonumber((msg or ""):match("item:(%d+)"))
-    if id then IF.Wiki.Open(id) else IF.Print("/if wiki <item id or link>") end
-end, "<item id or link>: an item's page")
+    if id then IF.Wiki.Open(id) else IF.Print("/if wiki <item id or link> | rares") end
+end, "<item id or link>: an item's page; rares: the rare creatures of your zone")
