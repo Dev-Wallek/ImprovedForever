@@ -1715,12 +1715,13 @@ local function RenderResults()
             local gainText, gainColor
             if gain then gainText, gainColor = GainBadge(upgrade, gain, needLevel) end
             local priceText = price and price > 0 and A.Money(price) or "bid only"
+            local trend = A.TrendText(result.itemKey.itemID)
             f:Fill({
                 icon = info and info.iconFileID, quality = info and info.quality,
                 name = info and info.itemName or "...", price = priceText, upgrade = upgrade,
                 line = result.totalQuantity .. " available"
                     .. (ReqLevel(result.itemKey.itemID) and ("  ·  " .. ReqLevel(result.itemKey.itemID)) or "")
-                    .. (A.TrendText(result.itemKey.itemID) and ("  ·  " .. A.TrendText(result.itemKey.itemID)) or ""),
+                    .. (trend and ("  ·  " .. trend) or ""),
                 gain = gainText and { gainText, gainColor },
             })
             -- (dimmed only under the filters: the item's screen gone into
