@@ -309,13 +309,8 @@ end
 
 -- (its threat, 0 to 3; nil when it has none or the game keeps it secret)
 local function Threat(b)
-    local ok, level = pcall(function()
-        if b.sample then return b.sample.threat end
-        local status = UnitThreatSituation(b.unit)
-        if Secret(status) or type(status) ~= "number" then return nil end
-        return status
-    end)
-    return ok and level or nil
+    if b.sample then return b.sample.threat end
+    return IF.Threat.Status(b.unit)
 end
 
 local function Focus(b)

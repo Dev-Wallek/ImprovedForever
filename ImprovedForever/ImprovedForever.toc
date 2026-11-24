@@ -42,6 +42,7 @@ WorldData.lua
 FishingData.lua
 GameData.lua
 Recipes.lua
+Threat.lua
 Upgrades.lua
 ItemValue.lua
 Options.lua
