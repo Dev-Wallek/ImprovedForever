@@ -1123,6 +1123,19 @@ local CHECKS = {
         def.reset()
         assert(DS.OpenKey() == "PADRTRIGGER+PADRSTICK", "reset: the default press")
     end },
+    -- (the rares by map, from the bundled data: Mother Fang in Elwynn Forest, none in an instance)
+    { name = "rares by map", fn = function()
+        local GD = rawget(_G, "ImprovedForever") and ImprovedForever.GameData
+        if not (GD and GD.Rares) then return end
+        local fang
+        for _, r in ipairs(GD.Rares()[1429] or {}) do
+            if r.id == 471 then fang = r end
+        end
+        assert(fang and fang.name == "Mother Fang" and #fang.points > 0, "Mother Fang not on Elwynn Forest's map")
+        for _, list in pairs(GD.Rares()) do
+            for _, r in ipairs(list) do assert(r.points[1][1] >= 0, r.name .. ": an instance's spawn on a map") end
+        end
+    end },
 }
 
 local args = { ... }

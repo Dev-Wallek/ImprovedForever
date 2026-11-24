@@ -3,7 +3,8 @@
 -- from it: a slider each way; the quest names and the button legend on or
 -- off); seen the next time it opens. Its press (a button, a key or a
 -- touchpad corner) is set on the Bindings tab only (Binds.lua,
--- BindEditor.lua). PeekMap.lua does the work.
+-- BindEditor.lua). PeekMap.lua does the work. Under Rares: their pins on the map
+-- on or off (RareMap.lua).
 local IF = ImprovedForever
 
 local menu = IF.Menu
@@ -110,10 +111,18 @@ local ITEMS = {
         tip = "Moves the map from its position, by a share of the screen's height.",
         slider = Offset("y", "Down", "Up"),
     },
+    Item({
+        key = "rares", group = "rares", label = "Rares on the map",
+        tip = "A skull on the map (and the peek map) at each place a rare creature of the zone shown can"
+            .. " spawn; the mouse over one says its name and level.",
+    }, OnOff(function() return IF.RareMap.On() end, function(on)
+        S().rares = on
+    end, "Rares on the map")),
 }
 
 local GROUPS = {
     { key = "look", label = "Peek map" },
+    { key = "rares", label = "Rares" },
 }
 
 IF.PeekMapEditor = IF.SettingsPage({ key = "map", label = "Map", module = "map", order = 50 }, GROUPS, ITEMS)

@@ -5,9 +5,11 @@ local IF = ImprovedForever
 
 IF.AddModule({ key = "wiki", label = "Wiki", icon = IF.TEX .. "ic_mod_wiki", addon = ... })
 
--- /if wiki <item id or link>: an item's Wiki page; /if wiki target: the target's
+-- /if wiki <item id or link>: an item's Wiki page; /if wiki target: the target's;
+-- /if wiki rares: the zone's rares
 IF.AddCommand("wiki", function(args, msg)
     if args[1] == "target" then return IF.Wiki.OpenTarget() end
+    if args[1] == "rares" then return IF.Wiki.OpenRares() end
     local id = tonumber(args[1]) or tonumber((msg or ""):match("item:(%d+)"))
-    if id then IF.Wiki.Open(id) else IF.Print("/if wiki <item id or link> | target") end
-end, "<item id or link>: an item's page; target: the target's (what it drops and sells)")
+    if id then IF.Wiki.Open(id) else IF.Print("/if wiki <item id or link> | target | rares") end
+end, "<item id or link>: an item's page; target: the target's (what it drops and sells); rares: the rare creatures of your zone")

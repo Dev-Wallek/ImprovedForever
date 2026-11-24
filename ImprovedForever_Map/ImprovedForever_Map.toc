@@ -12,4 +12,5 @@
 
 Module.lua
 PeekMap.lua
+RareMap.lua
 PeekMapEditor.lua
