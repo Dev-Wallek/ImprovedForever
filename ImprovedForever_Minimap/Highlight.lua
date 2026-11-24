@@ -35,7 +35,7 @@ local function ApplyTracking()
     for i = 1, C_Minimap.GetNumTrackingTypes() do
         local info = C_Minimap.GetTrackingInfo(i)
         local spell = info and info.spellID
-        if spell and not (issecretvalue and issecretvalue(spell)) and N.FIND_SPELLS[spell] and not info.active then
+        if spell and not IF.Secret(spell) and N.FIND_SPELLS[spell] and not info.active then
             C_Minimap.SetTracking(i, true)
         end
     end
