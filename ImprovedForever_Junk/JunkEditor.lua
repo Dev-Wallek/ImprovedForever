@@ -96,7 +96,8 @@ local ITEMS = {
         key = "enabled", group = "destroy", label = "Destroy panel",
         tip = "The panel of the junk, safe to throw away, opened while a bag is open. With the bags full, the top"
             .. " face button (Triangle / Y) opens it from the loot window too: there each destroy loots the item"
-            .. " that didn't fit in the junk's place. At a vendor it sells.",
+            .. " that didn't fit in the junk's place. At a vendor it sells. A wheel's slot and /if destroy"
+            .. " open it either way.",
     }, OnOff(function() return DS.Enabled() end, function(on)
         -- (its own press back, without taking it from anything)
         B.Get("destroy").set(on and DS.OpenKey() or nil)

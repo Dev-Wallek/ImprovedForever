@@ -906,6 +906,13 @@ watcher:SetScript("OnUpdate", function()
             DS.SetTipsOff(tipsBefore)
         end
         DS.Open()
+    elseif down and not wasDown then
+        -- (bags shut: said, unless the press opened a wheel, its R3 combo's own)
+        C_Timer.After(0.1, function()
+            local ring = _G.ImprovedForeverRing
+            if AnyBagOpen() or (ring and ring:IsShown()) then return end
+            IF.Print("Destroy: " .. DS.OpenKeyText() .. " opens it only while a bag is open; a wheel slot or /if destroy opens it anywhere.")
+        end)
     end
     wasDown = down
     if not down then tipsBefore = TipsOff() end
@@ -1145,12 +1152,11 @@ lootEvents:SetScript("OnEvent", function(_, event, ...)
 end)
 
 ---------------------------------------------------------------------------
--- Opened without the pad: its binding's key, /if destroy (from the loot
--- window while the bags are full, else the bags)
+-- Opened by hand: its binding's key, /if destroy, a wheel's slot (from the loot
+-- window while the bags are full, else the bags), whether the bags' press is on or not
 ---------------------------------------------------------------------------
 local function OpenByHand()
     if panel:IsShown() then return DS.Close() end
-    if not DS.Enabled() then return IF.Print("the Destroy panel is off (the Junk tab).") end
     if IF.InCombat() then return IF.Print("the Destroy panel opens after combat.") end
     local loot = _G.LootFrame
     local fromLoot = loot and loot:IsShown() and (lootFull or FreeSlots() == 0)
