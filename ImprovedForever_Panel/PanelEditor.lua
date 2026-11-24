@@ -62,8 +62,20 @@ ITEMS[#ITEMS + 1] = Item({
     P.Refresh()
 end, "Money this session"))
 
+ITEMS[#ITEMS + 1] = Item({
+    key = "restReminder", group = "rest", label = "Rested reminders", peek = false,
+    tip = "A line in the chat when your rested experience is full, and when you log out outside an inn or a"
+        .. " city. The experience on the panel says \"full\" then too.",
+}, OnOff(function() return S().restReminder end, function(on) S().restReminder = on end, "Rested reminders"))
+
+ITEMS[#ITEMS + 1] = Item({
+    key = "restTips", group = "rest", label = "Rested tips", peek = false,
+    tip = "Each rested reminder also says what to do: where to log out, how to spend the rest.",
+}, OnOff(function() return S().restTips end, function(on) S().restTips = on end, "Rested tips"))
+
 local GROUPS = {
     { key = "blocks", label = "Shown" },
+    { key = "rest", label = "Rested" },
 }
 
 IF.PanelEditor = IF.SettingsPage({ key = "panel", label = "Panel", module = "panel", order = 45, peek = true },

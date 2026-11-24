@@ -11,6 +11,7 @@
 
 Module.lua
 XP.lua
+Rested.lua
 Money.lua
 Gear.lua
 PanelEditor.lua

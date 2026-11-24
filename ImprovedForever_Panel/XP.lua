@@ -18,6 +18,12 @@ local function Gaining()
     return not (rules and rules.CanShowExperienceBar) or rules.CanShowExperienceBar()
 end
 
+-- Rested experience at its cap (150% of the level) while experience is gained
+function IF.Panel.RestFull()
+    local level, _, max, rest = Values()
+    return Gaining() and level ~= nil and rest >= 1.5 * max
+end
+
 IF.Panel.Add({
     key = "xp", label = "Experience",
     events = { "PLAYER_ENTERING_WORLD", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "UPDATE_EXHAUSTION" },
@@ -29,10 +35,12 @@ IF.Panel.Add({
             local n = BreakUpLargeNumbers
             local text = ("Level %d  %s / %s  (%s to go)"):format(level, n(cur), n(max), n(max - cur))
             if rest > 0 then text = text .. ("  |cff4fa3ff+%s rested|r"):format(n(rest)) end
+            if IF.Panel.RestFull() then text = text .. " |cff4fa3ff(full)|r" end
             return text
         end
         local text = ("Level %d  %d%%"):format(level, math.floor(cur / max * 100))
         if rest > 0 then text = text .. ("  |cff4fa3ff+%d%% rested|r"):format(math.floor(rest / max * 100)) end
+        if IF.Panel.RestFull() then text = text .. " |cff4fa3ff(full)|r" end
         return text
     end,
     tip = function(tip)
