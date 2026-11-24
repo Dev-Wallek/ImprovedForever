@@ -17,9 +17,7 @@ IF.NodeScan = N
 N.step = 6           -- spacing of the points read, in minimap units
 N.debug = false      -- print each scan's dots
 
-local function Secret(v)
-    return type(issecretvalue) == "function" and issecretvalue(v)
-end
+local Secret = IF.Secret
 
 function N.Facing()
     local f = GetPlayerFacing and GetPlayerFacing()
