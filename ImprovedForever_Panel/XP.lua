@@ -3,9 +3,7 @@
 -- the game shows no experience bar (the top level, experience turned off)
 local IF = ImprovedForever
 
-local function Secret(v)
-    return issecretvalue and issecretvalue(v)
-end
+local Secret = IF.Secret
 
 local function Values()
     local level, cur, max, rest = UnitLevel("player"), UnitXP("player"), UnitXPMax("player"), GetXPExhaustion() or 0
