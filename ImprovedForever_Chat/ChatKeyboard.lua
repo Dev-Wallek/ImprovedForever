@@ -870,26 +870,12 @@ local function Toggle()
     CK.Open(nil)
 end
 
-local keyDown = false
-local keyWatch = CreateFrame("Frame")
-keyWatch:SetScript("OnUpdate", function()
-    local key = CK.Key()
-    -- (only while the game has the gamepad's focus, Binds.lua; the pad in hand)
-    if not key or not IsKeyDown or not IF.Input.Pad() or (IF.Menu and IF.Menu.IsOpen()) or not IF.Binds.InGame() then
-        keyDown = false
-        return
-    end
-    local held, pressed = IF.Binds.Parse(key)
-    local down = IsKeyDown(pressed) and true or false
-    if down then
-        for _, k in ipairs(IF.Binds.HeldList(held)) do
-            if not IsKeyDown(k) then down = false break end
-        end
-    end
-    -- (the moment the combination is made)
-    if down and not keyDown and not board:IsShown() then Toggle() end
-    keyDown = down
-end)
+-- (the pad in hand)
+IF.Binds.Watch({
+    name = "chat keyboard", key = CK.Key,
+    when = function() return IF.Input.Pad() and IF.Binds.WorldWatch() end,
+    run = function() if not board:IsShown() then Toggle() end end,
+})
 
 IF.Binds.Add({
     id = "chatkeyboard", label = "Chat keyboard", group = "Other", tab = "chat",

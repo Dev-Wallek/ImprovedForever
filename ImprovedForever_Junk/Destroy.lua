@@ -909,12 +909,12 @@ local tipsBefore      -- the tooltip setting before the opening press
 watcher:SetScript("OnUpdate", function()
     if not IF.db then return end
     Suppress()
-    if not DS.Enabled() or not DS.OpenKey() or panel:IsShown() or IF.InCombat() or not IsKeyDown then
+    if not DS.Enabled() or not DS.OpenKey() or panel:IsShown() or IF.InCombat() then
         wasDown = false
         return
     end
-    local held, pressed = Parts(DS.OpenKey())
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held))
+    local _, pressed = Parts(DS.OpenKey())
+    local down = IF.Binds.IsDown(DS.OpenKey())
     -- The moment the combination is made
     if down and not wasDown and AnyBagOpen() then
         -- An R3 in it has also reached the bag window, which turned its

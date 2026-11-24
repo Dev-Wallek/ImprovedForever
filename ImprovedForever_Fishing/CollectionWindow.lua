@@ -561,27 +561,7 @@ function B.Key()
     return IF.db and F.Settings().collectionKey or nil
 end
 
-local function Parts(spec)
-    local held, pressed = spec:match("^(.-)%+(.+)$")
-    if held then return held, pressed end
-    return nil, spec
-end
-
-local keyWatch = CreateFrame("Frame")
-local wasDown = false
-keyWatch:SetScript("OnUpdate", function()
-    local key = B.Key()
-    -- (only while the game has the gamepad's focus, Binds.lua)
-    if not key or not IsKeyDown or (IF.Menu and IF.Menu.IsOpen()) or not IF.Binds.InGame() then
-        wasDown = false
-        return
-    end
-    local held, pressed = Parts(key)
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held))
-    -- (the moment the combination is made)
-    if down and not wasDown then B.Toggle() end
-    wasDown = down
-end)
+IF.Binds.Watch({ name = "fish collection", key = B.Key, when = IF.Binds.WorldWatch, run = function() B.Toggle() end })
 
 local Binds = IF.Binds
 Binds.Add({
