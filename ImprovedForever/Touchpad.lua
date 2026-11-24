@@ -413,7 +413,7 @@ click:SetScript("PostClick", function(self, button, down)
             .. tostring(WorldMapFrame and WorldMapFrame:IsShown()))
     end
     if settings and region and settings.regions[region] == "peekmap" and IF.PeekMap then
-        IF.PeekMap.Opened()
+        IF.PeekMap.Opened(self:GetAttribute("ic-peek-" .. region), self)
     end
     if settings and settings.debug and self:GetAttribute("type") then
         local region = self:GetAttribute("ic-region")
@@ -532,11 +532,7 @@ function touch.Apply()
         end
         click:SetAttribute("ic-dmacro-" .. region, dmacro)
     end
-    if WorldMapFrame then
-        click:SetFrameRef("map", WorldMapFrame)
-        if WorldMapFrame.ScrollContainer then click:SetFrameRef("map-scroll", WorldMapFrame.ScrollContainer) end
-    end
-    if IF.PeekMap then click:SetAttribute("ic-peek", IF.PeekMap.SNIPPET) end
+    if IF.PeekMap then IF.PeekMap.Arm(click) end
     ClearOverrideBindings(click)
     -- While the panel is open it owns the touchpad click (it picks the slot
     -- under the finger); it gives it back when it closes (BindEditor.lua).
