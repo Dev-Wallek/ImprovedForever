@@ -1110,6 +1110,19 @@ local CHECKS = {
         assert(A.TrendText(1) == nil, "too few days")
         A.History = history
     end },
+    -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
+    { name = "destroy press unbound", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local DS, B = IF and IF.Destroy, IF and IF.Binds
+        if not DS then return end
+        local def = B.Get("destroy")
+        def.set(nil)
+        assert(DS.Enabled() and DS.OpenKey() == nil, "unbinding turned the panel off or kept the press")
+        def.set("PAD4")
+        assert(DS.OpenKey() == "PAD4", "a press set")
+        def.reset()
+        assert(DS.OpenKey() == "PADRTRIGGER+PADRSTICK", "reset: the default press")
+    end },
 }
 
 local args = { ... }
