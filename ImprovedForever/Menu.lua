@@ -586,8 +586,9 @@ IF.OnPadStyleChanged(function() menu.Render() end)
 
 -- The controller's Menu / Options button pressed twice quickly opens this
 -- panel, or closes it (once still opens the game's own menu wheel: the button is only
--- watched, never taken). The game's wheel, opened by the first press, is
--- closed. Out of combat; off with IF.db.menuDouble = false (Bindings tab).
+-- watched, never taken). The game's wheel, opened by the first press, closes on the
+-- second by itself (its binding toggles it: GamepadMode.OpenRadial). Out of combat;
+-- off with IF.db.menuDouble = false (Bindings tab).
 local DOUBLE = 0.35
 local menuKey = CreateFrame("Frame")
 local wasDown, lastPress = false, 0
@@ -601,8 +602,6 @@ menuKey:SetScript("OnUpdate", function()
             if IF.db and IF.db.menuDouble ~= false and not InCombatLockdown() then
                 -- (on the next frame: the game handles the press first)
                 C_Timer.After(0, function()
-                    local radial = _G.GamepadRadial
-                    if radial and radial:IsShown() then radial:Hide() end
                     if not InCombatLockdown() then menu.Toggle() end
                 end)
             end
