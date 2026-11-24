@@ -274,15 +274,17 @@ end)
 -- (the page shown is read as the panel draws: no callback of ours in the
 -- crossbar's lists, which would taint its secure work)
 
--- Our windows' macros made before their icons were right (the question
--- mark): each given its window's icon, once a session
+-- Our windows' macros, once a session: each given its window's icon (made
+-- before the icons were right: the question mark) and its action's macro
+-- as it runs now (the button it clicks)
 IF.OnLogin(function()
     if IF.InCombat() then return end
     for name, action in pairs(Macros()) do
         local _, current, body = GetMacroInfo(name)
         if body and not action:find(":", 1, true) then
             local icon = MacroIcon(action)
-            if icon ~= current then EditMacro(name, name, icon, body) end
+            local want = IF.Override.Macro(action) or body
+            if icon ~= current or want ~= body then EditMacro(name, name, icon, want) end
         end
     end
 end)

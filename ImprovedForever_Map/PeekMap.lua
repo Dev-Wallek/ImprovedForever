@@ -7,16 +7,15 @@
 -- Opening a game window from addon code taints it on Forever (Touchpad.lua),
 -- so the peek map is an action (Actions.lua, "peekmap") put on presses in
 -- the Bindings tab. On a press an override binding takes, and on a key, it
--- is bound to a secure button of ours that runs "/click <the map's micro
--- button>" (press: opens, release: closes, or tapped as the setting says;
--- on Forever the quest log's, which toggles the Map & Quest Log), in combat
--- too. A touchpad corner holds it the same way (Touchpad.lua). Anywhere else
--- (a crossbar slot, a wheel, a press twice) its macro clicks the map's
--- button, then our mark button, which shows the map it opened as the peek
--- map: a tap, the next press (or B on its window) closes it.
--- While open, the map has the gamepad (its own buttons and sticks) when the
--- game gave it the focus, as it does any window; the game's own Select
--- (TOGGLEUIFOCUS) gives the pad back to the world, the peek staying open.
+-- is bound to a secure button of ours (press: opens, release: closes, or
+-- tapped as the setting says). A touchpad corner holds it the same way
+-- (Touchpad.lua). Anywhere else (a crossbar slot, a wheel, a press twice)
+-- its macro clicks our toggle: a press opens it, the next closes it.
+-- The map is shown by our secure code, never as a window: Forever's frame
+-- manager only takes windows opened through ShowUIPanel, so the map never
+-- has the gamepad and every press does what it does without it. Not in
+-- combat (a handle to the map is refused there, and its button would open
+-- it as a window).
 local IF = ImprovedForever
 
 local K = IF.ConfigKit
@@ -163,8 +162,7 @@ local function Restore()
 end
 
 -- (parts of the window it shows later, a footer, faded too while a peek;
--- and the game's cursor, there when the peek opened the map as a window:
--- the first one, or in combat, Focus.lua)
+-- and the game's cursor, should it show over the map, Focus.lua)
 local refade = CreateFrame("Frame")
 refade:SetScript("OnUpdate", function()
     if not (peeking and saved and WorldMapFrame) then return end
@@ -176,13 +174,10 @@ refade:SetScript("OnUpdate", function()
     if pointer and pointer:GetAlpha() > 0 then IF.Focus.DimNative(place, true) end
 end)
 
-local shownAt   -- GetTime() of the map's last OnShow
-
 IF.OnLogin(function()
     local map = WorldMapFrame
     if not map then return end
     map:HookScript("OnShow", function()
-        shownAt = GetTime()
         PeekMap.Say("peek: map OnShow, peeking: " .. tostring(peeking))
     end)
     map:HookScript("OnHide", function()
@@ -196,9 +191,9 @@ end)
 -- While peeking: L1 / R1 zoom the map out / in (sub-zone <-> zone <-> continent
 -- <-> world), L2 /
 -- R2 move the focus (the super-tracked quest) to the previous / next
--- tracked quest. Priority override bindings on a button of ours, out of
--- combat; also while the map has the pad as a window, set again after each
--- focus change so they come after the window's own (the newest wins).
+-- tracked quest. Only while the peek is held (a key, a touchpad corner) and
+-- the game has the gamepad: priority override bindings on a button of
+-- ours, out of combat, bound or let go again as the pad moves.
 ---------------------------------------------------------------------------
 
 local MODIFIERS = { "", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-", "CTRL-ALT-SHIFT-" }
@@ -296,11 +291,12 @@ catch:SetScript("OnClick", function(_, key)
 end)
 
 local keysOn = false
+local held = false   -- the open peek is held: its keys wanted
 
 function PeekMap.Keys(on)
     if IF.InCombat() then return end
     ClearOverrideBindings(catch)
-    keysOn = on and true or false
+    keysOn = on and IF.Binds.InGame() and true or false
     if PeekMap.ShowLegend then PeekMap.ShowLegend() end
     if not keysOn then return end
     for key in pairs(KEYS) do
@@ -499,19 +495,14 @@ local LEGEND = {
     { { "PADLTRIGGER", "PADRTRIGGER" }, { "PADLTRIGGER", "PADRTRIGGER" }, "Change quest" },
     { { "PADLSHOULDER", "PADRSHOULDER" }, { "PADLSHOULDER", "PADRSHOULDER" }, "Zoom map out / in" },
 }
--- (the map took the pad as a window: the game's own Select, TOGGLEUIFOCUS,
--- gives it back to the world, the right stick to the camera)
-local LEGEND_FOCUSED = { LEGEND[1], LEGEND[2], { "PADBACK", "PADBACK", "Camera" } }
-
 function PeekMap.ShowLegend()
-    local list = keysOn and (IF.Binds.InGame() and LEGEND or LEGEND_FOCUSED) or nil
-    legend:Set(peeking and PeekMap.Settings().legend and list or nil)
+    legend:Set(peeking and keysOn and PeekMap.Settings().legend and LEGEND or nil)
 end
 
--- The pad moved between the map and the world (Binds.lua): the keys while
--- peeking bound or let go to match
+-- The pad moved between a window and the world (Binds.lua): the keys of a
+-- held peek bound or let go to match
 function PeekMap.Refocus()
-    if peeking then PeekMap.Keys(true) end
+    if peeking then PeekMap.Keys(held) end
 end
 IF.Input.OnChange(function() PeekMap.ShowLegend() end)
 
@@ -534,13 +525,21 @@ labelFrame:SetScript("OnUpdate", function(_, elapsed)
     UpdateLabels()
 end)
 
--- A click of ours has just opened the map (the hold button, a touchpad
--- corner): shown as the peek map
-function PeekMap.Opened()
+local refusedSaid = false
+
+-- After a click of ours (the hold button, the toggle, a touchpad corner;
+-- button: the one clicked): a map it showed is the peek map, held (its keys
+-- bound) or not. A press it refused in combat says why, once a session.
+function PeekMap.Opened(withKeys, button)
+    if button and button:GetAttribute("ic-peek-refused") and not refusedSaid then
+        refusedSaid = true
+        IF.Print("Peek map: not in combat, the game would open the map as a window that takes the controller.")
+    end
     if peeking or not (WorldMapFrame and WorldMapFrame:IsShown()) then return end
     peeking = true
+    held = withKeys and true or false
     Apply()
-    PeekMap.Keys(true)
+    PeekMap.Keys(held)
     if PeekMap.debug then
         local scroll = WorldMapFrame.ScrollContainer
         local n = 0
@@ -554,102 +553,119 @@ function PeekMap.Opened()
     end
 end
 
--- The action's macro clicks this right after the map's button: a map shown
--- in this same frame was opened by it
-local mark = CreateFrame("Button", "ImprovedForeverPeekMapMark", UIParent)
-mark:RegisterForClicks("AnyDown", "AnyUp")
-mark:SetScript("OnClick", function()
-    local opened = WorldMapFrame and WorldMapFrame:IsShown() and shownAt == GetTime()
-    PeekMap.Say("peek: action press, map opened by it: " .. tostring(opened))
-    if opened then PeekMap.Opened() end
-end)
+-- Shows the map as the peek map (its "ic-shown" is every peek's state):
+-- the last step of the first peek's macro (PeekMap.SNIPPET)
+local function SecureButton(name)
+    local b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
+    b:SetSize(1, 1)
+    b:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -20, 20)
+    b:RegisterForClicks("AnyDown", "AnyUp")
+    return b
+end
+
+local show = SecureButton("ImprovedForeverPeekMapShow")
+SecureHandlerWrapScript(show, "OnClick", show, [[
+    local map = self:GetFrameRef("map")
+    if map and not map:IsShown() then
+        map:Show()
+        self:SetAttribute("ic-shown", true)
+    end
+    return false
+]])
 
 ---------------------------------------------------------------------------
 -- The hold button: the hotkey's press opens the map (if closed), its
 -- release closes it (if open), each on its own phase whatever
 -- ActionButtonUseKeyDown says
 ---------------------------------------------------------------------------
-local hold = CreateFrame("Button", "ImprovedForeverPeekMapHold", UIParent,
-    "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
-hold:SetSize(1, 1)
-hold:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -20, 20)
-hold:RegisterForClicks("AnyDown", "AnyUp")
--- (tapped: each press alone counts, the one after opening as its release,
--- its map button run on that press)
+local hold = SecureButton("ImprovedForeverPeekMapHold")
+-- (tapped: each press alone counts, toggling)
 SecureHandlerWrapScript(hold, "OnClick", hold, [[
     self:SetAttribute("type", nil)
     local tap = self:GetAttribute("ic-tap")
-    if tap then
-        if not down then return false end
-        -- (a map closed another way, B on its window: this press opens it again)
-        local map = not PlayerInCombat() and self:GetFrameRef("map")
-        if map and not map:IsShown() then
-            self:SetAttribute("ic-peek-shown", nil)
-            self:SetAttribute("ic-peek-open", nil)
-        elseif self:GetAttribute("ic-peek-shown") or self:GetAttribute("ic-peek-open") then
-            down = false
-        end
-    end
-    local result = self:RunAttribute("ic-peek", down, self:GetAttribute("ic-macro"))
+    if tap and not down then return false end
+    local result = self:RunAttribute("ic-peek", down, self:GetAttribute("ic-macro"), tap)
     if tap then self:SetAttribute("useOnKeyDown", true) end
     return result
 ]])
 
--- A peek's press (opens) or release (closes), for the hold button and a
--- touchpad corner (Touchpad.lua sets it on its button too). Out of combat
--- the map is shown directly, not as a window: Forever's gamepad UI only
--- takes the gamepad for windows (ShowUIPanel), so the player keeps moving.
--- In combat a handle to the map is refused (it isn't protected): its
--- button opens it as a window then, which takes the gamepad (and the first
--- peek, before the map has a place). Returns false
--- (nothing to run) or sets the click to run the map's button.
+-- A peek's press (opens) or release (closes), or with toggle a press that
+-- does either; for the hold button, the toggle and a touchpad corner (each
+-- given the refs by PeekMap.Arm). The map is shown directly, never through
+-- its button as a window. Before its first opening as a window it has no
+-- place or size (its window layout gives it them): shown directly it is
+-- drawn nowhere. That first press runs its button twice (opened as a
+-- window, then closed: placed, the pad back with the world) and then shows
+-- it directly, in the same frame. In combat a handle to the map is refused
+-- (it isn't protected): a press opens nothing ("ic-peek-refused"), a
+-- release closes a peek through the map's button. Returns false (nothing
+-- to run) or sets the click to run a macro.
 PeekMap.SNIPPET = [[
-    local down, macro = ...
-    local combat = PlayerInCombat()
-    local map = not combat and self:GetFrameRef("map")
-    -- Before the map's first opening as a window it has no place or size
-    -- (its window layout gives it them): shown directly it is drawn nowhere.
-    -- That first peek goes through its button too, as in combat, and is
-    -- closed the same way.
-    local scroll = not combat and self:GetFrameRef("map-scroll")
-    local unplaced = scroll and (scroll:GetWidth() or 0) == 0
-    local opened = self:GetAttribute("ic-peek-open")
-    if map and not (down and unplaced and not map:IsShown())
-            and not (not down and opened and map:IsShown()) then
-        if down then
-            if not map:IsShown() then
-                map:Show()
-                self:SetAttribute("ic-peek-shown", true)
-            end
-        elseif self:GetAttribute("ic-peek-shown") then
-            map:Hide()
-        end
-        if not down then
-            self:SetAttribute("ic-peek-shown", nil)
-            self:SetAttribute("ic-peek-open", nil)
-        end
-        return false
-    end
+    local down, macro, toggle = ...
+    local show = self:GetFrameRef("peek-show")
+    local map = not PlayerInCombat() and self:GetFrameRef("map")
+    -- (a peek closed another way: the next press opens it again)
+    if map and not map:IsShown() then show:SetAttribute("ic-shown", nil) end
+    local shown = show:GetAttribute("ic-shown")
+    if toggle then down = not shown end
     if down then
-        if self:GetAttribute("ic-peek-shown") or opened then return false end
-        self:SetAttribute("ic-peek-open", true)
+        self:SetAttribute("ic-peek-refused", not map or nil)
+        -- (open as the game's window: left to it)
+        if shown or not map or map:IsShown() then return false end
+        local scroll = self:GetFrameRef("map-scroll")
+        if (scroll:GetWidth() or 0) > 0 then
+            map:Show()
+            show:SetAttribute("ic-shown", true)
+            return false
+        end
+        if not macro then return false end
+        macro = macro .. "\n" .. macro .. "\n/click ImprovedForeverPeekMapShow"
     else
-        if not (self:GetAttribute("ic-peek-shown") or opened) then return false end
-        self:SetAttribute("ic-peek-shown", nil)
-        self:SetAttribute("ic-peek-open", nil)
+        if not shown then return false end
+        show:SetAttribute("ic-shown", nil)
+        if map then
+            map:Hide()
+            return false
+        end
     end
     self:SetAttribute("useOnKeyDown", down and true or false)
     self:SetAttribute("macrotext", macro)
     self:SetAttribute("type", "macro")
 ]]
-hold:SetAttribute("ic-peek", PeekMap.SNIPPET)
 hold:SetScript("PostClick", function(self, button, down)
     if PeekMap.debug then
         PeekMap.Say("peek: hotkey " .. (down and "down" or "up") .. ", ran: " .. tostring(self:GetAttribute("type"))
             .. ", map open: " .. tostring(WorldMapFrame and WorldMapFrame:IsShown()))
     end
-    PeekMap.Opened()
+    PeekMap.Opened(not PeekMap.Settings().tap, self)
 end)
+
+-- The action's macro anywhere else (a crossbar slot, a wheel, a press
+-- twice): each click opens or closes the peek, on whichever phase /click
+-- gives it
+local toggle = SecureButton("ImprovedForeverPeekMapToggle")
+SecureHandlerWrapScript(toggle, "OnClick", toggle, [[
+    self:SetAttribute("type", nil)
+    local result = self:RunAttribute("ic-peek", true, self:GetAttribute("ic-macro"), true)
+    self:SetAttribute("useOnKeyDown", down and true or false)
+    return result
+]])
+toggle:SetScript("PostClick", function(self, button, down)
+    PeekMap.Say("peek: toggle " .. (down and "down" or "up") .. ", ran: " .. tostring(self:GetAttribute("type"))
+        .. ", map open: " .. tostring(WorldMapFrame and WorldMapFrame:IsShown()))
+    PeekMap.Opened(false, self)
+end)
+
+-- A secure button that runs PeekMap.SNIPPET as "ic-peek": the map's refs
+-- and the peek's state. Out of combat.
+function PeekMap.Arm(button)
+    if WorldMapFrame then
+        button:SetFrameRef("map", WorldMapFrame)
+        button:SetFrameRef("map-scroll", WorldMapFrame.ScrollContainer)
+    end
+    button:SetFrameRef("peek-show", show)
+    button:SetAttribute("ic-peek", PeekMap.SNIPPET)
+end
 
 ---------------------------------------------------------------------------
 -- The hold button's keys: each press with the peek map's action that an
@@ -690,18 +706,18 @@ function PeekMap.Apply()
     -- (the core's macro for the map's button: the Controller module's
     -- touchpad not needed)
     local macro = IF.Actions and IF.Actions.Macro("map")
-    if WorldMapFrame then
-        hold:SetFrameRef("map", WorldMapFrame)
-        if WorldMapFrame.ScrollContainer then hold:SetFrameRef("map-scroll", WorldMapFrame.ScrollContainer) end
+    if WorldMapFrame then show:SetFrameRef("map", WorldMapFrame) end
+    for _, button in ipairs({ hold, toggle }) do
+        PeekMap.Arm(button)
+        button:SetAttribute("ic-macro", macro)
     end
-    hold:SetAttribute("ic-macro", macro)
     hold:SetAttribute("ic-tap", PeekMap.Settings().tap or nil)
     local keys = macro and PeekMap.HoldKeys() or {}
     local now = table.concat(keys, " ")
     if now == applied then return end
     applied = now
     ClearOverrideBindings(hold)
-    -- (kept while the map has the gamepad: its release closes it)
+    -- (kept while a window has the gamepad: its release closes it)
     for _, key in ipairs(keys) do SetOverrideBindingClick(hold, true, key, hold:GetName(), "LeftButton") end
 end
 

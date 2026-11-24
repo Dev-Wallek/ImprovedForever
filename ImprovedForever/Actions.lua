@@ -122,13 +122,13 @@ local WINDOWS = {
     -- macro, which can't show a texture of an addon: Native.lua)
     { key = "nodes", label = "Minimap labels", ours = true, desc = "Shows / hides names beside the minimap's dots", icon = IF.TEX .. "ic_fn_labels",
         macroIcon = "Interface\\Icons\\INV_Misc_Flower_02", buttons = { "ImprovedForeverNodeScan" } },
-    -- (the map's own button, then mark's, which shows the map it opened
-    -- as the peek map: a tap, the next press closes it; on a press that
-    -- an override binding takes, a touchpad corner or a key, held or
-    -- tapped as its setting says, PeekMap.lua)
+    -- (the Map module's toggle: a press opens the peek map, the next closes
+    -- it; on a press that an override binding takes, a touchpad corner or
+    -- a key, held or tapped as its setting says, PeekMap.lua. Without the
+    -- module, the map's own button)
     { key = "peekmap", label = "Peek map", ours = true, desc = "Shows the map, see-through", icon = IF.TEX .. "ic_fn_peekmap",
-        macroIcon = "Interface\\Icons\\INV_Misc_Map_01", mark = "ImprovedForeverPeekMapMark",
-        buttons = { "WorldMapMicroButton", "MiniMapWorldMapButton", "QuestLogMicroButton" } },
+        macroIcon = "Interface\\Icons\\INV_Misc_Map_01",
+        buttons = { "ImprovedForeverPeekMapToggle", "WorldMapMicroButton", "MiniMapWorldMapButton", "QuestLogMicroButton" } },
     { key = "journal", label = "Journal", ours = true, desc = "Opens the Journal", icon = IF.TEX .. "ic_mod_journal",
         macroIcon = "Interface\\Icons\\INV_Misc_Book_09", buttons = { "ImprovedForeverJournalToggle" } },
     { key = "icmenu", label = "Improved Forever panel", ours = true, desc = "Opens this settings panel", icon = IF.TEX .. "ic_addon",
@@ -282,9 +282,7 @@ function AC.Macro(key)
     if action and action.macro then return action.macro end
     local name = ActionButton(key)
     if not name then return nil end
-    -- (then a button of ours, told the window it opened: the peek map's)
-    local mark = action and action.mark and _G[action.mark] and ("\n/click " .. action.mark) or ""
-    return "/click " .. name .. mark
+    return "/click " .. name
 end
 
 -- The windows a press or a corner can open, for the picker: the game's
