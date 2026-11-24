@@ -86,18 +86,16 @@ local ITEMS = {
     Item({
         key = "bankName", group = "mail", label = "Bank character",
         tip = "The character your items go to: one of yours on this realm and side (each one logged in once "
-            .. "with Improved Forever). Kept even when that character hasn't logged in for a long time.",
-        value = function() return IF.BankMail.Settings().name or "" end,
-        text = function() return IF.BankMail.Settings().name or "|cffff7a5cNone|r" end,
+            .. "with Improved Forever), set per realm and side. Kept even when that character hasn't logged in "
+            .. "for a long time.",
+        value = function() return IF.BankMail.Name() or "" end,
+        text = function() return IF.BankMail.Name() or "|cffff7a5cNone|r" end,
         options = function()
             local list = { { action = "", name = "None" } }
             for _, c in ipairs(IF.GameData.AltSkills()) do list[#list + 1] = { action = c.name, name = c.name } end
             return list
         end,
-        choose = function(name)
-            IF.BankMail.Settings().name = name ~= "" and name or nil
-            IF.BankMail.Update()
-        end,
+        choose = function(name) IF.BankMail.SetName(name ~= "" and name or nil) end,
     }),
     Item({
         key = "whatsNew", group = "updates", label = "What's new",
