@@ -183,7 +183,7 @@ function A.MarketPrice(itemID, days)
 end
 
 -- Its latest day's market price against the median of the days before it, over the chart's days:
--- "rising +12%" / "falling -8%" in its colour, nil when within 5% or known for under 4 days
+-- "rising +12%" / "falling -8%" in its colour, "steady +2%" in grey within 5%; nil when known for under 4 days
 local TREND_DAYS, TREND_MIN = 4, 5
 function A.TrendText(itemID)
     local days = A.History(itemID)
@@ -195,7 +195,7 @@ function A.TrendText(itemID)
     local before = (values[math.floor(mid)] + values[math.ceil(mid)]) / 2
     if before <= 0 then return nil end
     local pct = math.floor((days[#days].market / before - 1) * 100 + 0.5)
-    if math.abs(pct) < TREND_MIN then return nil end
+    if math.abs(pct) < TREND_MIN then return "|cff9d917asteady " .. (pct >= 0 and "+" or "") .. pct .. "%|r" end
     return pct > 0 and ("|cffe0a050rising +" .. pct .. "%|r") or ("|cff7fb0e0falling " .. pct .. "%|r")
 end
 

@@ -432,7 +432,7 @@ local CHECKS = {
         days(100, 90, 110, 92)
         assert(A.TrendText(1):find("falling -8%", 1, true), "falling")
         days(100, 100, 100, 104)
-        assert(A.TrendText(1) == nil, "within 5%")
+        assert(A.TrendText(1):find("steady +4%", 1, true), "within 5%")
         days(100, 100, 150)
         assert(A.TrendText(1) == nil, "too few days")
         A.History = history
