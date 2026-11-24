@@ -53,33 +53,17 @@ function M.Update()
     hint:Show()
 end
 
--- The press, watched while the send tab is open (not taken: the button
--- keeps its own action)
-local watcher = CreateFrame("Frame")
-local wasDown = false
-local function Watch()
-    local key = On() and M.Settings().key
-    if not key then return end
-    local held, pressed = IF.Binds.Parse(key)
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held))
-    if down and not wasDown then
-        local bag, slot = IF.FocusedBagSlot()
-        if bag then M.Attach(bag, slot) end
-    end
-    wasDown = down
-end
-
-SendMailFrame:HookScript("OnShow", function()
-    wasDown = false
-    watcher:SetScript("OnUpdate", Watch)
-    M.Update()
-end)
-SendMailFrame:HookScript("OnHide", function()
-    watcher:SetScript("OnUpdate", nil)
-    M.Update()
-end)
+SendMailFrame:HookScript("OnShow", M.Update)
+SendMailFrame:HookScript("OnHide", M.Update)
 
 local B = IF.Binds
+B.Watch({
+    name = "mail to bank", key = function() return On() and M.Settings().key end, when = SendOpen,
+    run = function()
+        local bag, slot = IF.FocusedBagSlot()
+        if bag then M.Attach(bag, slot) end
+    end,
+})
 B.Add({
     id = "bankmail", label = "Mail to Bank", group = "Bags", tab = "bindings",
     icon = "Interface\\Icons\\INV_Letter_15", context = "bags", order = 24,
