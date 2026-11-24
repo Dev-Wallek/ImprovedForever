@@ -15,6 +15,8 @@ local DEFAULTS = {
     order = {},       -- block keys, first first (blocks added later after them)
     session = false,  -- money: this session's gain beside it
     xpNumbers = false, -- experience: the points and those to go, not the share
+    restReminder = true, -- rested reminders in the chat (Rested.lua)
+    restTips = false,  -- each with what to do
 }
 
 function P.Settings()
