@@ -479,16 +479,15 @@ function GD.Rares()
     local data = IF.WorldData
     local toUi = data and data.areaToUi or {}
     for id, row in pairs(data and data.npcs or {}) do
-        local f = SplitRow(row)
-        if f[4] == "2" or f[4] == "4" then
-            local lo = tonumber(f[2])
-            for area, points in pairs(Spawns(f[8] or "") or {}) do
+        local n = DECODE.npcs(SplitRow(row))
+        if n.rank == 2 or n.rank == 4 then
+            for area, points in pairs(n.spawns or {}) do
                 local map = toUi[area]
                 -- (instances: -1, -1)
                 if map and map ~= 0 and points[1] and points[1][1] >= 0 then
                     rares[map] = rares[map] or {}
-                    table.insert(rares[map], { id = id, name = f[1], lo = lo, hi = tonumber(f[3]) or lo,
-                        elite = f[4] == "2", points = points })
+                    table.insert(rares[map], { id = id, name = n.name, lo = n.minLevel, hi = n.maxLevel or n.minLevel,
+                        elite = n.rank == 2, points = points })
                 end
             end
         end

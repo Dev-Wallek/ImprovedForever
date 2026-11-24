@@ -51,17 +51,11 @@ local function Pin(i)
     return p
 end
 
-local function Zoom(map)
-    local scroll = map.ScrollContainer
-    local zoom = scroll and scroll.GetCanvasScale and scroll:GetCanvasScale()
-    return type(zoom) == "number" and zoom > 0 and zoom or 1
-end
-
 local function Draw()
     local map = WorldMapFrame
     local canvas = map:GetCanvas()
     local w, h = canvas:GetWidth(), canvas:GetHeight()
-    local zoom = Zoom(map)
+    local zoom = map.ScrollContainer:GetCanvasScale()
     local id = map:GetMapID()
     local on = RM.On()
     if id == drawnId and w == drawnW and zoom == drawnZoom and on == drawnOn then return end
