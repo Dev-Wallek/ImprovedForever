@@ -7,7 +7,7 @@
 local IF = ImprovedForever
 local T = IF.Threat
 
-IF.AddModule({ key = "threat", label = "Threat", icon = IF.TEX .. "ic_mod_general", addon = ... })
+IF.AddModule({ key = "threat", label = "Threat", icon = IF.TEX .. "ic_mod_threat", addon = ... })
 
 local TM = {}
 IF.ThreatMeter = TM
