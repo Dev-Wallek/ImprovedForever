@@ -148,9 +148,10 @@ end
 local function Restore()
     local scroll = WorldMapFrame and WorldMapFrame.ScrollContainer
     FadeSpoken(false)
+    -- (bound also when the look never applied: the map had no size yet)
+    PeekMap.Keys(false)
     if not saved then return end
     IF.Focus.DimNative(place, false)
-    PeekMap.Keys(false)
     for region, alpha in pairs(saved.alphas) do region:SetAlpha(alpha) end
     if scroll then
         scroll:SetScale(saved.scale)
@@ -195,9 +196,9 @@ end)
 -- While peeking: L1 / R1 zoom the map out / in (sub-zone <-> zone <-> continent
 -- <-> world), L2 /
 -- R2 move the focus (the super-tracked quest) to the previous / next
--- tracked quest. Override bindings on a
--- button of ours, only while the game has the pad (not when the map took it
--- as a window: a window keeps its buttons), out of combat.
+-- tracked quest. Priority override bindings on a button of ours, out of
+-- combat; also while the map has the pad as a window, set again after each
+-- focus change so they come after the window's own (the newest wins).
 ---------------------------------------------------------------------------
 
 local MODIFIERS = { "", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "ALT-SHIFT-", "CTRL-ALT-", "CTRL-ALT-SHIFT-" }
@@ -299,7 +300,7 @@ local keysOn = false
 function PeekMap.Keys(on)
     if IF.InCombat() then return end
     ClearOverrideBindings(catch)
-    keysOn = on and IF.Binds.InGame() and true or false
+    keysOn = on and true or false
     if PeekMap.ShowLegend then PeekMap.ShowLegend() end
     if not keysOn then return end
     for key in pairs(KEYS) do
@@ -499,11 +500,11 @@ local LEGEND = {
     { { "PADLSHOULDER", "PADRSHOULDER" }, { "PADLSHOULDER", "PADRSHOULDER" }, "Zoom map out / in" },
 }
 -- (the map took the pad as a window: the game's own Select, TOGGLEUIFOCUS,
--- gives it back to the world, the right stick to the camera; then LEGEND)
-local LEGEND_FOCUSED = { { "PADBACK", "PADBACK", "Camera" } }
+-- gives it back to the world, the right stick to the camera)
+local LEGEND_FOCUSED = { LEGEND[1], LEGEND[2], { "PADBACK", "PADBACK", "Camera" } }
 
 function PeekMap.ShowLegend()
-    local list = keysOn and LEGEND or (not IF.InCombat() and LEGEND_FOCUSED) or nil
+    local list = keysOn and (IF.Binds.InGame() and LEGEND or LEGEND_FOCUSED) or nil
     legend:Set(peeking and PeekMap.Settings().legend and list or nil)
 end
 
