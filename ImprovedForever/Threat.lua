@@ -32,10 +32,11 @@ function T.Of(unit, mob)
         -- (a boss: its values secret, the lead, a status, mostly not)
         return { status = status, tanking = status >= 2, lead = Value(UnitThreatLeadSituation(unit, mob)) }
     end
+    -- (the call's values are secret all together or not at all)
     return {
         status = status,
-        tanking = Value(tanking),
-        percent = Value(percent),
+        tanking = tanking,
+        percent = percent,
         -- (0 to 3: how far ahead of the second the tank is, 3 the closest)
         lead = Value(UnitThreatLeadSituation(unit, mob)),
     }
