@@ -340,16 +340,6 @@ local function Parts(spec)
     return nil, spec
 end
 
--- A shoulder or trigger held: a press of one button alone is another's
--- (L2 + L3 isn't L3)
-local SHOULDERS = { "PADLSHOULDER", "PADRSHOULDER", "PADLTRIGGER", "PADRTRIGGER" }
-local function Modified()
-    for _, key in ipairs(SHOULDERS) do
-        if IsKeyDown(key) then return true end
-    end
-    return false
-end
-
 -- Its name: "L2 + L3"; glyphs too with size
 function J.MarkKeyText(size)
     local held, pressed = Parts(J.MarkKey())
@@ -396,24 +386,19 @@ function J.Toggle(bag, slot)
     return e
 end
 
-local watcher = CreateFrame("Frame")
-local wasDown = false
-watcher:SetScript("OnUpdate", function()
-    if not IF.db or not IsKeyDown then return end
-    local destroy = IF.Destroy and IF.Destroy.panel and IF.Destroy.panel:IsShown()
-    if not J.Settings().mark or IF.InCombat() or destroy then
-        wasDown = false
-        return
-    end
-    local held, pressed = Parts(J.MarkKey())
-    local down = IsKeyDown(pressed) and (held and IsKeyDown(held) or (not held and not Modified()))
-    -- The moment the combination is made, on a bag item
-    if down and not wasDown and AnyBagOpen() then
+IF.Binds.Watch({
+    name = "junk mark", key = J.MarkKey, alone = true,
+    when = function()
+        local destroy = IF.Destroy and IF.Destroy.panel and IF.Destroy.panel:IsShown()
+        return J.Settings().mark and not IF.InCombat() and not destroy
+    end,
+    -- (on a bag item)
+    run = function()
+        if not AnyBagOpen() then return end
         local bag, slot = J.FocusedSlot()
         if bag then J.Toggle(bag, slot) end
-    end
-    wasDown = down
-end)
+    end,
+})
 
 -- The mouse: a click on a bag item (Alt + right-click, its binding's
 -- keyboard / mouse press; the core's Input.lua), or a key on the bag item
@@ -451,19 +436,11 @@ function J.SellKey()
     return IF.db and J.Settings().sellKey or nil
 end
 
-local sellWatch = CreateFrame("Frame")
-local sellWasDown = false
-sellWatch:SetScript("OnUpdate", function()
-    local key = J.SellKey()
-    if not key or not IsKeyDown or IF.InCombat() or not AtVendor() then
-        sellWasDown = false
-        return
-    end
-    local held, pressed = Parts(key)
-    local down = IsKeyDown(pressed) and (held and IsKeyDown(held) or (not held and not Modified()))
-    if down and not sellWasDown then J.PressSellAll() end
-    sellWasDown = down
-end)
+IF.Binds.Watch({
+    name = "sell junk", key = J.SellKey, alone = true,
+    when = function() return not IF.InCombat() and AtVendor() end,
+    run = function() J.PressSellAll() end,
+})
 
 -- Sell All Junk from a press: every junk item a vendor buys (the greys too, which the vendor's own
 -- button sells), through the one seller above (a few at a time, buyback kept)

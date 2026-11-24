@@ -1027,24 +1027,10 @@ function RL.Key()
     return IF.db and IN.Settings().recentLootKey or nil
 end
 
--- (its press, watched, not taken over: a button, or one held + one pressed
--- ("PADLTRIGGER+PAD4"); the buttons keep their own actions too)
-local keyWatch = CreateFrame("Frame")
-local wasDown = false
-IN.Script(keyWatch, "OnUpdate", "RecentLoot keyWatch", function()
-    local key = RL.Key()
-    -- (only while the game has the gamepad's focus, Binds.lua)
-    if not key or not IsKeyDown or (IF.Menu and IF.Menu.IsOpen()) or not IF.Binds.InGame() then
-        wasDown = false
-        return
-    end
-    local held, pressed = key:match("^(.-)%+(.+)$")
-    pressed = pressed or key
-    local down = IsKeyDown(pressed) and (not held or IsKeyDown(held)) or false
-    -- (the moment the combination is made)
-    if down and not wasDown and not focused then RL.Focus() end
-    wasDown = down
-end)
+IF.Binds.Watch({
+    name = "recent loot", key = RL.Key, when = IF.Binds.WorldWatch,
+    run = function() if not focused then RL.Focus() end end,
+})
 
 IF.Binds.Add({
     id = "recentloot", label = "Recent loot", group = "Other",
