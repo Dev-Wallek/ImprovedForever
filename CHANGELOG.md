@@ -1,5 +1,9 @@
 # Changelog
 
+## Core (next)
+
+- Fixed: with "Square always attacks" on, a druid's RT / LT + Square in a form (Maul in Bear Form) ran the caster bar's slot instead. In a form Square is now the game's own press, so the form's bar answers. Square no longer starts the swing for you in a form.
+
 ## Chat 0.7.0
 
 - **Chat keyboard**: an on-screen keyboard laid out like the PS5's, low in the middle of the screen on a soft dark band. Open it anywhere with LB + RB held, then Cross (a binding, changeable in the Bindings tab), or with D-pad Down while the chat has the controller. The chat's edit box isn't needed.
