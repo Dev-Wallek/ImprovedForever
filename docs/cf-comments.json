@@ -497,17 +497,31 @@
   "status": "resolved"
  },
  "8736914": {
-  "date": "2026-11-21",
-  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+  "date": "2026-11-25",
+  "note": "released in Core 0.20.1 2026-11-25; reply pending approval",
   "project": "improved-forever",
   "seen": 8752015,
   "status": "fixed"
  },
  "8760351": {
-  "date": "2026-11-21",
-  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+  "date": "2026-11-25",
+  "note": "released in Core 0.20.1 2026-11-25; reply pending approval",
   "project": "improved-forever",
-  "seen": 8760351,
+  "seen": 8774998,
+  "status": "fixed"
+ },
+ "8779713": {
+  "date": "2026-11-25",
+  "note": "released in Core 0.20.1 2026-11-25; reply pending approval",
+  "project": "improved-forever",
+  "seen": 8779758,
+  "status": "fixed"
+ },
+ "8779893": {
+  "date": "2026-11-25",
+  "note": "released in Core 0.20.1 2026-11-25; reply pending approval",
+  "project": "improved-forever",
+  "seen": 8779893,
   "status": "fixed"
  }
 }
