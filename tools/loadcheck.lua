@@ -1110,6 +1110,28 @@ local CHECKS = {
         assert(A.TrendText(1) == nil, "too few days")
         A.History = history
     end },
+    -- (prices kept under no realm name join the named realm's; a day is its last whole view)
+    { name = "auction realm and day", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local realms = {
+            [""] = { scannedAt = 20, items = { [1] = { [5] = "a", [6] = "b" }, [2] = { [6] = "c" } },
+                myPrices = { [1] = 10 }, bargains = {} },
+            R = { scannedAt = 10, items = { [1] = { [4] = "x", [5] = "y" } }, myPrices = { [1] = 5, [3] = 7 } },
+        }
+        A.Adopt(realms, "R")
+        local R = realms.R
+        assert(realms[""] == nil, "the unnamed bucket kept")
+        assert(R.items[1][4] == "x" and R.items[1][5] == "a" and R.items[1][6] == "b" and R.items[2][6] == "c",
+            "a day lost or the older scan won")
+        assert(R.myPrices[1] == 10 and R.myPrices[3] == 7 and R.scannedAt == 20 and R.bargains == nil, "merge")
+        A.Record(-9, 50, 60, 3, 55)
+        A.Record(-9, 80, 90, 2, 85)
+        assert(select(2, A.Latest(-9)) == 80, "the day's lowest kept over its last view")
+        A.Record(-9)
+        assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
+        A.Realm().items[-9] = nil
+    end },
     -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
     { name = "destroy press unbound", fn = function()
         local IF = rawget(_G, "ImprovedForever")

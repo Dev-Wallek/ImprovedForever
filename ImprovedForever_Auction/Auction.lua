@@ -3,7 +3,7 @@
 -- (C_AuctionHouse.ReplicateItems, as the auction house opens, at most once
 -- in 15 minutes: the server's limit) and a search of one item (the
 -- auction window's tabs). Another addon's full scan is read too, when
--- none was in 15 minutes. Each is kept as the day's numbers per item:
+-- none was in 15 minutes. Each is kept as the day's latest numbers per item:
 -- its lowest price a unit, its market price (what the cheapest quarter of
 -- those listed ask on average), how many are up and what the cheapest
 -- five units cost on average (A.Price: buying a few). A.Suggest prices an
@@ -116,38 +116,106 @@ function A.Cut()
 end
 
 ---------------------------------------------------------------------------
--- The store: realms[realm].items[itemID][day] = "lowest:market:quantity"
+-- The store: realms[realm].items[itemID][day] = "lowest:market:quantity:cheapest5",
+-- the day's last whole view of it
 ---------------------------------------------------------------------------
 local function Today()
     return math.floor(time() / DAY)
 end
 A.Today = Today
 
+-- Buckets kept under no name (the game named none): they join the realm's
+-- once it has one, a day both have taken from the one scanned last. Their
+-- Bargains and Below vendor price go; the next scan makes them anew.
+local UNNAMED = { "", "?" }
+local function Adopt(realms, name)
+    for _, old in ipairs(UNNAMED) do
+        local from = realms[old]
+        if from and old ~= name then
+            local to = realms[name] or { items = {} }
+            realms[name] = to
+            local newer = (from.scannedAt or 0) > (to.scannedAt or 0)
+            for itemID, days in pairs(from.items or {}) do
+                local into = to.items[itemID]
+                if not into then
+                    to.items[itemID] = days
+                else
+                    for day, packed in pairs(days) do
+                        if newer or not into[day] then into[day] = packed end
+                    end
+                end
+            end
+            for itemID, price in pairs(from.myPrices or {}) do
+                to.myPrices = to.myPrices or {}
+                if newer or not to.myPrices[itemID] then to.myPrices[itemID] = price end
+            end
+            to.scannedAt = math.max(to.scannedAt or 0, from.scannedAt or 0)
+            to.replicateAt = math.max(to.replicateAt or 0, from.replicateAt or 0)
+            realms[old] = nil
+        end
+    end
+end
+A.Adopt = Adopt
+
+-- The realm scanned last, of those named
+local function Newest(realms)
+    local best, at
+    for name, realm in pairs(realms) do
+        if name ~= "" and name ~= "?" and (realm.scannedAt or 0) >= (at or -1) then
+            best, at = name, realm.scannedAt or 0
+        end
+    end
+    return best
+end
+
+-- The game's name for the realm can come back empty: then the one it last
+-- gave (or the one scanned last) holds the prices, and the chat says so once
+local realmName, warned
 local function Realm()
     ImprovedForeverAuctionDB = ImprovedForeverAuctionDB or {}
     local store = ImprovedForeverAuctionDB
     store.realms = store.realms or {}
-    local name = (GetNormalizedRealmName and GetNormalizedRealmName()) or GetRealmName() or "?"
+    if not realmName then
+        local name = GetNormalizedRealmName and GetNormalizedRealmName() or ""
+        if name ~= "" then
+            realmName, store.lastRealm = name, name
+            Adopt(store.realms, name)
+        end
+    end
+    local name = realmName
+    if not name then
+        name = store.lastRealm or Newest(store.realms) or "?"
+        if not warned then
+            warned = true
+            IF.Print("auction: the game gives no realm name; prices are kept under " .. name .. ".")
+        end
+    end
     store.realms[name] = store.realms[name] or { items = {} }
     return store.realms[name]
 end
 A.Realm = Realm
 
--- (cheapest5: nil in days kept before it was)
+-- A day the item was searched for and none were up
+local NONE = "-"
+
+-- (cheapest5: nil in days kept before it was; all nil: none listed)
 local function Unpack(s)
     local lowest, market, qty, cheapest5 = strsplit(":", s)
     return tonumber(lowest), tonumber(market), tonumber(qty), tonumber(cheapest5)
 end
 
--- A sighting today: the day's lowest kept, the rest as last seen
+-- Its numbers as last seen today (nil: none listed)
 function A.Record(itemID, lowest, market, qty, cheapest5)
     local items = Realm().items
     local days = items[itemID] or {}
     items[itemID] = days
-    local today = Today()
-    local old = days[today] and Unpack(days[today])
-    if old and old < lowest then lowest = old end
-    days[today] = lowest .. ":" .. market .. ":" .. qty .. ":" .. cheapest5
+    days[Today()] = lowest and (lowest .. ":" .. market .. ":" .. qty .. ":" .. cheapest5) or NONE
+end
+
+-- Searched for today and none up
+function A.NoneListed(itemID)
+    local days = Realm().items[itemID]
+    return days ~= nil and days[Today()] == NONE
 end
 
 -- What the cheapest `units` cost a unit on average (list sorted cheapest first;
@@ -220,12 +288,13 @@ function A.UnitNet(itemID)
     return market and market * (1 - AH_CUT) or nil
 end
 
--- Its latest day: day, lowest, market, quantity, cheapest five (nil: never seen)
+-- Its latest day with prices: day, lowest, market, quantity, cheapest five
+-- (nil: never seen up)
 function A.Latest(itemID)
     local item = Realm().items[itemID]
     local last
-    for day in pairs(item or {}) do
-        if not last or day > last then last = day end
+    for day, packed in pairs(item or {}) do
+        if packed ~= NONE and (not last or day > last) then last = day end
     end
     if not last then return nil end
     return last, Unpack(item[last])
@@ -519,16 +588,18 @@ function A.CancelSearch()
     search = nil
 end
 
-local function Answer(listings)
+-- whole: every listing of the item (not one level or variant of it): only
+-- then it is the day's state
+local function Answer(listings, whole)
     local s = search
     search = nil
     local plain = {}
     for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
-    local realm = Realm()
-    if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
-    if realm.bargains then realm.bargains[s.itemID] = Bargain(s.itemID, plain) end
-    if #listings > 0 then
-        A.Record(s.itemID, Summarize(plain))
+    if whole then
+        local realm = Realm()
+        if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
+        if realm.bargains then realm.bargains[s.itemID] = Bargain(s.itemID, plain) end
+        if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
         Changed()
     end
     table.sort(listings, function(a, b) return a.unit < b.unit end)
@@ -536,9 +607,14 @@ local function Answer(listings)
 end
 
 -- (results come before ours is sent too: the client's own, a purchase's
--- refresh, its auctions as they were; only an answer to ours is taken)
+-- refresh, its auctions as they were; only an answer to ours is taken.
+-- The server sends a long list in parts: the rest is asked for first.)
 local function CommodityResults(itemID)
     if not (search and search.sent and search.commodity and search.itemID == itemID) then return end
+    if AH.HasFullCommoditySearchResults and not AH.HasFullCommoditySearchResults(itemID) then
+        AH.RequestMoreCommoditySearchResults(itemID)
+        return
+    end
     local listings = {}
     for i = 1, AH.GetNumCommoditySearchResults(itemID) do
         local r = AH.GetCommoditySearchResultInfo(itemID, i)
@@ -547,11 +623,15 @@ local function CommodityResults(itemID)
                 auctionID = r.auctionID }
         end
     end
-    Answer(listings)
+    Answer(listings, true)
 end
 
 local function ItemResults(itemKey)
     if not (search and search.sent and not search.commodity and itemKey and itemKey.itemID == search.itemID) then
+        return
+    end
+    if AH.HasFullItemSearchResults and not AH.HasFullItemSearchResults(itemKey) then
+        AH.RequestMoreItemSearchResults(itemKey)
         return
     end
     local all, sameLevel = {}, {}
@@ -569,7 +649,13 @@ local function ItemResults(itemKey)
             end
         end
     end
-    Answer(#sameLevel > 0 and sameLevel or all)
+    -- (a browse result's key of gear is one level or variant of it)
+    local variant = search.itemKey and C_Item and C_Item.IsEquippableItem and C_Item.IsEquippableItem(search.itemID)
+    if #sameLevel > 0 then
+        Answer(sameLevel, false)
+    else
+        Answer(all, not variant)
+    end
 end
 
 -- The price last set by hand for an item (a unit), per realm: where its
@@ -668,9 +754,9 @@ local function TooltipPrices(tooltip, data)
     local itemID = data and data.id
     if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then return end
     local day, lowest = A.Latest(itemID)
-    if not day then return end
+    local none = A.NoneListed(itemID)
+    if not day and not none then return end
     local market = A.MarketPrice(itemID)
-    local ago = A.Today() - day
     -- A bag stack: what it all brings, a unit's after it
     local owner = tooltip:GetOwner()
     local stack = owner and owner.GetBagID and owner.GetID and C_Container and C_Container.GetContainerItemInfo
@@ -685,6 +771,11 @@ local function TooltipPrices(tooltip, data)
     if market then tooltip:AddDoubleLine("Auction: usually" .. of, Price(market), r, g, b, 1, 1, 1) end
     local trend = A.TrendText(itemID)
     if trend then tooltip:AddDoubleLine("Auction: lately", trend, r, g, b) end
+    if none then
+        tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48)
+        return
+    end
+    local ago = A.Today() - day
     tooltip:AddDoubleLine("Auction: lowest" .. of .. (ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")),
         Price(lowest), r, g, b, 1, 1, 1)
 end
