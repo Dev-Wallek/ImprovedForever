@@ -786,6 +786,25 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum.Too
     end)
 end
 
+-- Probe: when the game's realm name comes back empty (IF.db.realmLog, at most 100 lines)
+local function ProbeRealm(at)
+    local log = IF.db and IF.db.realmLog
+    if not log or #log >= 100 then return end
+    local normalized = GetNormalizedRealmName and GetNormalizedRealmName()
+    log[#log + 1] = ("%s %.1f %s: normalized=%q realm=%q"):format(date("%H:%M:%S"), GetTime() % 1000, at,
+        tostring(normalized), tostring(GetRealmName()))
+end
+IF.OnLogin(function()
+    IF.db.realmLog = IF.db.realmLog or {}
+    IF.db.realmLog[#IF.db.realmLog + 1] = date("%Y-%m-%d %H:%M:%S") .. " login"
+    ProbeRealm("login")
+end)
+local probe = CreateFrame("Frame")
+probe:RegisterEvent("PLAYER_ENTERING_WORLD")
+probe:RegisterEvent("AUCTION_HOUSE_SHOW")
+probe:RegisterEvent("REPLICATE_ITEM_LIST_UPDATE")
+probe:SetScript("OnEvent", function(_, event) ProbeRealm(event) end)
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "REPLICATE_ITEM_LIST_UPDATE",
     "COMMODITY_SEARCH_RESULTS_UPDATED", "ITEM_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }) do
