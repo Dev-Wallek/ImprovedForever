@@ -995,6 +995,47 @@ local CHECKS = {
         UIParent.__w, s.partyX = saved.w, saved.partyX
         check(ok, err)
     end },
+    -- (the threat meter right of the party, the cooldowns after it; too little room left them: over their row)
+    { name = "threat meter beside the cooldowns", fn = function()
+        local IF = rawget(_G, "ImprovedForever")
+        local IN, TM = IF and IF.Interface, IF and IF.ThreatMeter
+        if not (TM and IN and IN.BuffTimeline and IN.PartyCards and IN.GamepadBar) then return end
+        local PC, BT, GB = IN.PartyCards, IN.BuffTimeline, IN.GamepadBar
+        local meter = _G.ImprovedForeverThreatMeter
+        local saved = { PC.RowRight, PC.RightOfParty, BT.CooldownRow, GB.Rect, meter.__shown }
+        local x, y
+        meter.SetPoint = function(_, _, _, _, px, py) x, y = px, py end
+        PC.RowRight = function() return 700, 42 end
+        PC.RightOfParty = function() return 760 end
+        GB.Rect = function() return 1500 end
+        meter.__shown = true
+        local far = 1460
+        BT.CooldownRow = function() return far, 34, 100 end
+        -- (meter 776 to 946, the cooldowns from 962 to 1460: room for 14)
+        local ok, err = pcall(function()
+            assert(TM.PlaceLow(IN) and x == 776 and y == 42 and TM.LowRight() == 946,
+                "room left: the meter beside the party, bottoms level: " .. tostring(y))
+            -- (the cooldowns' lane: after the meter, 946 + 28)
+            local function Up(fn, want)
+                for i = 1, 200 do
+                    local name, value = debug.getupvalue(fn, i)
+                    if not name then return end
+                    if name == want then return value end
+                end
+            end
+            local onUpdate = Up(BT.Apply, "cooldowns").holder:GetScript("OnUpdate")
+            local Lane = (Up(onUpdate, "source") or Up(Up(onUpdate, "fn"), "source")).Lane
+            assert(Lane() == 974, "the cooldowns not after the meter: " .. tostring(Lane()))
+            far = 1050
+            assert(TM.PlaceLow(IN) and x == 776 and y == 100 and TM.LowRight() == nil,
+                "too little room left: the meter over the cooldowns: " .. tostring(y))
+            BT.CooldownRow = function() return nil end
+            assert(TM.PlaceLow(IN) and y == 42 and TM.LowRight() == 946, "cooldowns hidden: beside the party")
+        end)
+        PC.RowRight, PC.RightOfParty, BT.CooldownRow, GB.Rect, meter.__shown = unpack(saved)
+        rawset(meter, "SetPoint", nil)
+        assert(ok, err)
+    end },
     -- (the Immersion module: its settings filled once)
     { name = "immersion settings", fn = function()
         local IF = rawget(_G, "ImprovedForever")
