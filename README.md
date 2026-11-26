@@ -34,7 +34,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Panel` | A slim bar across the top with your experience (as a share or in points), money (this session's gain if you like) and the durability of your gear; each display shown, hidden and ordered in its tab. Rested reminders in the chat (full rest, logging out outside an inn or a city), with tips if you like. |
 | `ImprovedForever_Bags` | Bags & Bank: your bags and bank, and every other character's of yours, anywhere, in a window like the game's bags (`/if bags`); only to look at. |
 | `ImprovedForever_Professions` | Beside the profession window, the recipe it shows: its colours on a bar with your skill, the chance of a point, about how many crafts until it turns grey, what its reagents cost (vendor or auction) and what the result brings. |
-| `ImprovedForever_Threat` | A threat meter for your target (you, your pet, your party, off by default), with a warning before you lose or pull the aggro; with Immersion's party cards low, right of them, else under your target. |
+| `ImprovedForever_Threat` | A threat meter for your target (you, your pet, your party, off by default), with a warning before you lose or pull the aggro; with Immersion's party cards low, right of them (over the cooldowns when too few would fit after it), else under your target. |
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
 | `ImprovedForever_Auction` | The controller auction window, prices over time, tasks, what is listed under a vendor's pay. Other addons read its prices (see Development). |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
