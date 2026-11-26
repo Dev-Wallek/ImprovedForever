@@ -34,7 +34,7 @@ the core, **Improved Forever**:
 | `ImprovedForever_Panel` | A slim bar across the top with your experience (as a share or in points), money (this session's gain if you like) and the durability of your gear; each display shown, hidden and ordered in its tab. Rested reminders in the chat (full rest, logging out outside an inn or a city), with tips if you like. |
 | `ImprovedForever_Bags` | Bags & Bank: your bags and bank, and every other character's of yours, anywhere, in a window like the game's bags (`/if bags`); only to look at. |
 | `ImprovedForever_Professions` | Beside the profession window, the recipe it shows: its colours on a bar with your skill, the chance of a point, about how many crafts until it turns grey, what its reagents cost (vendor or auction) and what the result brings. |
-| `ImprovedForever_Threat` | A threat meter under your target (you, your pet, your party), with a warning before you lose or pull the aggro; under Immersion's target header when that's on. |
+| `ImprovedForever_Threat` | A threat meter for your target (you, your pet, your party, off by default), with a warning before you lose or pull the aggro; with Immersion's party cards low, right of them, else under your target. |
 | `ImprovedForever_Chat` | The chat with the controller: pick a line, then an item or other link in it. |
 | `ImprovedForever_Auction` | The controller auction window, prices over time, tasks, what is listed under a vendor's pay. Other addons read its prices (see Development). |
 | `ImprovedForever_Junk` | Finds and marks junk, sells it with the vendor's Sell All Junk, destroys it from the bags or the loot window. Formerly Destroy. |
@@ -131,7 +131,8 @@ is there with `IF.AddModule`, adds its presses with `IF.Binds.Add`, its commands
 and its settings tab with `IF.SettingsPage` (form fields) or `IF.Menu.AddTab` (a page of its own).
 Another module's table (`IF.Auction`, `IF.Vibe`...) is used only after checking it is loaded.
 Other addons read auction prices with `ImprovedForever.Auction.Price(itemID)`, a unit in copper:
-what the cheapest five cost on average on the latest day seen, the usual (market) price, and the
+what the cheapest ask on average on the latest day seen ("now", the odd few far under the rest left
+out), the usual price (the median of the days' "now"), and the
 days since that day; nil when the item was never seen.
 
 `luajit tools/loadcheck.lua each` loads the core with each module alone, then all of them, against a
