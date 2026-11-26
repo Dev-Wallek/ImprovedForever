@@ -829,6 +829,12 @@ dQtyRight:SetPoint("LEFT", dQty, "RIGHT", 14, 0)
 dQtyRight:SetText("›")
 local dQtyLabel = K.ChatText(dQtyGroup, 16, KC.dimGold)
 dQtyLabel:SetPoint("TOP", dQty, "BOTTOM", 0, -8)
+-- (its cheapest price steps under it)
+local dTiers = K.ChatText(dQtyGroup, 12, KC.cream2)
+dTiers:SetPoint("TOP", dQtyLabel, "BOTTOM", 0, -8)
+dTiers:SetPoint("LEFT", detail, "LEFT", 14, 0)
+dTiers:SetPoint("RIGHT", detail, "RIGHT", -14, 0)
+dTiers:SetJustifyH("CENTER")
 
 local dHold = BY.HoldBox(detail)
 dHold:SetPoint("BOTTOMLEFT", detail, "BOTTOMLEFT", 14, 12)
@@ -1119,6 +1125,24 @@ local function Available()
     local n = 0
     for _, l in ipairs(D.listings or {}) do n = n + l.count - (l.own or 0) end
     return n
+end
+
+-- A commodity's cheapest price steps ("12 × 1c  ·  40 × 1g 2s", up to
+-- TIERS): those its quantity buys bright, a bargain against now marked
+local TIERS = 6
+local function Tiers()
+    local parts, left = {}, D.qty
+    for _, l in ipairs(D.listings or {}) do
+        local n = l.count - (l.own or 0)
+        if n > 0 then
+            if #parts == TIERS then break end
+            local ref, against = A.BargainAgainst(D.itemID, l.unit)
+            parts[#parts + 1] = (left > 0 and "|cffffffff" or "|cff9d917a") .. n .. " × " .. A.Money(l.unit) .. "|r"
+                .. (against == "now" and (" |cff5fd35f" .. math.floor((l.unit / ref - 1) * 100 + 0.5) .. "% now|r") or "")
+            left = left - n
+        end
+    end
+    return table.concat(parts, "   ·   ")
 end
 
 local function Auctions()
@@ -1918,6 +1942,7 @@ local function RenderDetail()
         dQtyLeft:SetTextColor(fr, fg, fb)
         dQtyRight:SetTextColor(fr, fg, fb)
         dQtyLabel:SetText("")
+        dTiers:SetText(Tiers())
         -- (with the mouse: typed, its arrows clicked)
         local mouse = Mouse()
         dQty:SetAlpha(mouse and 0 or 1)
