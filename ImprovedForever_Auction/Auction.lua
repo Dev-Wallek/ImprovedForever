@@ -675,7 +675,7 @@ local function Answer(listings, whole)
     if whole then
         local realm = Realm()
         if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
-        if realm.bargains then realm.bargains[s.itemID] = Bargain(s.itemID, plain) end
+        if realm.bargains then realm.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
         if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
         Changed()
     end

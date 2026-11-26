@@ -1158,6 +1158,21 @@ local CHECKS = {
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
         A.Realm().items[-9] = nil
+        -- (a whole answer with no listings, after a full scan made the bargains list)
+        local AH, got = C_AuctionHouse, false
+        local full, num, ready = AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults,
+            AH.IsThrottledMessageSystemReady
+        AH.IsThrottledMessageSystemReady = function() return true end
+        AH.HasFullCommoditySearchResults = function() return true end
+        AH.GetNumCommoditySearchResults = function() return 0 end
+        A.Realm().bargains = {}
+        A.Search(-9, true, nil, function(l) got = l end)
+        fire("COMMODITY_SEARCH_RESULTS_UPDATED", -9)
+        AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults = full, num
+        AH.IsThrottledMessageSystemReady = ready
+        A.Realm().bargains = nil
+        assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
+        A.Realm().items[-9] = nil
     end },
     -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
     { name = "destroy press unbound", fn = function()
