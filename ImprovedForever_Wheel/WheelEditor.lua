@@ -766,6 +766,30 @@ function W:StartRename(wheel, mode, blank)
     self.frame.veil:Show()
     edit:SetFocus()
     edit:HighlightText()
+    self:ProbeFocus(edit)
+end
+
+-- Probe: whether the box keeps the keyboard after SetFocus (IF.db.wheelFocusLog)
+function W:ProbeFocus(edit)
+    local log = { date("%Y-%m-%d %H:%M:%S") .. " " .. (self.typing or "?") }
+    IF.db.wheelFocusLog = log
+    local function Line(text)
+        if #log < 200 then log[#log + 1] = ("%.2f %s"):format(GetTime() % 1000, text) end
+    end
+    if not edit.probed then
+        edit.probed = true
+        edit:HookScript("OnEditFocusGained", function() Line("gained") end)
+        edit:HookScript("OnEditFocusLost", function() Line("lost: " .. (debugstack(2, 4, 0) or ""):gsub("\n", " | ")) end)
+    end
+    local function State(at)
+        local focus = GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus()
+        Line(("%s: has=%s current=%s shown=%s visible=%s keyboard=%s"):format(at, tostring(edit:HasFocus()),
+            focus and (focus.GetName and focus:GetName() or (focus == edit and "ours" or "other")) or "nil",
+            tostring(edit:IsShown()), tostring(edit:IsVisible()), tostring(edit:IsKeyboardEnabled())))
+    end
+    State("set")
+    for i = 1, 20 do C_Timer.After(i * 0.05, function() State("+" .. i) end) end
+    C_Timer.After(1.2, function() IF.Print("wheel focus probe: " .. #log .. " lines; /reload to save them.") end)
 end
 
 function W:FinishRename(text)
