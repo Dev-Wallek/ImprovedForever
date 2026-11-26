@@ -807,7 +807,8 @@ probe:SetScript("OnEvent", function(_, event) ProbeRealm(event) end)
 
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "REPLICATE_ITEM_LIST_UPDATE",
-    "COMMODITY_SEARCH_RESULTS_UPDATED", "ITEM_SEARCH_RESULTS_UPDATED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }) do
+    "COMMODITY_SEARCH_RESULTS_UPDATED", "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_ADDED",
+    "ITEM_SEARCH_RESULTS_ADDED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }) do
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event, arg)
@@ -832,9 +833,9 @@ events:SetScript("OnEvent", function(_, event, arg)
             Realm().replicateAt = time()
             StartReading()
         end
-    elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" then
+    elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED" then
         CommodityResults(arg)
-    elseif event == "ITEM_SEARCH_RESULTS_UPDATED" then
+    elseif event == "ITEM_SEARCH_RESULTS_UPDATED" or event == "ITEM_SEARCH_RESULTS_ADDED" then
         ItemResults(arg)
     elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
         Send()
