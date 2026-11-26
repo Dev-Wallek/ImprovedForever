@@ -90,6 +90,7 @@ local DEFAULTS = {
     minion = true,      -- your pet as a card beside the player frame
     cards = true,       -- your party as cards along the bottom
     cardFocus = "auto", -- the party cards as your role needs them: auto (your role), tank, healer, off
+    cardThreat = true,  -- a thin line round a card in its threat's colour while it's high (the tank's focus: its bands)
     chatAbove = true,   -- the chat over the player's frame (in the Edit Mode layout; an experiment)
     hudAuras = true,    -- your buffs and debuffs along the bottom (in the Edit Mode layout; an experiment)
     buffTimeline = true, -- your buffs and debuffs in a row along the bottom (the game's aura container), left of the party
