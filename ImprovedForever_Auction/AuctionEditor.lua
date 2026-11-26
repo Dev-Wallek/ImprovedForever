@@ -43,14 +43,6 @@ local function Choice(key, label, choices, after)
     }
 end
 
-local function Ago(at)
-    if not at then return "never" end
-    local s = math.max(0, time() - at)
-    if s < 3600 then return math.floor(s / 60) .. " min ago" end
-    if s < 86400 then return math.floor(s / 3600) .. " h ago" end
-    return math.floor(s / 86400) .. " days ago"
-end
-
 local ITEMS = {
     Item({
         key = "buy", group = "auction", label = "Auction window",
@@ -75,7 +67,7 @@ local ITEMS = {
             if not A.Available() then return "|cffff7a5cNo auction house on this client|r" end
             local n, at = A.Stats()
             local scanning, read, total = A.Scanning()
-            return n .. " items priced|nLast scan: " .. Ago(at)
+            return n .. " items priced|nLast scan: " .. A.Ago(at)
                 .. (scanning and ("|n|cff9fd8e2Scanning" .. (total and (" " .. read .. " / " .. total) or "...") .. "|r") or "")
         end,
         value = function() end,

@@ -389,6 +389,15 @@ function A.Stats()
     return n, realm.scannedAt
 end
 
+-- A time() as "5 min ago" ("never": nil)
+function A.Ago(at)
+    if not at then return "never" end
+    local s = math.max(0, time() - at)
+    if s < 3600 then return math.floor(s / 60) .. " min ago" end
+    if s < 86400 then return math.floor(s / 3600) .. " h ago" end
+    return math.floor(s / 86400) .. " days ago"
+end
+
 function A.Clear()
     local realm = Realm()
     realm.items, realm.scannedAt, realm.belowVendor, realm.bargains = {}, nil, nil, nil
@@ -625,9 +634,14 @@ end
 -- A search for one item: fn(listings) once its results are in (nil: no
 -- answer); listings: { { unit, count, own, auctionID (, total, link,
 -- itemLevel: an item's) } }, cheapest first. Its numbers
--- are kept too.
+-- are kept too. Auctions bought this visit are left out (A.MarkBought).
 ---------------------------------------------------------------------------
 local search
+local bought = {}   -- auctionID -> true: the server lists them a moment longer
+
+function A.MarkBought(auctionID)
+    bought[auctionID] = true
+end
 
 local function Send()
     if not search or search.sent then return end
@@ -665,22 +679,21 @@ function A.CancelSearch()
     search = nil
 end
 
--- whole: every listing of the item (not one level or variant of it): only
--- then it is the day's state
-local function Answer(listings, whole)
+-- all: every listing of the item, kept as the day's state (a key of gear
+-- holds all its versions); shown: what the caller gets (default all)
+local function Answer(all, shown)
     local s = search
     search = nil
+    shown = shown or all
     local plain = {}
-    for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
-    if whole then
-        local realm = Realm()
-        if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
-        if realm.bargains then realm.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
-        if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
-        Changed()
-    end
-    table.sort(listings, function(a, b) return a.unit < b.unit end)
-    s.fn(listings)
+    for i, l in ipairs(all) do plain[i] = { l.unit, l.count } end
+    local realm = Realm()
+    if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
+    if realm.bargains then realm.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
+    if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
+    Changed()
+    table.sort(shown, function(a, b) return a.unit < b.unit end)
+    s.fn(shown)
 end
 
 -- (results come before ours is sent too: the client's own, a purchase's
@@ -695,12 +708,12 @@ local function CommodityResults(itemID)
     local listings = {}
     for i = 1, AH.GetNumCommoditySearchResults(itemID) do
         local r = AH.GetCommoditySearchResultInfo(itemID, i)
-        if r and r.unitPrice and r.quantity > 0 then
+        if r and r.unitPrice and r.quantity > 0 and not bought[r.auctionID] then
             listings[#listings + 1] = { unit = r.unitPrice, count = r.quantity, own = (r.numOwnerItems or 0),
                 auctionID = r.auctionID }
         end
     end
-    Answer(listings, true)
+    Answer(listings)
 end
 
 local function ItemResults(itemKey)
@@ -714,7 +727,7 @@ local function ItemResults(itemKey)
     local all, sameLevel = {}, {}
     for i = 1, AH.GetNumItemSearchResults(itemKey) do
         local r = AH.GetItemSearchResultInfo(itemKey, i)
-        if r and r.buyoutAmount and r.buyoutAmount > 0 and r.quantity > 0 then
+        if r and r.buyoutAmount and r.buyoutAmount > 0 and r.quantity > 0 and not bought[r.auctionID] then
             -- (a search result's buyout is a unit's, quantity how many are
             -- up at it, as the game's own sell window reads it; a buy costs it)
             local l = { unit = r.buyoutAmount, total = r.buyoutAmount, count = r.quantity,
@@ -726,13 +739,7 @@ local function ItemResults(itemKey)
             end
         end
     end
-    -- (a browse result's key of gear is one level or variant of it)
-    local variant = search.itemKey and C_Item and C_Item.IsEquippableItem and C_Item.IsEquippableItem(search.itemID)
-    if #sameLevel > 0 then
-        Answer(sameLevel, false)
-    else
-        Answer(all, not variant)
-    end
+    Answer(all, #sameLevel > 0 and sameLevel or nil)
 end
 
 -- The price last set by hand for an item (a unit), per realm: where its
@@ -910,6 +917,7 @@ events:SetScript("OnEvent", function(_, event, arg)
     elseif event == "AUCTION_HOUSE_CLOSED" then
         A.open = false
         search = nil
+        wipe(bought)
         -- A scan the server hasn't answered won't be now; one being read is finished
         if scan.state == "waiting" then scan.state = "idle" end
         Changed()

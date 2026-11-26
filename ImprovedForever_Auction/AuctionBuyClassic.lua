@@ -1104,9 +1104,6 @@ end
 -- priced, its popup up, "buying"), quote (unit, total), message }
 ---------------------------------------------------------------------------
 -- (D: declared with the item's screen, above)
--- Auctions bought this visit (auctionID -> true): never offered again, a
--- list that comes back still holding one (the server's a moment behind)
-local boughtIDs = {}
 
 -- What qty of a commodity costs from the listings, cheapest first (nil: not that many)
 local function Cost(qty)
@@ -1442,10 +1439,7 @@ function BY.SearchItem()
     A.Search(itemID, D.commodity, nil, function(listings)
         if not D or D.itemID ~= itemID then return end
         D.searching = false
-        D.listings = {}
-        for _, l in ipairs(listings or {}) do
-            if not boughtIDs[l.auctionID] then D.listings[#D.listings + 1] = l end
-        end
+        D.listings = listings or {}
         if not listings then D.message = "No answer from the auction house" end
         if not D.commodity then KeepVersions(D.result.itemKey, D.listings) end
         local ours = OursShown()
@@ -1897,6 +1891,7 @@ local function RenderResults()
     if s.buyUpgrades == "only" then active[#active + 1] = "upgrades only" end
     if BY.search and BY.search ~= "" then path = path .. "   ·   |cffd8ccb0\"" .. BY.search .. "\"|r" end
     statusBase = path .. "   ·   " .. (BY.searching and "searching..." or (n .. " found"))
+        .. (ours and ("   ·   scanned " .. A.Ago(A.Realm().scannedAt)) or "")
         .. (#active > 0 and ("   ·   |cffc9a25a" .. table.concat(active, ", ") .. "|r") or "")
     ShowStatus()
 end
@@ -2752,7 +2747,6 @@ events:SetScript("OnEvent", function(_, event, ...)
         -- (listings change: looked up again next visit)
         wipe(prefetched)
         wipe(versionCache)
-        wipe(boughtIDs)
         win:Hide()
         SyncNative()
     elseif not win:IsShown() then
@@ -2819,7 +2813,7 @@ events:SetScript("OnEvent", function(_, event, ...)
         BY.Query(true)
     elseif event == "AUCTION_HOUSE_PURCHASE_COMPLETED" then
         local auctionID = ...
-        if auctionID then boughtIDs[auctionID] = true end
+        if auctionID then A.MarkBought(auctionID) end
         if D and D.state == "buying" then Bought(D.info.itemName or "item") end
         BY.Query(true)
     elseif event == "AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED" then
