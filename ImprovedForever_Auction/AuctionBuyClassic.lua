@@ -18,8 +18,8 @@
 -- rest its auctions one by one. Cross goes into it (Cross held buys: a
 -- "Hold to Buy" bar, full, letting go buys; in "Below vendor price", under
 -- a vendor's pay, a tap buys; a commodity dearer than its listings said is
--- never bought; the categories' buttons still change them); Circle comes back to the list, and from it closes the
--- auction house. R3 (a click) shows / hides the tooltips (with what is
+-- never bought; the categories' buttons still change them); Circle comes
+-- back to the list, and from it closes the auction house. R3 (a click) shows / hides the tooltips (with what is
 -- worn in the item's place beside them).
 -- (the framed window, its side tabs, dark panels and card rows)
 local IF = ImprovedForever
