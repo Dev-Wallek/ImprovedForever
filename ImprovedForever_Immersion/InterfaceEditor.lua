@@ -197,6 +197,17 @@ local ITEMS = {
             .. "is. Needs the nameplates on.",
     }, Toggle("nameplateCast", "Nameplate cast bars", function() IN.Nameplates.Apply() end)),
     Item({
+        key = "nameplateThreat", group = "top", section = "Nameplates", label = "Nameplate threat",
+        tip = "In a fight, a thin line under a mob's nameplate in the colour of your threat on it: yellow "
+            .. "close to pulling it, orange and red once it's on you. None while you're low on its list. "
+            .. "Needs the nameplates on.",
+    }, Toggle("nameplateThreat", "Nameplate threat", function() IN.Nameplates.Apply() end)),
+    Item({
+        key = "nameplateThreatHolder", group = "top", section = "Nameplates", label = "Nameplate threat: who has it",
+        tip = "Beside the threat line, a dot in the class colour of whoever in your party (a pet: its owner) "
+            .. "the mob is on. Needs the nameplates on.",
+    }, Toggle("nameplateThreatHolder", "Nameplate threat: who has it", function() IN.Nameplates.Apply() end)),
+    Item({
         key = "nameplateFont", group = "top", section = "Nameplates", label = "Nameplate name font",
         tip = "The font of the names over mobs: Morpheus (the default), Friz Quadrata, Arial Narrow or Skurri. "
             .. "A Russian, Korean or Chinese client always uses the game's own font, which has their letters.",

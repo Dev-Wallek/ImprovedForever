@@ -115,6 +115,8 @@ local DEFAULTS = {
     headerX = 0, headerY = 0, -- the header's (target, banners, quest arrow) place, px right / up
     nameplateCast = true, -- the unit's cast under its nameplate's line (its spell's name and icon)
     nameplateDebuffs = true, -- your debuffs on the mob, under its nameplate (the game fills them, in a fight too)
+    nameplateThreat = true, -- in a fight, a thin line under a mob's plate in the colour of your threat on it
+    nameplateThreatHolder = false, -- and a dot in the class colour of whoever of yours it's on
     meleeWarn = false,  -- the target header's health line turns red while the target is within melee range (TargetHeader.lua)
     castRange = true,   -- the target header greyed while an enemy is out of your reach
     hpLine = true,      -- your health as a bar over the power line
