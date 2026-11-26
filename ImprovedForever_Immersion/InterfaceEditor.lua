@@ -204,8 +204,8 @@ local ITEMS = {
     }, Toggle("nameplateThreat", "Nameplate threat", function() IN.Nameplates.Apply() end)),
     Item({
         key = "nameplateThreatHolder", group = "top", section = "Nameplates", label = "Nameplate threat: who has it",
-        tip = "Beside the threat line, a dot in the class colour of whoever in your party (a pet: its owner) "
-            .. "the mob is on. Needs the nameplates on.",
+        tip = "A dot beside the threat line in the class colour of whoever in your party (a pet: its owner) "
+            .. "the mob is on, also while your own threat line is hidden. Needs the nameplates on.",
     }, Toggle("nameplateThreatHolder", "Nameplate threat: who has it", function() IN.Nameplates.Apply() end)),
     Item({
         key = "nameplateFont", group = "top", section = "Nameplates", label = "Nameplate name font",
