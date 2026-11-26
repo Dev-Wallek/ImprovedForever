@@ -1129,6 +1129,13 @@ local CHECKS = {
         local few
         now, kept, _, few = Now({ 700, 5 }, { 900, 20 })
         assert(now == 700 and few, "few listed: the lowest")
+        -- (a first scan: the 1c listings a bargain against now, without a usual price)
+        local realm = A.Realm()
+        realm.bargains = { [-8] = { now = 10000, kept = 10000, listings = { { 1, 1 }, { 1, 1 }, { 9000, 2 } } } }
+        local b = A.Bargains()
+        assert(#b == 1 and b[1].against == "now" and b[1].minPrice == 1 and b[1].totalQuantity == 2, "a bargain now")
+        assert(A.BargainAgainst(-8, 9000) == nil, "one the cut keeps is no bargain against now")
+        realm.bargains = nil
     end },
     -- (prices kept under no realm name join the named realm's; a day is its last whole view)
     { name = "auction realm and day", fn = function()
