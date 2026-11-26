@@ -1928,7 +1928,17 @@ local function RenderDetail()
     dChart:Draw({ itemID = D.itemID, lowestNow = lowest, price = pay, searching = D.searching })
     local usual = A.MarketPrice(D.itemID)
     local parts = {}
-    if lowest then parts[#parts + 1] = "Lowest now " .. A.Money(lowest) end
+    if lowest then
+        parts[#parts + 1] = "Lowest now " .. A.Money(lowest)
+        local plain = {}
+        for i, l in ipairs(D.listings) do plain[i] = { l.unit, l.count } end
+        local now, _, _, few = A.Market(plain)
+        if few then
+            parts[#parts + 1] = "few listed"
+        elseif now ~= lowest then
+            parts[#parts + 1] = "avg. cheapest " .. A.Money(now)
+        end
+    end
     if usual then parts[#parts + 1] = "usually " .. A.Money(usual) end
     -- (what a vendor sells one for, where one does: RecipeData.lua's buy, with the Professions data)
     local buy = IF.RecipeData.buy and IF.RecipeData.buy[D.itemID]

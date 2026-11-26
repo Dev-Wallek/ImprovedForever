@@ -1097,7 +1097,7 @@ local CHECKS = {
         local history = A.History
         local function days(...)
             local list = {}
-            for i, m in ipairs({ ... }) do list[i] = { day = i, market = m } end
+            for i, m in ipairs({ ... }) do list[i] = { day = i, now = m } end
             A.History = function() return list end
         end
         days(100, 100, 100, 112)
@@ -1109,6 +1109,26 @@ local CHECKS = {
         days(100, 100, 150)
         assert(A.TrendText(1) == nil, "too few days")
         A.History = history
+    end },
+    -- ("now": the cheapest's average after the cuts; TSM's documented example gives 14.5)
+    { name = "auction now", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local function Now(...)
+            local list = {}
+            for _, l in ipairs({ ... }) do list[#list + 1] = { l[1], l[2] } end
+            return A.Market(list)
+        end
+        assert(Now({ 500, 1 }, { 1300, 2 }, { 1500, 3 }, { 1600, 1 }, { 1700, 2 }, { 1900, 1 }, { 2000, 6 },
+            { 2100, 2 }, { 2900, 1 }, { 4500, 2 }, { 4600, 1 }, { 4700, 1 }, { 10000, 1 }) == 1450, "TSM's example")
+        local now, kept = Now({ 1, 1 }, { 1, 1 }, { 10000, 5 }, { 10000, 5 })
+        assert(now == 10000 and kept == 3, "2 of 12 far under: a bargain, left out")
+        now, kept = Now({ 1, 1 }, { 1, 2 }, { 10000, 9 })
+        assert(now == 1 and kept == 1, "3 of 12 far under: the market")
+        assert(Now({ 500, 4 }, { 500, 4 }, { 500, 4 }) == 500, "one price")
+        local few
+        now, kept, _, few = Now({ 700, 5 }, { 900, 20 })
+        assert(now == 700 and few, "few listed: the lowest")
     end },
     -- (prices kept under no realm name join the named realm's; a day is its last whole view)
     { name = "auction realm and day", fn = function()
@@ -1125,8 +1145,8 @@ local CHECKS = {
         assert(R.items[1][4] == "x" and R.items[1][5] == "a" and R.items[1][6] == "b" and R.items[2][6] == "c",
             "a day lost or the older scan won")
         assert(R.myPrices[1] == 10 and R.myPrices[3] == 7 and R.scannedAt == 20 and R.bargains == nil, "merge")
-        A.Record(-9, 50, 60, 3, 55)
-        A.Record(-9, 80, 90, 2, 85)
+        A.Record(-9, 50, 60, 3)
+        A.Record(-9, 80, 90, 2)
         assert(select(2, A.Latest(-9)) == 80, "the day's lowest kept over its last view")
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")

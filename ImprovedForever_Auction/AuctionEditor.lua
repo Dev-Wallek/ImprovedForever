@@ -121,7 +121,8 @@ local ITEMS = {
     })),
     Item({
         key = "undercut", group = "sell", label = "Undercut by",
-        tip = "How far under the lowest price anyone else asks. Your own lowest is matched, never undercut.",
+        tip = "How far under the lowest price anyone else asks. Your own lowest is matched, never undercut."
+            .. " A few listed far under all the rest are left out.",
     }, Choice("undercut", "Undercut by", {
         { "1", "1 copper" }, { "100", "1 silver" }, { "1%", "1%" }, { "5%", "5%" },
     })),
@@ -145,7 +146,8 @@ local ITEMS = {
 
 ITEMS[#ITEMS + 1] = Item({
     key = "tooltip", group = "use", label = "Tooltips",
-    tip = "Item tooltips show its usual auction price and the latest lowest; for a bag stack, the whole"
+    tip = "Item tooltips show its usual auction price, now (what the cheapest ask on average, the odd one far"
+        .. " under them left out) and the latest lowest; for a bag stack, the whole"
         .. " stack's, a single one's in brackets.",
 }, OnOff(function() return S().tooltip end, function(on) S().tooltip = on end, "Tooltips"))
 ITEMS[#ITEMS + 1] = Item({

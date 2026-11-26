@@ -1,5 +1,6 @@
--- A price chart (the Sell tab's, the Buy window's): an item's market
--- price a day over the chart's days (a line), each day's lowest (dots),
+-- A price chart (the Sell tab's, the Buy window's): an item's "now" a day
+-- (the cheapest's average, Auction.lua's A.Market) over the chart's days
+-- (a line), its usual price (a thin line across), each day's lowest (dots),
 -- the lowest now (a bright dot on today) and a price of the panel's own
 -- (a dashed line: the price asked, the price to pay). Auction.lua's data.
 -- IF.AuctionChart.New(parent, label) -> chart (a frame: place and size it);
@@ -14,7 +15,7 @@ local AC = {}
 IF.AuctionChart = AC
 
 local COLORS = {
-    market = { 0.94, 0.89, 0.78 }, lowest = { 0.79, 0.64, 0.35 }, now = { 1, 0.82, 0.29 },
+    market = { 0.94, 0.89, 0.78 }, usual = { 0.62, 0.57, 0.48 }, lowest = { 0.79, 0.64, 0.35 }, now = { 1, 0.82, 0.29 },
     price = { 0.4, 0.9, 0.4 }, grid = { 0.45, 0.38, 0.25 },
 }
 local function Hex(c)
@@ -67,7 +68,7 @@ function AC.New(parent, label)
     nowText:SetPoint("BOTTOMRIGHT", -8, 5)
     local keyText = K.ChatText(chart, 10, KC.help)
     keyText:SetPoint("TOPRIGHT", -8, -6)
-    keyText:SetText(Hex(COLORS.market) .. "—|r Usual  " .. Hex(COLORS.lowest) .. "•|r Lowest  "
+    keyText:SetText(Hex(COLORS.market) .. "—|r Avg. cheapest  " .. Hex(COLORS.usual) .. "—|r Usual  " .. Hex(COLORS.lowest) .. "•|r Lowest  "
         .. Hex(COLORS.price) .. "- -|r " .. (label or "Yours"))
     local emptyText = K.ChatText(chart, 11, KC.grey)
     emptyText:SetPoint("LEFT", plot, "LEFT", 10, 0)
@@ -90,6 +91,8 @@ function AC.New(parent, label)
     end)
     local dots = Pool(function() return plot:CreateTexture(nil, "OVERLAY") end)
     local dashes = Pool(function() return plot:CreateTexture(nil, "ARTWORK", nil, 1) end)
+    local usualLine = plot:CreateTexture(nil, "ARTWORK")
+    usualLine:SetHeight(1)
 
     local function Dot(x, y, size, c)
         local d = dots:Get()
@@ -103,11 +106,12 @@ function AC.New(parent, label)
         lines:Reset()
         dots:Reset()
         dashes:Reset()
+        usualLine:Hide()
         local days = A.Settings().chartDays
         local history = A.History(S.itemID, days)
         local values = {}
         for _, d in ipairs(history) do
-            values[#values + 1] = d.market
+            values[#values + 1] = d.now
             values[#values + 1] = d.lowest
         end
         if S.lowestNow then values[#values + 1] = S.lowestNow end
@@ -138,10 +142,18 @@ function AC.New(parent, label)
         local function Y(v)
             return (v - lo) / (hi - lo) * h
         end
-        -- The market line, the lowest dots
+        -- Its usual price across; the "now" line, the lowest dots
+        local usual = A.MarketPrice(S.itemID, days)
+        if usual then
+            usualLine:ClearAllPoints()
+            usualLine:SetPoint("LEFT", plot, "BOTTOMLEFT", 0, Y(usual))
+            usualLine:SetWidth(w)
+            Color(usualLine, COLORS.usual, 0.8)
+            usualLine:Show()
+        end
         local last
         for _, d in ipairs(history) do
-            local x, y = X(d.day), Y(d.market)
+            local x, y = X(d.day), Y(d.now)
             if last then
                 local l = lines:Get()
                 l:SetStartPoint("BOTTOMLEFT", plot, last[1], last[2])

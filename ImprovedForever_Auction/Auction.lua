@@ -4,9 +4,8 @@
 -- in 15 minutes: the server's limit) and a search of one item (the
 -- auction window's tabs). Another addon's full scan is read too, when
 -- none was in 15 minutes. Each is kept as the day's latest numbers per item:
--- its lowest price a unit, its market price (what the cheapest quarter of
--- those listed ask on average), how many are up and what the cheapest
--- five units cost on average (A.Price: buying a few). A.Suggest prices an
+-- its lowest price a unit, "now" (A.Market: what the cheapest ask, the
+-- odd one far under them left out), how many are up. A.Suggest prices an
 -- item from them; the Auction tab (AuctionEditor.lua) sets how.
 local IF = ImprovedForever
 
@@ -17,8 +16,6 @@ local AH = C_AuctionHouse
 local DAY = 86400
 local REPLICATE_EVERY = 15 * 60   -- the server's own limit on full scans
 local CHUNK = 2000                -- auctions read a frame (a scan can be many thousands)
-local MARKET_SHARE = 0.25         -- the market price: the cheapest quarter listed
-local BUY_UNITS = 5               -- A.Price: what buying a few costs
 local AH_CUT = 0.05               -- the auction house's cut of a sale
 local SEARCH_TIMEOUT = 8
 
@@ -28,7 +25,7 @@ local DEFAULTS = {
     pricing = "undercut",  -- the price it starts at: undercut, match, market
     duration = 2,          -- 1 / 2 / 3: the game's three (A.Durations)
     vendorFloor = true,    -- never under what a vendor pays (after the cut)
-    tooltip = true,        -- item tooltips show the usual and lowest price
+    tooltip = true,        -- item tooltips show the usual price, now and the lowest
     buy = true,            -- our auction window (AuctionBuyClassic.lua); off: the game's
     buyUsable = false,     -- its filters: usable only, qualities (none ticked: any), up to my level, sort
     buyMyLevel = false,
@@ -116,8 +113,8 @@ function A.Cut()
 end
 
 ---------------------------------------------------------------------------
--- The store: realms[realm].items[itemID][day] = "lowest:market:quantity:cheapest5",
--- the day's last whole view of it
+-- The store: realms[realm].items[itemID][day] = "lowest:now:quantity" (":f":
+-- few listed), the day's last whole view of it
 ---------------------------------------------------------------------------
 local function Today()
     return math.floor(time() / DAY)
@@ -198,18 +195,20 @@ A.Realm = Realm
 -- A day the item was searched for and none were up
 local NONE = "-"
 
--- (cheapest5: nil in days kept before it was; all nil: none listed)
+-- lowest, now, quantity, few (all nil: none listed). (Days kept before
+-- "now" was hold the cheapest quarter's average in its place, and a
+-- number where "f" is.)
 local function Unpack(s)
-    local lowest, market, qty, cheapest5 = strsplit(":", s)
-    return tonumber(lowest), tonumber(market), tonumber(qty), tonumber(cheapest5)
+    local lowest, now, qty, few = strsplit(":", s)
+    return tonumber(lowest), tonumber(now), tonumber(qty), few == "f"
 end
 
 -- Its numbers as last seen today (nil: none listed)
-function A.Record(itemID, lowest, market, qty, cheapest5)
+function A.Record(itemID, lowest, now, qty, few)
     local items = Realm().items
     local days = items[itemID] or {}
     items[itemID] = days
-    days[Today()] = lowest and (lowest .. ":" .. market .. ":" .. qty .. ":" .. cheapest5) or NONE
+    days[Today()] = lowest and (lowest .. ":" .. now .. ":" .. qty .. (few and ":f" or "")) or NONE
 end
 
 -- Searched for today and none up
@@ -218,28 +217,86 @@ function A.NoneListed(itemID)
     return days ~= nil and days[Today()] == NONE
 end
 
--- What the cheapest `units` cost a unit on average (list sorted cheapest first;
--- fewer listed: all of them)
-local function Cheapest(list, units)
-    local got, sum = 0, 0
+---------------------------------------------------------------------------
+-- "Now": what the item sells for at the moment, from listings
+-- { { unit, count } } sorted cheapest first, after TSM's AuctionDB market
+-- value with a robust cut ahead of it. The auction house shows only what
+-- is asked, so only the cheapest count:
+-- 1. Units far under the rest (under the median of all units less 3 MADs,
+--    a MAD at least 5% of the median) go, while together under 20% of the
+--    units; more of them, and they are the market.
+-- 2. Of the rest, the cheapest 30% of the units; once 15% are in, a step up
+--    of 20% or more ends it.
+-- 3. Units more than 1.5 standard deviations off those's mean go; the
+--    rest's mean is it.
+-- Under 3 listings or 10 units: the lowest, "few".
+---------------------------------------------------------------------------
+local CUT_MADS, CUT_SHARE, MAD_MIN = 3, 0.2, 0.05
+local WINDOW, WINDOW_FROM, STEP = 0.3, 0.15, 1.2
+local SPREAD = 1.5
+local FEW_LISTINGS, FEW_UNITS = 3, 10
+
+-- The k-th cheapest unit's price
+local function UnitAt(list, k)
     for _, l in ipairs(list) do
-        local take = math.min(l[2], units - got)
-        if take <= 0 then break end
-        sum, got = sum + l[1] * take, got + take
+        if k <= l[2] then return l[1] end
+        k = k - l[2]
     end
-    return math.floor(sum / got + 0.5)
 end
 
--- The day's numbers from listings { { unit, count } }: lowest, market,
--- total, cheapest five
-local function Summarize(list)
-    table.sort(list, function(a, b) return a[1] < b[1] end)
+local function Median(list, total)
+    return (UnitAt(list, math.floor((total + 1) / 2)) + UnitAt(list, math.ceil((total + 1) / 2))) / 2
+end
+
+-- now, the first listing the cut keeps (its index), the units, few
+function A.Market(list)
     local total = 0
     for _, l in ipairs(list) do total = total + l[2] end
-    return list[1][1], Cheapest(list, math.max(1, total * MARKET_SHARE)), total, Cheapest(list, BUY_UNITS)
+    if #list < FEW_LISTINGS or total < FEW_UNITS then return list[1][1], 1, total, true end
+    -- 1.
+    local median = Median(list, total)
+    local off = {}
+    for i, l in ipairs(list) do off[i] = { math.abs(l[1] - median), l[2] } end
+    table.sort(off, function(a, b) return a[1] < b[1] end)
+    local under = median - CUT_MADS * math.max(Median(off, total), median * MAD_MIN)
+    local kept, cut = 1, 0
+    while kept <= #list and list[kept][1] < under do
+        cut, kept = cut + list[kept][2], kept + 1
+    end
+    if cut >= total * CUT_SHARE then kept, cut = 1, 0 end
+    -- 2.
+    local rest = total - cut
+    local most = math.max(1, math.floor(rest * WINDOW))
+    local window, got, prev = {}, 0, nil
+    for i = kept, #list do
+        local l = list[i]
+        if got >= most or (prev and got >= rest * WINDOW_FROM and l[1] >= prev * STEP) then break end
+        local take = math.min(l[2], most - got)
+        window[#window + 1] = { l[1], take }
+        got, prev = got + take, l[1]
+    end
+    -- 3.
+    local sum = 0
+    for _, w in ipairs(window) do sum = sum + w[1] * w[2] end
+    local mean, spread = sum / got, 0
+    for _, w in ipairs(window) do spread = spread + (w[1] - mean) ^ 2 * w[2] end
+    spread = math.sqrt(spread / got)
+    local n
+    sum, n = 0, 0
+    for _, w in ipairs(window) do
+        if math.abs(w[1] - mean) <= SPREAD * spread then sum, n = sum + w[1] * w[2], n + w[2] end
+    end
+    return math.floor(sum / n + 0.5), kept, total, false
 end
 
--- The item's days over the last `days`, oldest first: { { day, lowest, market, qty } }
+-- The day's numbers from listings { { unit, count } }: lowest, now, total, few
+local function Summarize(list)
+    table.sort(list, function(a, b) return a[1] < b[1] end)
+    local now, _, total, few = A.Market(list)
+    return list[1][1], now, total, few
+end
+
+-- The item's days over the last `days`, oldest first: { { day, lowest, now, qty } }
 function A.History(itemID, days)
     local list = {}
     local item = Realm().items[itemID]
@@ -247,37 +304,37 @@ function A.History(itemID, days)
     local from = Today() - (days or A.Settings().chartDays)
     for day, packed in pairs(item) do
         if day > from then
-            local lowest, market, qty = Unpack(packed)
-            if lowest then list[#list + 1] = { day = day, lowest = lowest, market = market, qty = qty } end
+            local lowest, now, qty = Unpack(packed)
+            if lowest then list[#list + 1] = { day = day, lowest = lowest, now = now, qty = qty } end
         end
     end
     table.sort(list, function(a, b) return a.day < b.day end)
     return list
 end
 
--- Its usual price: the median of the days' market prices over the chart's days
+-- Its usual price: the median of the days' "now" over the chart's days
 function A.MarketPrice(itemID, days)
     local values = {}
-    for _, d in ipairs(A.History(itemID, days)) do values[#values + 1] = d.market end
+    for _, d in ipairs(A.History(itemID, days)) do values[#values + 1] = d.now end
     if #values == 0 then return nil end
     table.sort(values)
     local mid = (#values + 1) / 2
     return math.floor((values[math.floor(mid)] + values[math.ceil(mid)]) / 2 + 0.5), #values
 end
 
--- Its latest day's market price against the median of the days before it, over the chart's days:
+-- Its latest day's "now" against the median of the days before it, over the chart's days:
 -- "rising +12%" / "falling -8%" in its colour, "steady +2%" in grey within 5%; nil when known for under 4 days
 local TREND_DAYS, TREND_MIN = 4, 5
 function A.TrendText(itemID)
     local days = A.History(itemID)
     if #days < TREND_DAYS then return nil end
     local values = {}
-    for i = 1, #days - 1 do values[i] = days[i].market end
+    for i = 1, #days - 1 do values[i] = days[i].now end
     table.sort(values)
     local mid = (#values + 1) / 2
     local before = (values[math.floor(mid)] + values[math.ceil(mid)]) / 2
     if before <= 0 then return nil end
-    local pct = math.floor((days[#days].market / before - 1) * 100 + 0.5)
+    local pct = math.floor((days[#days].now / before - 1) * 100 + 0.5)
     if math.abs(pct) < TREND_MIN then return "|cff9d917asteady " .. (pct >= 0 and "+" or "") .. pct .. "%|r" end
     return pct > 0 and ("|cffe0a050rising +" .. pct .. "%|r") or ("|cff7fb0e0falling " .. pct .. "%|r")
 end
@@ -288,7 +345,7 @@ function A.UnitNet(itemID)
     return market and market * (1 - AH_CUT) or nil
 end
 
--- Its latest day with prices: day, lowest, market, quantity, cheapest five
+-- Its latest day with prices: day, lowest, now, quantity, few
 -- (nil: never seen up)
 function A.Latest(itemID)
     local item = Realm().items[itemID]
@@ -301,13 +358,13 @@ function A.Latest(itemID)
 end
 
 -- For other modules and addons (ImprovedForever.Auction.Price), a unit in
--- copper: what the cheapest five cost on average on its latest day, its
--- usual price (A.MarketPrice) and the days since that day. nil: never seen.
+-- copper: "now" on its latest day, its usual price (A.MarketPrice) and the
+-- days since that day. nil: never seen.
 function A.Price(itemID)
     if type(itemID) ~= "number" or not IF.db then return nil end
-    local day, lowest, _, _, cheapest5 = A.Latest(itemID)
+    local day, _, now = A.Latest(itemID)
     if not day then return nil end
-    return cheapest5 or lowest, A.MarketPrice(itemID), Today() - day
+    return now, A.MarketPrice(itemID), Today() - day
 end
 
 -- Days older than kept go, and items left with none
@@ -696,9 +753,15 @@ function A.Floor(vendor)
 end
 
 function A.Suggest(itemID, listings, vendor)
-    -- The lowest anyone else asks; the lowest of all (ours may be under it)
+    -- The lowest anyone else asks; the lowest of all (ours may be under it);
+    -- the odd few far under the rest left out (A.Market's cut)
+    listings = listings or {}
+    local plain = {}
+    for i, l in ipairs(listings) do plain[i] = { l.unit, l.count } end
+    local kept = #plain > 0 and select(2, A.Market(plain)) or 1
     local others, lowest
-    for _, l in ipairs(listings or {}) do
+    for i = kept, #listings do
+        local l = listings[i]
         lowest = lowest or l.unit
         if not others and l.own < l.count then others = l.unit end
     end
@@ -735,6 +798,8 @@ function A.Suggest(itemID, listings, vendor)
         warn = "Lowest is " .. math.floor((1 - others / market) * 100 + 0.5) .. "% under its usual price"
     elseif not lowest and not market then
         warn = "No prices known: none listed, none scanned"
+    elseif kept > 1 then
+        warn = "Left out " .. (kept - 1) .. " listed far under the rest (from " .. A.Money(listings[1].unit) .. ")"
     end
     return price, presets, warn, chosen and chosen.key
 end
@@ -745,7 +810,7 @@ end
 IF.OnLogin(A.Prune)
 
 ---------------------------------------------------------------------------
--- Item tooltips: its usual price and the latest lowest; a bag stack's
+-- Item tooltips: its usual price, "now" and the latest lowest; a bag stack's
 -- whole, a unit's in brackets after it
 ---------------------------------------------------------------------------
 local function TooltipPrices(tooltip, data)
@@ -753,7 +818,7 @@ local function TooltipPrices(tooltip, data)
     if tooltip ~= GameTooltip and tooltip ~= _G.ItemRefTooltip then return end
     local itemID = data and data.id
     if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then return end
-    local day, lowest = A.Latest(itemID)
+    local day, lowest, now, _, few = A.Latest(itemID)
     local none = A.NoneListed(itemID)
     if not day and not none then return end
     local market = A.MarketPrice(itemID)
@@ -776,8 +841,11 @@ local function TooltipPrices(tooltip, data)
         return
     end
     local ago = A.Today() - day
-    tooltip:AddDoubleLine("Auction: lowest" .. of .. (ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")),
-        Price(lowest), r, g, b, 1, 1, 1)
+    local when = ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")
+    if now and not few and now ~= lowest then
+        tooltip:AddDoubleLine("Auction: now" .. of .. when, Price(now), r, g, b, 1, 1, 1)
+    end
+    tooltip:AddDoubleLine("Auction: lowest" .. of .. when .. (few and " (few listed)" or ""), Price(lowest), r, g, b, 1, 1, 1)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum.TooltipDataType then
