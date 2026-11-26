@@ -185,7 +185,6 @@ local function Render()
                 usual = unit
             elseif IF.Auction then
                 unit, usual = IF.Auction.Price(reagent.itemID)
-                unit = unit or usual
             end
             if unit then
                 cost, usualCost = cost + unit * buy, usualCost + (usual or unit) * buy
