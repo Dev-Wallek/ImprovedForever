@@ -16,8 +16,9 @@
 -- moment after it is picked): its price chart (AuctionChart.lua), and for
 -- goods sold by the unit (commodities) a quantity and its cost, for the
 -- rest its auctions one by one. Cross goes into it (Cross held buys: a
--- "Hold to Buy" bar, full, letting go buys; the categories' buttons still
--- change them); Circle comes back to the list, and from it closes the
+-- "Hold to Buy" bar, full, letting go buys; in "Below vendor price", under
+-- a vendor's pay, a tap buys; a commodity dearer than its listings said is
+-- never bought; the categories' buttons still change them); Circle comes back to the list, and from it closes the
 -- auction house. R3 (a click) shows / hides the tooltips (with what is
 -- worn in the item's place beside them).
 -- (the framed window, its side tabs, dark panels and card rows)
@@ -668,7 +669,7 @@ function BY.HoldBox(parent)
         if button == "LeftButton" and self.onUp then self.onUp() end
     end)
     -- p: 0 to 1; key: the button's glyph key; verb: "Buy"...; extra
-    -- (optional): after it ("· 1 silver": what it costs)
+    -- (optional): after it ("· 1 silver": what it costs); tap: pressed, not held
     -- (busy: the action sent, the answer awaited: "Buying...", a bar sweeping)
     hold.sweep = hold:CreateTexture(nil, "ARTWORK", nil, 3)
     hold.sweep:SetColorTexture(1, 0.82, 0, 0.35)
@@ -697,7 +698,7 @@ function BY.HoldBox(parent)
         self.text:SetPoint("CENTER", self, "CENTER", 0, 0)
         self.text:SetTextColor(1, 0.82, 0)
     end
-    function hold:SetHold(p, key, verb, extra)
+    function hold:SetHold(p, key, verb, extra, tap)
         self.busy = false
         self.sweep:Hide()
         local full = p >= 1
@@ -707,7 +708,7 @@ function BY.HoldBox(parent)
         -- (with the mouse no glyph: the box itself is held)
         local pad = IF.Input.Pad()
         self.icon:SetShown(pad)
-        self.text:SetText((full and "Release to " or "Hold to ") .. verb
+        self.text:SetText((tap and "" or full and "Release to " or "Hold to ") .. verb
             .. (extra and ("  |cffd8ccb0·|r  " .. extra) or ""))
         -- (the icon and the words centred together)
         local iconW = pad and (self.icon:GetWidth() + 4) or 0
@@ -1549,8 +1550,26 @@ function BY.AfterBrowse(force)
     D.message = message
 end
 
+-- In "Below vendor price", bought at under what a vendor pays: a tap
+-- buys, no hold
+local function TapBuys()
+    local ours = detail:GetParent() == buyPage and OursShown()
+    if not (D and ours and ours.list == A.BelowVendor) then return false end
+    local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(D.itemID))
+    local unit
+    if D.commodity then
+        local total = Cost(D.qty)
+        unit = total and total / D.qty
+    else
+        local a = Auctions()[D.row]
+        unit = a and a.unit
+    end
+    return sell ~= nil and unit ~= nil and unit < sell
+end
+
 -- Cross held: the hold starts (a commodity's price asked of the server
--- now: that wants a hardware event too, the press is one); short of
+-- now: that wants a hardware event too, the press is one; its price as
+-- planned from the listings kept: dearer, it isn't bought); short of
 -- money or of that many: said, no hold
 local function BuyStart()
     if not D or D.searching or D.state == "buying" or IF.InCombat() then return end
@@ -1569,7 +1588,7 @@ local function BuyStart()
             return BY.Render()
         end
         if D.state ~= "confirm" then
-            D.state, D.quote = "quote", nil
+            D.state, D.quote, D.plan, D.buyOnQuote = "quote", nil, total, nil
             AH.StartCommoditiesPurchase(D.itemID, D.qty, math.ceil(total / D.qty))
         end
     else
@@ -1586,7 +1605,7 @@ local function BuyStart()
             return BY.Render()
         end
     end
-    D.holdStart, D.message = GetTime(), nil
+    D.holdStart, D.message, D.tap = GetTime(), nil, TapBuys()
     BY.Render()
 end
 
@@ -1594,15 +1613,22 @@ end
 local function DropQuote()
     if D and (D.state == "quote" or D.state == "confirm") then
         if AH.CancelCommoditiesPurchase then AH.CancelCommoditiesPurchase() end
-        D.state, D.quote = nil, nil
+        D.state, D.quote, D.buyOnQuote = nil, nil, nil
     end
 end
 
--- Cross let go (a hardware event): full, bought (a commodity: at the
--- server's price, once it has come); short of full, nothing
+local function ConfirmQuote()
+    D.state, D.message, D.buyingAt, D.buyOnQuote = "buying", "Buying...", GetTime(), nil
+    AH.ConfirmCommoditiesPurchase(D.itemID, D.qty)
+    BY.HoldDone()
+end
+
+-- Cross let go (a hardware event): full (or a tap that buys), bought (a
+-- commodity: at the server's price; a tap's, as it comes); short of
+-- full, nothing
 function BY.DetailRelease(name)
     if name ~= "A" or not (D and D.holdStart) then return end
-    local full = BY.HoldProgress(D.holdStart) >= 1
+    local full = BY.HoldProgress(D.holdStart) >= 1 or D.tap
     D.holdStart = nil
     if not full or IF.InCombat() then
         DropQuote()
@@ -1615,9 +1641,9 @@ function BY.DetailRelease(name)
     end
     if D.commodity then
         if D.state == "confirm" and D.quote then
-            D.state, D.message, D.buyingAt = "buying", "Buying...", GetTime()
-            AH.ConfirmCommoditiesPurchase(D.itemID, D.qty)
-            BY.HoldDone()
+            ConfirmQuote()
+        elseif D.state == "quote" and D.tap then
+            D.buyOnQuote, D.message = true, "Buying..."
         else
             DropQuote()
             D.message = "The price hasn't come back yet: hold again"
@@ -1638,9 +1664,16 @@ function BY.DetailRelease(name)
     BY.Render()
 end
 
-local function Bought(what)
+-- paid, planned: a commodity's server price and the listings' (the chat
+-- says when they differ)
+local function Bought(what, paid, planned)
     PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120)
-    IF.Print("bought " .. what .. ".")
+    local line = "bought " .. what
+    if paid and planned and paid ~= planned then
+        line = line .. " for " .. A.Money(paid) .. " (planned " .. A.Money(planned) .. ", "
+            .. A.Money(math.abs(planned - paid)) .. (paid < planned and " less)" or " more)")
+    end
+    IF.Print(line .. ".")
     if D then
         -- (looked up again after the list's refresh, BY.AfterBrowse)
         D.state, D.searching, D.afterBrowse = nil, true, GetTime()
@@ -1997,7 +2030,7 @@ local function RenderDetail()
     if buying then
         dHold:SetBusy("Buying...")
     else
-        dHold:SetHold(BY.HoldProgress(D.holdStart), "A", "Buy", HoldPrice())
+        dHold:SetHold(BY.HoldProgress(D.holdStart), "A", "Buy", HoldPrice(), TapBuys())
     end
 end
 
@@ -2123,7 +2156,7 @@ local function DetailHints(onBuy)
             .. (onBuy and "" or (Glyph("LT") .. " " .. Glyph("RT") .. " 20   ")))
         or (Glyph("DPAD_UD") .. " Auction   ")
     local buying = D.state == "buying"
-    return Glyph("A") .. (buying and " Buying...   " or " Hold to Buy   ") .. move
+    return Glyph("A") .. (buying and " Buying...   " or TapBuys() and " Buy   " or " Hold to Buy   ") .. move
         .. Glyph("X") .. (buying and " Loading...   " or " Refresh   ")
 end
 
@@ -2585,7 +2618,7 @@ win:SetScript("OnUpdate", function()
         dHold:SetBusy("Buying...")
     elseif D and D.holdStart then
         progress = BY.HoldProgress(D.holdStart)
-        dHold:SetHold(progress, "A", "Buy", HoldPrice())
+        dHold:SetHold(progress, "A", "Buy", HoldPrice(), D.tap)
     else
         local page = CurrentPage()
         if page and page.HoldProgress then progress = page.HoldProgress() end
@@ -2730,12 +2763,19 @@ events:SetScript("OnEvent", function(_, event, ...)
     elseif event == "COMMODITY_PRICE_UPDATED" then
         if D and D.state == "quote" then
             local unit, total = ...
-            D.state, D.quote, D.message = "confirm", { unit = unit, total = total }, nil
-            -- (dearer than it looked: said before the release)
-            local expected = Cost(D.qty)
-            if expected and total > expected then
-                D.message = "|cffff7a5cThe price went up by " .. A.Money(total - expected) .. "|r"
+            if D.plan and total > D.plan then
+                -- (dearer than planned: not bought; the listings looked up again, a new hold buys at them)
+                local text = "The price went up by " .. A.Money(total - D.plan)
+                IF.Print("not bought: " .. D.qty .. " × " .. (D.info.itemName or "item") .. " now cost "
+                    .. A.Money(total) .. ", planned " .. A.Money(D.plan) .. ".")
+                if AH.CancelCommoditiesPurchase then AH.CancelCommoditiesPurchase() end
+                D.state, D.quote, D.holdStart, D.buyOnQuote = nil, nil, nil, nil
+                BY.SearchItem()
+                D.message = "|cffff7a5c" .. text .. ": hold again to buy at the new price|r"
+                return BY.Render()
             end
+            D.state, D.quote, D.message = "confirm", { unit = unit, total = total }, nil
+            if D.buyOnQuote then ConfirmQuote() end
             BY.Render()
         end
     elseif event == "COMMODITY_PRICE_UNAVAILABLE" or event == "COMMODITY_PURCHASE_FAILED" then
@@ -2745,7 +2785,7 @@ events:SetScript("OnEvent", function(_, event, ...)
             D.message = "Couldn't buy: the price changed or they're gone"
         end
     elseif event == "COMMODITY_PURCHASE_SUCCEEDED" then
-        if D then Bought(D.qty .. " × " .. (D.info.itemName or "item")) end
+        if D then Bought(D.qty .. " × " .. (D.info.itemName or "item"), D.quote and D.quote.total, D.plan) end
         BY.Query(true)
     elseif event == "AUCTION_HOUSE_PURCHASE_COMPLETED" then
         local auctionID = ...
