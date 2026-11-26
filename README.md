@@ -114,9 +114,15 @@ areas press the numpad **7 / 9 / 1 / 3**, and Improved Forever takes those four 
    `controller_ps5_improvedforever.vdf` and restart Steam.
 2. In the WoW shortcut's Controller Settings, Browse Configs, Templates: apply
    *Improved Forever: PS5 + touchpad corners*, then restart the game.
-3. If the game doesn't see the pad as a PlayStation one, type `/if cornerkeys on` once.
+3. If the game shows Xbox buttons (it doesn't see the pad as a PlayStation one), turn on
+   **Touchpad corners from Steam Input** in game (`/if`, General tab), or type `/if cornerkeys on`
+   once. The Create button is then View (drawn in Create's place in the Bindings tab).
+
+In the Bindings tab, pick a card (Cross) and click the touchpad corner you want: it is bound there
+(with L1 / R1 / L2 / R2 picked first, on that layer).
 
 The layout is Steam's stock PS5 gamepad one with only the touchpad changed. Numpad 7 / 9 / 1 / 3
+(and Home / Page Up / End / Page Down, what they become with NumLock off, as in Game Mode)
 are taken by the addon in the world while it runs. Each half of the pad has four areas
 (top, right, bottom, left), so a click near the middle of a half can land in the other corner
 of that half.

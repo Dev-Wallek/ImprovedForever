@@ -94,7 +94,13 @@ driver:SetAttribute("ic-eval", [[
     end
 ]])
 driver:SetAttribute("_onstate-wand", [[ self:RunAttribute("ic-eval") ]])
-RegisterStateDriver(driver, "wand", "[@target,harm,nodead] shoot; none")
+-- A druid's form has its own bar page: the game's own RT / LT + Square binding
+-- follows it, the button we click stays on the caster page (Maul on the bear
+-- bar's RT + Square never ran). So in a form Square is the game's own press.
+local _, class = UnitClass("player")
+local condition = class == "DRUID" and "[@target,harm,nodead,noform] shoot; none"
+    or "[@target,harm,nodead] shoot; none"
+RegisterStateDriver(driver, "wand", condition)
 
 -- Square's key and the secure button it runs while shooting; nil: off.
 -- Out of combat only (Override.Apply)

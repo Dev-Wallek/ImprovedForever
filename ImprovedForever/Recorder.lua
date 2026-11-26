@@ -109,7 +109,7 @@ end
 
 -- opts = { title, hint (what may be pressed), chord (false: one button
 -- only), double (a quick second press makes it ":double"), accept =
--- function(spec) (false: not allowed), reject (its message, or
+-- function(spec, info) (false: not allowed), reject (its message, or
 -- function(spec) -> it), onDone =
 -- function(spec, info), onCancel = function() }
 function R.Start(o)
@@ -181,7 +181,8 @@ function R.OnKey(key)
         and IF.Touch.CornerOfKey(key)
     if corner then
         R.OnDown("PADBACK")
-        if info then info.touch = IF.Touch.CORNER_SPOT[corner] end
+        -- (cornerKey: the press is a corner's, not the pad's own PADBACK, View on an Xbox pad)
+        if info then info.touch, info.cornerKey = IF.Touch.CORNER_SPOT[corner], true end
         return R.OnUp("PADBACK")
     end
     if state ~= "wait" then return end
@@ -310,7 +311,7 @@ function R.Finish(cancel)
     C_Timer.After(0, function()
         if cancel or not s or s == "PAD2" then
             if o.onCancel then o.onCancel() end
-        elseif o.accept and not o.accept(s) then
+        elseif o.accept and not o.accept(s, i) then
             local reject = type(o.reject) == "function" and o.reject(s) or o.reject
             menu.Toast(reject or (IF.Binds.Text(s) .. " can't be used for this"), true, 3)
             if o.onCancel then o.onCancel() end

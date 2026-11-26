@@ -495,5 +495,19 @@
   "project": "improved-forever",
   "seen": 8734950,
   "status": "resolved"
+ },
+ "8736914": {
+  "date": "2026-11-21",
+  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+  "project": "improved-forever",
+  "seen": 8752015,
+  "status": "fixed"
+ },
+ "8760351": {
+  "date": "2026-11-21",
+  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+  "project": "improved-forever",
+  "seen": 8760351,
+  "status": "fixed"
  }
 }

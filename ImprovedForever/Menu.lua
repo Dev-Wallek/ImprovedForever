@@ -291,6 +291,10 @@ local NAV = {
     PAD1 = "A", PAD2 = "B", PAD3 = "X", PAD4 = "Y",
     PADLSHOULDER = "LB", PADRSHOULDER = "RB", PADLTRIGGER = "LT", PADRTRIGGER = "RT", ESCAPE = "B",
     PADBACK = "TOUCH",
+    -- (Steam Input's touchpad corners, four keys: only while they are the corners, Touchpad.lua)
+    NUMPAD7 = "CORNER:upleft", NUMPAD9 = "CORNER:upright", NUMPAD1 = "CORNER:downleft", NUMPAD3 = "CORNER:downright",
+    -- (the same with NumLock off)
+    HOME = "CORNER:upleft", PAGEUP = "CORNER:upright", END = "CORNER:downleft", PAGEDOWN = "CORNER:downright",
 }
 -- Held triggers may add modifiers to the keys
 local PREFIXES = { "", "SHIFT-", "CTRL-", "ALT-", "CTRL-SHIFT-", "ALT-SHIFT-", "ALT-CTRL-", "ALT-CTRL-SHIFT-" }
@@ -302,6 +306,12 @@ function menu.Press(name)
     -- A touchpad click: the page may read where the finger is
     if name == "TOUCH" then
         if page.OnTouch then page:OnTouch() end
+        return
+    end
+    -- A touchpad corner pressed (Steam Input's keys): the page may take it
+    local corner = name:match("^CORNER:(%a+)$")
+    if corner then
+        if page.OnCorner and not (IF.Recorder and IF.Recorder.IsActive()) then page:OnCorner(corner) end
         return
     end
     -- (recording a press: Circle, or the legend's cancel clicked, stops it)
@@ -360,6 +370,11 @@ local function BindKey(key)
     end
 end
 
+-- A corner key while it isn't the corners stays the game's
+local function Ours(key)
+    return not NAV[key]:find("^CORNER:") or (IF.Touch and IF.Touch.CornerOfKey(key)) ~= nil
+end
+
 -- A button still held (the one that opened the panel) is taken only once
 -- released: its release belongs to the game, which saw it pressed
 function menu.BindPad()
@@ -367,7 +382,9 @@ function menu.BindPad()
     ClearOverrideBindings(frame)
     menu.heldKeys = {}
     for key in pairs(NAV) do
-        if key ~= "ESCAPE" and IsKeyDown and IsKeyDown(key) then
+        if not Ours(key) then
+            -- (left to the game)
+        elseif key ~= "ESCAPE" and IsKeyDown and IsKeyDown(key) then
             menu.heldKeys[key] = true
         else
             BindKey(key)
@@ -385,7 +402,7 @@ end
 function menu.Rebind(key)
     if InCombatLockdown() or not menu.heldKeys then return end
     for k in pairs(NAV) do
-        if (not key or k == key) and not menu.heldKeys[k] then BindKey(k) end
+        if (not key or k == key) and Ours(k) and not menu.heldKeys[k] then BindKey(k) end
     end
 end
 

@@ -63,6 +63,17 @@ local ITEMS = {
         if not on then IF.AddonWindows.Refresh() end
     end, "Other addons' windows in L2 / R2")),
     Item({
+        key = "cornerKeys", group = "gamepad", label = "Touchpad corners from Steam Input",
+        tip = "For SteamOS / Steam Deck with Steam Input on: the game sees an Xbox pad there and no touchpad "
+            .. "finger, so the touchpad's corners come as the numpad keys 7 / 9 / 1 / 3 (the Improved Forever "
+            .. "Steam Input layout, see the README). On: those keys are the corners, and the Bindings tab shows "
+            .. "the corners to bind. A PlayStation controller the game sees as one has them without this. "
+            .. "The same as /if cornerkeys.",
+    }, OnOff(function() return IF.Touch.GetSettings().cornerKeys == true end, function(on)
+        IF.Touch.GetSettings().cornerKeys = on or nil
+        IF.Touch.Apply()
+    end, "Touchpad corners from Steam Input")),
+    Item({
         key = "resetBindings", group = "gamepad", label = "Reset all bindings",
         tip = "Puts every binding back to its default: the buttons and keys of the Bindings tab, the actions "
             .. "put on presses and keys, and the touchpad's corners. The crossbar's own slots stay as they are.",

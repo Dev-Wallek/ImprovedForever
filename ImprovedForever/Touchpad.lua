@@ -44,6 +44,8 @@ touch.REGIONS = { "upleft", "upright", "downleft", "downright" }
 -- these keys (numpad, laid out as the corners); each is its corner's press.
 -- Bound with a PlayStation pad, or whenever /if cornerkeys is on
 touch.CORNER_KEYS = { upleft = "NUMPAD7", upright = "NUMPAD9", downleft = "NUMPAD1", downright = "NUMPAD3" }
+-- (with NumLock off, SteamOS Game Mode's default, the same numpad keys reach the game as these)
+touch.CORNER_KEYS_NAV = { upleft = "HOME", upright = "PAGEUP", downleft = "END", downright = "PAGEDOWN" }
 touch.REGION_LABELS = {
     up = "Top", down = "Bottom", left = "Left", right = "Right", centre = "Centre",
     upleft = "Top left", upright = "Top right", downleft = "Bottom left", downright = "Bottom right",
@@ -169,8 +171,22 @@ function touch.CornerOfKey(key)
     local settings = IF.db and touch.GetSettings()
     if not (settings and (settings.cornerKeys or IF.PadStyle() == "Shapes")) then return nil end
     for region, k in pairs(touch.CORNER_KEYS) do
-        if k == key then return region end
+        if k == key or touch.CORNER_KEYS_NAV[region] == key then return region end
     end
+end
+
+-- The touchpad's corners can be bound: a PlayStation pad's own touchpad, or Steam Input's four
+-- corner keys (/if cornerkeys, the General tab)
+function touch.HasCorners()
+    if IF.PadStyle() == "Shapes" then return true end
+    return IF.db ~= nil and touch.GetSettings().cornerKeys == true
+end
+
+-- The game's touchpad click (PADBACK) is the touchpad's: on a PlayStation pad only. Under Steam
+-- Input the game sees an Xbox pad: PADBACK is its View button (the Create button there), and the
+-- corners come as keys
+function touch.ClickIsPad()
+    return IF.PadStyle() == "Shapes"
 end
 
 -- Where on the pad a corner is, as the finger reports it (x right, y up)
@@ -474,7 +490,11 @@ local function BlockTouchCursor(block)
 end
 
 -- The game's gamepad cursor drawn: the pad is on a panel of the game's (read, never touched)
+-- (the pointer alone isn't it: Forever leaves it shown in the world too; the frame manager says
+-- whether the pad is on the game's interface)
 function touch.CursorUp()
+    local manager = _G.GamepadMode and GamepadMode.FrameControlsManager
+    if manager and manager.isUIFocused == false then return false end
     local nav = _G.SmartNavigation
     local pointer = nav and nav.Pointer
     if not pointer then return false end
@@ -553,6 +573,7 @@ function touch.Apply()
     if keys and not panelOpen and inGame then
         for region, key in pairs(touch.CORNER_KEYS) do
             SetOverrideBindingClick(click, true, key, click:GetName(), region)
+            SetOverrideBindingClick(click, true, touch.CORNER_KEYS_NAV[region], click:GetName(), region)
         end
     end
     if ours and not panelOpen and inGame then
@@ -696,18 +717,76 @@ B.Add({
     end,
 })
 
+-- /if cornerkeys log: for LOG_FOR seconds, each key the game gets (not the pad's own buttons) in
+-- the chat: the corner it stands for, what it is bound to now, and why the corners are or aren't
+-- bound (in game, a window open, the game's cursor up); each corner click that runs, too
+local LOG_FOR = 30
+local logger, logUntil
+local function Str(value)
+    local ok, text = pcall(tostring, value)
+    return ok and text or "<hidden>"
+end
+local function LogState(prefix)
+    local parts = {}
+    for _, region in ipairs(touch.REGIONS) do
+        local key, nav = touch.CORNER_KEYS[region], touch.CORNER_KEYS_NAV[region]
+        local bound, navBound = GetBindingAction(key, true), GetBindingAction(nav, true)
+        parts[#parts + 1] = key:gsub("NUMPAD", "N") .. "=" .. (bound ~= "" and bound:gsub("^CLICK ImprovedForeverTouchClick", "ours") or "-")
+            .. " " .. nav .. "=" .. (navBound ~= "" and navBound:gsub("^CLICK ImprovedForeverTouchClick", "ours") or "-")
+            .. "/" .. (click:GetAttribute("ic-macro-" .. region) and "macro" or "no macro")
+    end
+    IF.Print(prefix .. " pad " .. Str(IF.PadStyle()) .. ", cornerkeys " .. Str(touch.GetSettings().cornerKeys)
+        .. ", in game " .. Str(IF.Binds.InGame()) .. ", windows " .. Str(WindowsShown()) .. ", cursor "
+        .. Str(touch.CursorUp()) .. ", ui focus " .. Str(_G.GamepadMode and GamepadMode.FrameControlsManager
+            and GamepadMode.FrameControlsManager.isUIFocused) .. ", overrides " .. Str(IF.Binds.PadOverrides()))
+    IF.Print("  " .. table.concat(parts, "  "))
+end
+function touch.StartKeyLog()
+    if IF.InCombat() then return IF.Print("Not in combat.") end
+    if not logger then
+        logger = CreateFrame("Frame")
+        logger:SetScript("OnKeyDown", function(_, key)
+            if key:find("^PAD") and key ~= "PADBACK" then return end
+            local region = touch.CornerOfKey(key)
+            IF.Print("key " .. Str(key) .. (region and (" = " .. touch.REGION_LABELS[region]) or "")
+                .. ", bound to " .. Str(GetBindingAction(key, true) ~= "" and GetBindingAction(key, true) or "nothing"))
+        end)
+        logger:SetScript("OnUpdate", function(self)
+            if GetTime() < logUntil then return end
+            if not IF.InCombat() then self:EnableKeyboard(false) end
+            self:Hide()
+            touch.logging = nil
+            LogState("cornerkeys log: over.")
+        end)
+    end
+    logUntil = GetTime() + LOG_FOR
+    touch.logging = true
+    logger:Show()
+    logger:EnableKeyboard(true)
+    logger:SetPropagateKeyboardInput(true)
+    LogState("cornerkeys log: " .. LOG_FOR .. " s, press the touchpad's corners.")
+end
+click:HookScript("PostClick", function(self, button, down)
+    if touch.logging and self:GetAttribute("type") then
+        IF.Print("click " .. Str(button) .. (down and " down" or " up") .. ": " .. Str(self:GetAttribute("ic-region"))
+            .. " runs " .. Str(self:GetAttribute("macrotext")))
+    end
+end)
+
 -- /if cornerkeys on|off: the four corner keys (numpad 7 9 1 3, from Steam Input's touchpad areas)
 -- bound even when the pad isn't seen as a PlayStation one (SteamOS Game Mode)
 IF.AddCommand("cornerkeys", function(words)
     local settings = touch.GetSettings()
     local word = words[1]
+    if word == "log" then return touch.StartKeyLog() end
     if word == "on" or word == "off" then
         settings.cornerKeys = word == "on" or nil
         touch.Apply()
+        if IF.Menu and IF.Menu.IsOpen and IF.Menu.IsOpen() then IF.Menu.Render() end
     end
     IF.Print("cornerkeys: " .. (settings.cornerKeys and "on" or "off")
         .. " (numpad 7 9 1 3 = top left, top right, bottom left, bottom right)")
-end, "on|off: touchpad corners from four numpad keys (Steam Input)")
+end, "on|off|log: touchpad corners from four numpad keys (Steam Input); log: 30 s of keys in the chat")
 
 -- The cursor coming or going: the click is the game's or ours again
 local cursorWatch, cursorWas = CreateFrame("Frame"), false

@@ -1,5 +1,13 @@
 # Changelog
 
+## Core 0.20.1
+
+- Fixed: the touchpad corners work again in the world and in the Bindings tab. With Steam Input (Game Mode) the corners reach the game as Home / Page Up / End / Page Down, and the game's cursor staying on screen in the world no longer holds them back.
+- Bindings tab with the pad: press a touchpad corner (or the PlayStation touchpad click) to bind the card you picked onto it; the shoulders / triggers picked first set its layer.
+- Xbox pad under Steam Input: with "Touchpad corners from Steam Input" on (General tab) the corners show and bind too.
+- New: `/if cornerkeys log` lists for 30 seconds the keys the game gets and what each is bound to. Paste it in a comment if a corner still doesn't work.
+- Fixed: with "Square always attacks" on, a druid's RT / LT + Square in a form (Maul in Bear Form) ran the caster bar's slot instead. In a form Square is now the game's own press, so the form's bar answers. Square no longer starts the swing for you in a form.
+
 ## Chat 0.7.0
 
 - **Chat keyboard**: an on-screen keyboard laid out like the PS5's, low in the middle of the screen on a soft dark band. Open it anywhere with LB + RB held, then Cross (a binding, changeable in the Bindings tab), or with D-pad Down while the chat has the controller. The chat's edit box isn't needed.
