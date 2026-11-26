@@ -2,8 +2,9 @@
 -- party has how much threat on your target, and a warning when you're
 -- about to lose the aggro (tanking) or pull it (not tanking). Its data is
 -- the core's IF.Threat (Threat.lua). With Immersion's party cards it sits
--- low, right of them (no party: the bottom's middle; no room before the
--- spell diamonds: hidden), in its font; without, under the target. Faint
+-- low, right of them, the cooldowns after it (too little room left them:
+-- over their row; no party: the bottom's middle; no room before the spell
+-- diamonds: hidden), in its font; without, under the target. Faint
 -- but for a warning. Only frames of ours; shown in a fight on an enemy,
 -- nothing to press.
 local IF = ImprovedForever
@@ -78,37 +79,41 @@ local function ImmersionHeader()
     return IN and IN.Settings and IN.Settings().target and _G.ImprovedForeverTargetHeader
 end
 
--- (a region's edge in UIParent's units)
-local function Edge(region, edge)
-    local v = region[edge](region)
-    return v and v * region:GetEffectiveScale() / UIParent:GetEffectiveScale()
+-- (its right edge while it's beside the party, the cooldowns after it, BuffTimeline.lua)
+local lowRight
+function TM.LowRight()
+    return meter:IsShown() and lowRight or nil
 end
 
--- Right of the party cards and their spells' diamond, bottoms level; no
--- party: the bottom's middle; false: no room before the spell diamonds
+local MIN_COOLDOWNS = 4   -- (the cooldowns' room it leaves, else it goes over them)
+
+-- Right of the party cards and their spells' diamond, bottoms level, the
+-- cooldowns after it; with less room left them than MIN_COOLDOWNS: over
+-- their row. No party: the bottom's middle; false: no room before the
+-- spell diamonds
 local function PlaceLow(IN)
-    local right, bottom
-    for i = 1, 4 do
-        local card = _G["ImprovedForeverPartyCard" .. i]
-        local r = card and card:IsVisible() and Edge(card, "GetRight")
-        if r and (not right or r > right) then right, bottom = r, Edge(card, "GetBottom") end
-    end
+    lowRight = nil
+    local PC = IN.PartyCards
+    local _, bottom = PC.RowRight()
     meter:ClearAllPoints()
-    if not right then
+    if not bottom then
         meter:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, IN.BOTTOM)
         return true
     end
-    local pp, cluster = IN.PartyPad, _G.ImprovedForeverPartyCasts
-    if pp and pp.Shown() and cluster then
-        local left = Edge(cluster, "GetLeft")
-        if left then right = math.max(right, left + pp.Width() * cluster:GetEffectiveScale() / UIParent:GetEffectiveScale()) end
-    end
-    local x = right + GAP
+    local x = PC.RightOfParty() + GAP
     local barLeft = IN.GamepadBar and IN.GamepadBar.Rect()
     if barLeft and x + W > barLeft / UIParent:GetEffectiveScale() - GAP then return false end
+    local far, icon, top
+    if IN.BuffTimeline then far, icon, top = IN.BuffTimeline.CooldownRow() end
+    if far and far - (x + W + GAP) < MIN_COOLDOWNS * icon then
+        bottom = math.max(bottom, top)
+    else
+        lowRight = x + W
+    end
     meter:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, bottom)
     return true
 end
+TM.PlaceLow = PlaceLow
 
 local function Place()
     local IN = IF.Interface

@@ -520,12 +520,22 @@ function PC.RowLeft()
     return left
 end
 
+-- (and that card's bottom)
 function PC.RowRight()
-    local right
+    local right, bottom
     for _, b in ipairs(party) do
         local r = b:IsShown() and b:GetRight()
-        if r and (not right or r > right) then right = r end
+        if r and (not right or r > right) then right, bottom = r, b:GetBottom() end
     end
+    return right, bottom
+end
+
+-- The party's right end: the shown cards (none: a full party's row) and
+-- the party spells' diamond after them, when shown
+function PC.RightOfParty()
+    local right = PC.RowRight() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) + PC.ROW_HALF)
+    local PP = IN.PartyPad
+    if PP and PP.Shown() then right = right + PAD_GAP + PP.Width() end
     return right
 end
 

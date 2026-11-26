@@ -20,7 +20,8 @@
 -- The cooldowns' end by the middle is marked with a short black line cut
 -- into the power line. The middle is kept for the party cards (the
 -- cooldowns: the cards shown, else a full party's row, then its spells'
--- diamond, MIDDLE_GAP; the buffs: the same without the diamond).
+-- diamond, MIDDLE_GAP, or the threat meter beside it; the buffs: the same
+-- without the diamond).
 -- The game's buffs, debuffs and Cooldown Manager are drawn at 0
 -- (IF.Focus.Fade), the mouse they'd still get taken over where they are
 -- (UnitFrames.lua's Cover).
@@ -38,7 +39,6 @@ end
 local LINE_H = IN.MP_H          -- (the power line, PlayerHealth.lua)
 local START_GAP = 20            -- (after the minion card or the player frame)
 local MIDDLE_GAP = 28           -- (kept clear by the party's row)
-local PAD_GAP = 12              -- (the party spells' diamond after the cards, PartyCards.lua)
 local DIAMOND_GAP = 40          -- (before the spell diamonds)
 local LOOT_GAP = 16             -- (before the recent loot, RecentLoot.lua)
 local SPACING = 10              -- (between two icons; a debuff's border a sixth out each side)
@@ -360,6 +360,8 @@ local function Timeline(name, source)
             T.dirty = true
         end
     end
+
+    function T.IsShown() return holder:IsShown() end
 
     return T
 end
@@ -965,20 +967,23 @@ IN.Script(casts, "OnEvent", "BuffTimeline casts", function(_, _, _, _, spellID)
     end
 end)
 
+-- (the cooldowns' far end: before the spell diamonds and the recent loot, RecentLoot.lua)
+local function CooldownsFar()
+    local GB = IN.GamepadBar
+    local left = GB and GB.Rect and GB.Rect()
+    local far = left and (left / UIParent:GetEffectiveScale() - DIAMOND_GAP) or (UIParent:GetWidth() - 420)
+    local loot = IN.RecentLoot and IN.RecentLoot.Left and IN.RecentLoot.Left()
+    if loot then far = math.min(far, loot - LOOT_GAP) end
+    return far
+end
+
 local cooldowns = Timeline("ImprovedForeverCooldownTimeline", {
     Lane = function()
-        local PC = IN.PartyCards
-        local near = (PC.RowRight() or (UIParent:GetWidth() / 2 + (IN.Settings().partyX or 0) + PC.ROW_HALF))
-            + MIDDLE_GAP
-        local PP = IN.PartyPad
-        if PP and PP.Shown and PP.Shown() then near = near + PAD_GAP + PP.Width() end
-        local GB = IN.GamepadBar
-        local left = GB and GB.Rect and GB.Rect()
-        local far = left and (left / UIParent:GetEffectiveScale() - DIAMOND_GAP) or (UIParent:GetWidth() - 420)
-        -- (and before the recent loot, RecentLoot.lua)
-        local loot = IN.RecentLoot and IN.RecentLoot.Left and IN.RecentLoot.Left()
-        if loot then far = math.min(far, loot - LOOT_GAP) end
-        return near, math.max(near + 1, far)
+        local near = IN.PartyCards.RightOfParty() + MIDDLE_GAP
+        -- (the threat meter beside the party, ImprovedForever_Threat)
+        local meter = IF.ThreatMeter and IF.ThreatMeter.LowRight()
+        if meter then near = math.max(near, meter + MIDDLE_GAP) end
+        return near, math.max(near + 1, CooldownsFar())
     end,
     Read = function(now)
         local entries = {}
@@ -1103,4 +1108,13 @@ end
 function BT.Apply()
     cooldowns.dirty = true
     Watch()
+end
+
+-- The cooldowns' first row, for the threat meter (ImprovedForever_Threat):
+-- its far end, an icon's width with the space after it, its top (the
+-- effect over it included); nil while hidden
+function BT.CooldownRow()
+    if not cooldowns.IsShown() then return nil end
+    local size = Size()
+    return CooldownsFar(), size + SPACING, IN.BOTTOM + size + ROW_GAP
 end
