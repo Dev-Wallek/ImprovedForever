@@ -177,7 +177,8 @@ ITEMS[#ITEMS + 1] = Item({
     key = "bargainShare", group = "use", label = "Bargains at",
     tip = "Buy's Bargains list, and the price badges in the other categories: what is listed this much or more"
         .. " under what the item sells for now (a few listed far under all the rest: \"now\") or usually"
-        .. " (known for " .. A.BARGAIN_DAYS .. " days at least: \"usual\").",
+        .. " (known for " .. A.BARGAIN_DAYS .. " days at least: \"usual\"). A badge \"-40% now\" or"
+        .. " \"-40% usual\": that much under which of the two.",
 }, Choice("bargainShare", "Bargains at", {
     { 20, "20% under" }, { 30, "30% under" }, { 50, "50% under" },
 }))
