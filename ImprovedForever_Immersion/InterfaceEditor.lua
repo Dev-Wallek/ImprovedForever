@@ -446,6 +446,11 @@ local ITEMS = {
         end,
     }),
     Item({
+        key = "cardThreat", group = "bottom", section = "Party", label = "Party cards threat",
+        tip = "A thin line round a card in its threat's colour while it's high: yellow close to pulling, "
+            .. "orange and red with a mob on it. The tank's focus shows threat in the card's border instead.",
+    }, Toggle("cardThreat", "Party cards threat", function() IN.PartyCards.Apply() end)),
+    Item({
         key = "partyPad", group = "bottom", section = "Party", label = "Party casting (L1, experiment)",
         tip = "An experiment. L1 held: the D-pad picks a party spell, a face button casts it on party "
             .. "member 1 to 4. Set each slot's spell under Party spells below (or drag one onto a slot). "

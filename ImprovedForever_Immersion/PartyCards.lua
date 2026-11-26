@@ -10,7 +10,8 @@
 -- frame, as the player's). Its role's icon at its top right, as the game's
 -- party frames show it (a minion's paw); a minion's card smaller. Faint
 -- when out of range; grey and fainter, while L1 is held for party casting,
--- out of the picked spell's reach. Your target's edged in a thin gold line.
+-- out of the picked spell's reach. Your target's edged in a thin gold line;
+-- one with high threat (bar the tank's focus) in a thin line outside it.
 -- /if cards previews every slot (Preview).
 -- Each card is a secure unit button (a click targets, a right click opens
 -- the unit's menu) in a place of its own, shown by the game's state
@@ -46,6 +47,7 @@ local PICK_GROW, PICK_GLYPH, PICK_TIME = 1.15, 44, 0.15
 local ALERT_OUT, BURST_SIZE = 18, 150 / 63
 local ROLE_SIZE = 14             -- (its role's icon, at its top right)
 local TARGET_LINE = 2            -- (your target's gold line, along the card's edge)
+local THREAT_OUT = 3             -- (the threat line this far outside the card's edge)
 local MINION_SCALE = 0.8         -- (a minion's card, a party member's times)
 -- (the alert's colours, as a monster's level against yours (Module.lua):
 -- green, yellow, orange steady, red flashing at its worst)
@@ -124,6 +126,13 @@ local function Card(name, unit, scale)
     b.targetMark:SetFrameLevel(level)
     UF.Outline(b.targetMark, UF.GOLD, TARGET_LINE)
     b.targetMark:Hide()
+    -- (its threat outside the tank's focus: a thin line just outside the border, ThreatEdge)
+    b.threatEdge = CreateFrame("Frame", nil, b.avatar)
+    b.threatEdge:SetPoint("TOPLEFT", -THREAT_OUT, THREAT_OUT)
+    b.threatEdge:SetPoint("BOTTOMRIGHT", THREAT_OUT, -THREAT_OUT)
+    b.threatEdge:SetFrameLevel(level)
+    b.threatEdge.lines = UF.Outline(b.threatEdge, { 1, 1, 1 }, 1)
+    b.threatEdge:Hide()
     local flash = Edge(URGENT_COLOR)
     b.urgent = flash
     local anim = flash:CreateAnimationGroup()
@@ -311,9 +320,21 @@ local function Threat(b)
     return IF.Threat.Status(b.unit)
 end
 
+-- Its threat, outside the tank's focus (whose bands show it) and while
+-- it's high (pulling, or a mob on it): the thin line in the game's colour
+local function ThreatEdge(b, mode)
+    local level = mode ~= "tank" and IN.Settings().cardThreat ~= false and Threat(b) or nil
+    local on = type(level) == "number" and level > 0
+    b.threatEdge:SetShown(on)
+    if not on then return end
+    local r, g, bl = GetThreatStatusColor(level)
+    for _, t in ipairs(b.threatEdge.lines) do t:SetColorTexture(r, g, bl, 0.85) end
+end
+
 local function Focus(b)
     local mode = PC.Focus()
     local unit = b.unit
+    ThreatEdge(b, mode)
     if mode == "tank" then
         local level = Threat(b)
         if level then
