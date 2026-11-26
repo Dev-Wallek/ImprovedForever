@@ -35,7 +35,7 @@ local DEFAULTS = {
     destroy = true,        -- junk (ItemValue.lua) is never what sells better here than to a vendor
     share = 25,            -- "sells better here": by this many percent over a vendor's pay
     minGain = 100,         -- and by at least this much (copper)
-    bargainShare = 30,     -- Buy's Bargains: listed this many percent or more under the usual price
+    bargainShare = 30,     -- Buy's Bargains: listed this many percent or more under now or the usual price
     belowMin = 0,          -- Buy's Below vendor price: gaining this much copper or more an item
     keepDays = 30,         -- days of prices kept
     chartDays = 14,        -- days the charts show (and the market price covers)
@@ -515,41 +515,61 @@ function A.BelowVendor()
     return list
 end
 
--- Bargains: listings well under an item's usual price (its market price's
--- median over BARGAIN_DAYS days at least). Kept: the usual price and the
--- listings BARGAIN_KEEP or more under it, so A.Bargains can take any of the
--- setting's shares without a new scan. nil: none, or too few days known.
+-- Bargains: listings well under what the item sells for. Against "now":
+-- the odd few A.Market leaves out, far under the rest (a first scan
+-- shows them); against its usual price: any, once that is known for
+-- BARGAIN_DAYS days. Kept: { usual, now, kept (the price the cut keeps
+-- from), listings BARGAIN_KEEP or more under either }, so A.Bargains can
+-- take any of the setting's shares without a new scan. nil: none.
 -- (BARGAIN_KEEP: the smallest share Bargains at offers, AuctionEditor.lua)
 local BARGAIN_DAYS, BARGAIN_KEEP = 3, 0.2
 A.BARGAIN_DAYS = BARGAIN_DAYS
 
+-- What a price is a bargain against, share or more under it: ref, "now" / "usual"
+local function Against(b, price, share)
+    if b.now and price < b.kept and price <= b.now * (1 - share) then return b.now, "now" end
+    if b.usual and price <= b.usual * (1 - share) then return b.usual, "usual" end
+end
+
 local function Bargain(itemID, list)
+    table.sort(list, function(a, b) return a[1] < b[1] end)
     local usual, days = A.MarketPrice(itemID)
-    if not usual or days < BARGAIN_DAYS then return nil end
-    local cheap = {}
+    if usual and days < BARGAIN_DAYS then usual = nil end
+    local now, kept, _, few = A.Market(list)
+    local b = { usual = usual, now = not few and kept > 1 and now or nil, kept = list[kept][1], listings = {} }
     for _, l in ipairs(list) do
-        if l[1] <= usual * (1 - BARGAIN_KEEP) then cheap[#cheap + 1] = { math.ceil(l[1]), l[2] } end
+        if Against(b, l[1], BARGAIN_KEEP) then b.listings[#b.listings + 1] = { math.ceil(l[1]), l[2] } end
     end
-    if #cheap == 0 then return nil end
-    return { usual = usual, listings = cheap }
+    return #b.listings > 0 and b or nil
+end
+
+-- A price of the item against the last scan's bargains (else its usual
+-- price): ref, "now" / "usual"; nil: no bargain at the setting's share
+function A.BargainAgainst(itemID, price)
+    local share = A.Settings().bargainShare / 100
+    local b = Realm().bargains and Realm().bargains[itemID]
+    if b then return Against(b, price, share) end
+    local usual, days = A.MarketPrice(itemID)
+    if usual and days >= BARGAIN_DAYS then return Against({ usual = usual }, price, share) end
 end
 
 -- The Buy tab's "Bargains": what is listed at least the setting's share
--- under its usual price, as browse results, the most saved first
+-- under now or its usual price, as browse results, the most saved first
 function A.Bargains()
     local share = A.Settings().bargainShare / 100
     local list = {}
     for itemID, b in pairs(Realm().bargains or {}) do
-        local units, saving, lowest = 0, 0, nil
+        local units, saving, lowest, ref, against = 0, 0, nil, nil, nil
         for _, l in ipairs(b.listings) do
-            if l[1] <= b.usual * (1 - share) then
-                units, saving = units + l[2], saving + (b.usual - l[1]) * l[2]
-                lowest = math.min(lowest or l[1], l[1])
+            local r, what = Against(b, l[1], share)
+            if r then
+                units, saving = units + l[2], saving + (r - l[1]) * l[2]
+                if not lowest or l[1] < lowest then lowest, ref, against = l[1], r, what end
             end
         end
         if units > 0 then
             list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = units, minPrice = lowest,
-                saving = math.floor(saving), usual = b.usual }
+                saving = math.floor(saving), ref = ref, against = against }
         end
     end
     table.sort(list, function(a, b) return a.saving > b.saving end)

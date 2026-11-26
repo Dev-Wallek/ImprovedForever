@@ -249,20 +249,15 @@ local function VendorBadge(result)
     return { text, "good" }
 end
 
--- Well under its usual price (the Bargains share or more), as a badge:
--- "-45%"; nil: not, or its usual price known for too few days
+-- Well under what it sells for now or usually (the Bargains share or
+-- more), as a badge: "-99% now" / "-45% usual"; nil: not
 local function BargainBadge(result)
-    local usual = result.usual
-    if not usual then
-        local days
-        usual, days = A.MarketPrice(result.itemKey.itemID)
-        if not usual or days < A.BARGAIN_DAYS then return nil end
-    end
     local price = result.minPrice
     if not (price and price > 0) then return nil end
-    local pct = math.floor((price / usual - 1) * 100 + 0.5)
-    if pct > -A.Settings().bargainShare then return nil end
-    return { BADGE_PRICE .. pct .. "%", "good" }
+    local ref, against = result.ref, result.against
+    if not ref then ref, against = A.BargainAgainst(result.itemKey.itemID, price) end
+    if not ref then return nil end
+    return { BADGE_PRICE .. math.floor((price / ref - 1) * 100 + 0.5) .. "% " .. against, "good" }
 end
 
 -- An upgrade's gain as a badge: the arrow and "+12%" (nothing worn: "New");
