@@ -15,7 +15,7 @@ local AC = {}
 IF.AuctionChart = AC
 
 local COLORS = {
-    market = { 0.94, 0.89, 0.78 }, usual = { 0.62, 0.57, 0.48 }, lowest = { 0.79, 0.64, 0.35 }, now = { 1, 0.82, 0.29 },
+    now = { 0.94, 0.89, 0.78 }, usual = { 0.62, 0.57, 0.48 }, lowest = { 0.79, 0.64, 0.35 }, lowestNow = { 1, 0.82, 0.29 },
     price = { 0.4, 0.9, 0.4 }, grid = { 0.45, 0.38, 0.25 },
 }
 local function Hex(c)
@@ -68,7 +68,7 @@ function AC.New(parent, label)
     nowText:SetPoint("BOTTOMRIGHT", -8, 5)
     local keyText = K.ChatText(chart, 10, KC.help)
     keyText:SetPoint("TOPRIGHT", -8, -6)
-    keyText:SetText(Hex(COLORS.market) .. "—|r Avg. cheapest  " .. Hex(COLORS.usual) .. "—|r Usual  " .. Hex(COLORS.lowest) .. "•|r Lowest  "
+    keyText:SetText(Hex(COLORS.now) .. "—|r Now  " .. Hex(COLORS.usual) .. "—|r Usual  " .. Hex(COLORS.lowest) .. "•|r Lowest  "
         .. Hex(COLORS.price) .. "- -|r " .. (label or "Yours"))
     local emptyText = K.ChatText(chart, 11, KC.grey)
     emptyText:SetPoint("LEFT", plot, "LEFT", 10, 0)
@@ -158,14 +158,14 @@ function AC.New(parent, label)
                 local l = lines:Get()
                 l:SetStartPoint("BOTTOMLEFT", plot, last[1], last[2])
                 l:SetEndPoint("BOTTOMLEFT", plot, x, y)
-                Color(l, COLORS.market)
+                Color(l, COLORS.now)
             end
-            Dot(x, y, 4, COLORS.market)
+            Dot(x, y, 4, COLORS.now)
             Dot(x, Y(d.lowest), 5, COLORS.lowest)
             last = { x, y }
         end
         -- The lowest now
-        if S.lowestNow then Dot(X(today), Y(S.lowestNow), 8, COLORS.now) end
+        if S.lowestNow then Dot(X(today), Y(S.lowestNow), 8, COLORS.lowestNow) end
         -- The panel's price: dashes across
         if S.price then
             local y, x = Y(S.price), 0

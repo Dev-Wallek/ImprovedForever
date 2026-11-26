@@ -38,7 +38,7 @@ local DEFAULTS = {
     bargainShare = 30,     -- Buy's Bargains: listed this many percent or more under now or the usual price
     belowMin = 0,          -- Buy's Below vendor price: gaining this much copper or more an item
     keepDays = 30,         -- days of prices kept
-    chartDays = 14,        -- days the charts show (and the market price covers)
+    chartDays = 14,        -- days the charts show (and the usual price covers)
 }
 
 function A.Settings()

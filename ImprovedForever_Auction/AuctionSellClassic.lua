@@ -791,7 +791,7 @@ local function RenderLeft()
     if P.searching then
         parts[#parts + 1] = "Checking the auction house..."
     elseif P.lowestNow then
-        parts[#parts + 1] = "Lowest now " .. A.Money(P.lowestNow)
+        parts[#parts + 1] = "Lowest " .. A.Money(P.lowestNow)
     elseif P.searched then
         parts[#parts + 1] = "None listed now"
     end

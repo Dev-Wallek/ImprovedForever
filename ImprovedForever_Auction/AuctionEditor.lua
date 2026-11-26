@@ -65,7 +65,7 @@ local ITEMS = {
     }, OnOff(function() return S().buy end, function(on) S().buy = on end, "Auction window")),
     Item({
         key = "scan", group = "scan", label = "Scan on open",
-        tip = "Reads every auction as the auction house opens, and keeps each item's lowest and market price"
+        tip = "Reads every auction as the auction house opens, and keeps each item's lowest and now price"
             .. " for the day. The server allows one full scan in 15 minutes; it takes a few seconds.",
     }, OnOff(function() return S().scan end, function(on) S().scan = on end, "Scan on open")),
     Item({
@@ -110,10 +110,10 @@ local ITEMS = {
     Item({
         key = "pricing", group = "sell", label = "Start at",
         tip = "The price the Sell tab suggests first; Triangle goes through the others. With none listed,"
-            .. " the market price; with nothing known, three times what a vendor pays. A price you set by"
+            .. " the usual price; with nothing known, three times what a vendor pays. A price you set by"
             .. " hand for an item comes first next time (Your last price).",
         mouseTip = "The price the Sell tab suggests first; a click on its name goes through the others. With none"
-            .. " listed, the market price; with nothing known, three times what a vendor pays. A price you set by"
+            .. " listed, the usual price; with nothing known, three times what a vendor pays. A price you set by"
             .. " hand for an item comes first next time (Your last price).",
     }, Choice("pricing", "Start at", {
         { "undercut", "Undercut the lowest" }, { "match", "Match the lowest" },
@@ -138,7 +138,7 @@ local ITEMS = {
     })),
     Item({
         key = "chartDays", group = "sell", label = "Chart",
-        tip = "The days the price chart shows, and the market price is taken over.",
+        tip = "The days the price chart shows, and the usual price is taken over.",
     }, Choice("chartDays", "Chart", {
         { 7, "Last 7 days" }, { 14, "Last 14 days" }, { 30, "Last 30 days" },
     })),
@@ -146,9 +146,10 @@ local ITEMS = {
 
 ITEMS[#ITEMS + 1] = Item({
     key = "tooltip", group = "use", label = "Tooltips",
-    tip = "Item tooltips show its usual auction price, now (what the cheapest ask on average, the odd one far"
-        .. " under them left out) and the latest lowest; for a bag stack, the whole"
-        .. " stack's, a single one's in brackets.",
+    tip = "Item tooltips show its auction prices; for a bag stack, the whole stack's, a single one's in brackets."
+        .. " Usually: its \"now\" over the chart's days, the middle one. Now: what the cheapest ask on average at"
+        .. " the last look, the odd few far under all the rest left out. Lowest: the cheapest one listed then."
+        .. " Few listed: too few to tell, only the lowest. None listed: no one offered it at the last look.",
 }, OnOff(function() return S().tooltip end, function(on) S().tooltip = on end, "Tooltips"))
 ITEMS[#ITEMS + 1] = Item({
     key = "destroy", group = "use", label = "Junk",
