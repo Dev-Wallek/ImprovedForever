@@ -1,7 +1,9 @@
 -- The nameplates in the module's look: the name in gold (the header's
 -- font), under it a thin line in the nameplate's colour over a dark
 -- track, the level in the small circle at the line's end;
--- (your target's full size, the others a little smaller and softer). Each is a frame of
+-- (your target's full size, the others a little smaller and softer); in
+-- a fight a thin line under the health line in your threat's colour on
+-- the mob, a dot for whoever of yours it's on. Each is a frame of
 -- ours anchored to the game's plate (a plain anchor: probe verified
 -- taint-free; the plate is never measured or changed), and the game's own
 -- look of it (its UnitFrame) drawn at alpha 0 by an animation of ours
@@ -39,6 +41,7 @@ local FADE_SPEED = 8                    -- (how fast alpha and size ease)
 local CAST_H, CAST_GAP, CAST_TEXT = 4, 4, 10
 local CAST_AREA = CAST_GAP + CAST_H + 2 + CAST_TEXT + 2
 local CAST_HOLD = 0.6                   -- (an interrupted cast shown in red this long)
+local THREAT_H = 2                      -- (your threat's line under the health line)
 
 -- (/if platecast: a made-up cast on every plate in play, looping (N.Demo below); nil: the real ones)
 local demo
@@ -142,6 +145,18 @@ local function Build()
     cb:HookScript("OnHide", function() cb.text:Hide() end)
     cb.text:Hide()
     p.cast = cb
+    -- (your threat on it: a thin line just under the health line; whoever it's on: a dot at its left end)
+    p.threat = p:CreateTexture(nil, "ARTWORK")
+    p.threat:SetHeight(THREAT_H)
+    p.threat:SetPoint("TOPLEFT", p, "BOTTOMLEFT", 0, -1)
+    p.threat:SetPoint("TOPRIGHT", p, "BOTTOMRIGHT", 0, -1)
+    p.threat:SetColorTexture(1, 1, 1, 1)
+    p.threat:Hide()
+    p.holder = p:CreateTexture(nil, "OVERLAY", nil, 3)
+    p.holder:SetSize(5, 5)
+    p.holder:SetPoint("RIGHT", p.threat, "LEFT", -2, 0)
+    p.holder:SetColorTexture(1, 1, 1, 1)
+    p.holder:Hide()
     return p
 end
 
@@ -362,6 +377,40 @@ local function NameColor(unit)
     return 1, 1, 1
 end
 
+-- Whoever of yours a mob is on (its target): their class colour (a pet:
+-- its owner's); nil: none of yours, or secret
+local OURS = { player = "player", pet = "player" }
+for i = 1, 4 do OURS["party" .. i], OURS["partypet" .. i] = "party" .. i, "party" .. i end
+local function Holder(unit)
+    local on = unit .. "target"
+    for u, owner in pairs(OURS) do
+        if Flag(function(a) return UnitIsUnit(a, u) end, on) then
+            local c = UF.ClassColor(owner)
+            if c then return c[1], c[2], c[3] end
+            return nil
+        end
+    end
+end
+
+-- In a fight, your threat on a mob (IF.Threat: secret values left out):
+-- the line under its health line in the game's colour for it, none while
+-- you're low on its list or off it; whoever it's on: the dot (a setting)
+local function Threat(p, unit, showBar)
+    local s = IN.Settings()
+    local status = showBar and s.nameplateThreat ~= false and Flag(UnitAffectingCombat, unit)
+        and IF.Threat.Status("player", unit) or nil
+    local on = status ~= nil and status > 0
+    p.threat:SetShown(on)
+    if on then
+        local r, g, b = GetThreatStatusColor(status)
+        p.threat:SetColorTexture(r, g, b, 0.9)
+    end
+    local r, g, b
+    if status ~= nil and s.nameplateThreatHolder == true then r, g, b = Holder(unit) end
+    p.holder:SetShown(r ~= nil)
+    if r then p.holder:SetColorTexture(r, g, b, 1) end
+end
+
 local function Refresh(p)
     local unit = p.unit
     if not unit then return end
@@ -431,6 +480,7 @@ local function Refresh(p)
     if team then r, g, b = TEAM[1], TEAM[2], TEAM[3] end
     if not (target or team) then r, g, b = Mute(r, g, b) end
     p.bar:SetStatusBarColor(r, g, b)
+    Threat(p, unit, showBar)
     if showBar then
         Level(p, unit)
     else
