@@ -14,8 +14,11 @@ local function Setting(key, label, tip)
 end
 
 local ITEMS = {
-    Setting("meter", "Threat meter", "Under your target in a fight: who of you, your pet and your party has how much threat on it."),
+    Setting("meter", "Threat meter", "In a fight: who of you, your pet and your party has how much threat on your target."
+        .. " With Immersion's party cards low, right of them (no party: the bottom's middle), else under your target."
+        .. " Immersion's nameplates and party cards show threat too."),
     Setting("solo", "When alone", "The meter also when no one but you is on the enemy's threat list."),
+    Setting("close", "Only when close", "The meter only while you're about to lose or pull the aggro."),
     Setting("warnings", "Aggro warnings", "Over the list: \"Losing aggro!\" while you tank and the next one is close behind, \"Pulling aggro!\" when you near the tank's threat."),
 }
 
