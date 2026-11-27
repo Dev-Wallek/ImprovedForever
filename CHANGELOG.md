@@ -1,5 +1,28 @@
 # Changelog
 
+## Core 0.21.0
+
+- New: "Square shoots the wand only in combat" (General tab, off by default). With "Square shoots the wand" on, Square shoots only while you are in combat; out of combat it stays the game's own press, so looting after a fight with a mob targeted never pulls it.
+- Fixed: Square shooting the wand on a game that isn't in English. It started a melee swing instead, because Shoot was looked up by its English name.
+- Fixed: after the What's New tour closed, Escape no longer opened the game menu (until you left combat).
+
+## Auction 0.10.2
+
+- Fixed: items that don't stack (bags, gear, tools) showed a wrong "each" price on the Buy tab, the price divided by the number of auctions. It also gave a wrong "Lowest now" in the tooltip, the price chart and the Sell tab's undercut.
+- Sell tab: when the auction house gives no answer to the search, it asks once more before falling back to the usual price, so "Undercut lowest" is there more often.
+
+## Wheel 0.13.2
+
+- Fixed: in combat, switching to another wheel with L1 / R1 left the previous wheel's icons on the ring. The slots were right, only the picture was stale.
+
+## Camp 0.2.1
+
+- Fixed: the cards at the top left (quests, buffs notice, tooltip, spells) fade out in the camp scene.
+
+## Immersion 0.14.1
+
+- The saved variables no longer fill up with debug logs of the dialog and the chat fade.
+
 ## Core 0.20.1
 
 - Fixed: the touchpad corners work again in the world and in the Bindings tab. With Steam Input (Game Mode) the corners reach the game as Home / Page Up / End / Page Down, and the game's cursor staying on screen in the world no longer holds them back.
