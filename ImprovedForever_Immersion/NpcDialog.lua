@@ -1024,38 +1024,6 @@ local function SpokenTranscript()
     return type(T) == "table" and T or nil
 end
 
--- (probe: why the words stall; a line a state change, in IF.db.ndLog,
--- written on /reload)
-local logKey, logStarted
-local function LogLine(text)
-    if not IF.db then return end
-    if not logStarted then
-        logStarted = true
-        IF.db.ndLog = { date("%H:%M:%S") }
-    end
-    local log = IF.db.ndLog
-    if #log < 400 then log[#log + 1] = format("%.2f %s", GetTime() % 1000, text) end
-end
-local function Log(mirror, S, clip, playing)
-    if not IF.db then return end
-    local T = SpokenTranscript()
-    local key = table.concat({ tostring(mirror), tostring(S ~= nil), tostring(S and S.wanted),
-        tostring(S and S.clip == clip), tostring(playing), tostring(T and T.hasStarted), tostring(T and T.held),
-        tostring(T and T.clip == clip), tostring(words.page), tostring(S and S.page) }, " ")
-    if key == logKey then return end
-    logKey = key
-    -- (a fresh log each session)
-    if not logStarted then
-        logStarted = true
-        IF.db.ndLog = { date("%H:%M:%S") }
-    end
-    local log = IF.db.ndLog
-    if #log < 400 then
-        log[#log + 1] = format("%.2f mirror=%s sub=%s wanted=%s subClip=%s playing=%s started=%s held=%s tClip=%s page=%s subPage=%s",
-            GetTime() % 1000, strsplit(" ", key))
-    end
-end
-
 -- (its lines, as they are now, in ours; the words' height changed: true)
 local function MirrorWords(S)
     local height = S.wanted and S.rows and MirrorHeight(S)
@@ -1106,7 +1074,6 @@ local function FollowWords()
     if playing then words.played = words.played + dt end
     local S = SpokenSubtitle()
     local mirror = S ~= nil and S.wanted and S.pages ~= nil and S.rows ~= nil and S.clip == clip
-    Log(mirror, S, clip, playing)
     if mirror then
         words.mirror = true
         return MirrorWords(S)
@@ -1219,16 +1186,6 @@ local function WordsMode(d)
     if waitUntil and NoVoice() then waitUntil = nil end
     local waiting = waitUntil ~= nil and (GetTime() < waitUntil or Queued())
     words.active = (speaking or waiting) and not showAll and (d.text or "") ~= ""
-    do
-        local s = Spoken()
-        local ok, head = pcall(function() return s and s:GetCurrent() end)
-        local present = ok and type(head) == "table" and head.present or {}
-        local playingOk, now = pcall(function() return s and s:GetNowPlaying() end)
-        LogLine(format("build %s speaking=%s showAll=%s active=%s head=%s/%s ours=%s/%s nowPlayingIsHead=%s",
-            tostring(d.kind), tostring(speaking), tostring(showAll), tostring(words.active),
-            tostring(present.header), tostring(present.label), tostring(d.name), tostring(d.title),
-            tostring(playingOk and now == head)))
-    end
     return speaking
 end
 
@@ -1494,32 +1451,6 @@ local function Fallback()
     return primary
 end
 
--- (probe: where the game's cursor goes on a quest page, a line each time
--- it moves, in IF.db.ndLog)
-local probed
-local function ProbeNav(button)
-    if button == probed then return end
-    probed = button
-    local function Get(fn)
-        local ok, v = pcall(fn)
-        return ok and tostring(v) or "?"
-    end
-    local dirs = {}
-    for _, k in ipairs({ "PADDUP", "PADDDOWN", "PADDLEFT", "PADDRIGHT" }) do
-        if IsKeyDown(k) then dirs[#dirs + 1] = k end
-    end
-    LogLine(table.concat({ "nav",
-        Get(function() return button and button:GetName() end),
-        "type=" .. Get(function() return button and button.type end),
-        "id=" .. Get(function() return button and button.GetID and button:GetID() end),
-        "ctx=" .. Get(function() return button and button.buttonContext end),
-        "parent=" .. Get(function() return button and button:GetParent() and button:GetParent():GetName() end),
-        "key=" .. Get(function() return KeyOf(button) end),
-        "choice=" .. Get(function() return QuestInfoFrame and QuestInfoFrame.itemChoice end),
-        "kind=" .. Get(function() return current and current.kind end),
-        "dpad=" .. table.concat(dirs, "+") }, " "))
-end
-
 local pointed
 local function Point(target)
     if pointed and pointed ~= target then
@@ -1660,7 +1591,6 @@ local squareDown = false
 
 function ND.ShowAll(by)
     if showAll then return end
-    LogLine("showAll by " .. tostring(by or "button"))
     showAll = true
     ND.StopLine()
     dirty = true
@@ -1764,7 +1694,6 @@ local function Tick()
     if NativeFocused() and IF.Input.Pad() then
         local nav = _G.SmartNavigation
         local ok, button = pcall(function() return nav and nav:GetCurrentButton() end)
-        ProbeNav(ok and button or nil)
         local target = byKey[KeyOf(ok and button or nil) or ""]
         Point((target and target:IsShown() and target) or Fallback())
         FollowTip(ok and button or nil, target and target:IsShown() and target or nil)

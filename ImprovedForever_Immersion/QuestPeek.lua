@@ -664,7 +664,10 @@ end
 
 local ticker = CreateFrame("Frame")
 ticker:SetScript("OnUpdate", function(_, elapsed)
-    if IF.db and IF.db.peekLog then IF.db.peekLog = nil end     -- (the probe's log, cleared once)
+    -- (the logs of probes, since removed, cleared once)
+    if IF.db and (IF.db.peekLog or IF.db.ndLog or IF.db.chatLog) then
+        IF.db.peekLog, IF.db.ndLog, IF.db.chatLog = nil, nil, nil
+    end
     local on = IF.db and IN.Settings().questPeek ~= false
     if on then WatchSwipe() else expanded = nil end
     HideOld(on and true or false)
