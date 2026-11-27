@@ -458,7 +458,8 @@ IF.OnLogin(function()
     IF.Input.OnChange(function() if goal == 1 then Layout() end end)
 end)
 
-escape:SetScript("OnHide", function()
+-- (HookScript: SetScript would drop the Escape binding clear of EscapeClose)
+escape:HookScript("OnHide", function()
     if goal == 1 then Finish() end
 end)
 

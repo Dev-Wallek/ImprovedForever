@@ -434,7 +434,9 @@ local function ItemResults(itemKey)
         local r = AH.GetItemSearchResultInfo(itemKey, i)
         if r and r.buyoutAmount and r.buyoutAmount > 0 and r.quantity > 0 then
             -- (an auction's buyout is for all of it)
-            local l = { unit = r.buyoutAmount / r.quantity, total = r.buyoutAmount, count = r.quantity,
+            -- (an item that doesn't stack: quantity counts the auctions, the buyout is one's price)
+            local single = C_Item and C_Item.GetItemMaxStackSizeByID and C_Item.GetItemMaxStackSizeByID(search.itemID) == 1
+            local l = { unit = single and r.buyoutAmount or r.buyoutAmount / r.quantity, total = r.buyoutAmount, count = r.quantity,
                 own = r.containsOwnerItem and r.quantity or 0, auctionID = r.auctionID, link = r.itemLink,
                 itemLevel = r.itemKey and r.itemKey.itemLevel }
             all[#all + 1] = l

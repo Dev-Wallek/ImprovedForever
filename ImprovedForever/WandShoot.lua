@@ -20,8 +20,9 @@ local function Wielding()
     return class == (Enum and Enum.ItemClass and Enum.ItemClass.Weapon or 2) and subclass == wand
 end
 
+-- (by ID: the name "Shoot" is nil on a non-English client)
 local function ShootName()
-    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo("Shoot")
+    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(5019)
     return info and info.name
 end
 
