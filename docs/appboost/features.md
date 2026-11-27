@@ -15,3 +15,4 @@
 - **Immersion**: HUD rework: target header, player ring (movable and resizable), header (movable), spell-diamond gamepad bar, party/pet cards, nameplates (name font and size), debuffs and cast bars under nameplates, recent loot tiles, NPC subtitles (stay off when DialogueUI is installed), first-time tour (`/if tour`). Needs Journal and Spoken.
 - **QuestTracker**: rebuilt objective tracker with sorting (zone, level, title, distance, completed), completion sound, full pad support.
 - Square shoots your wand (Core 0.11.0; off by default since Core 0.12.1, a General switch).
+- Optional: Square shoots the wand only in combat, so looting next to a targeted mob never pulls it (a General switch, unreleased).
