@@ -1158,7 +1158,7 @@ local CHECKS = {
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
         A.Realm().items[-9] = nil
-        -- (a whole answer with no listings, after a full scan made the bargains list)
+        -- (an answer with no listings, after a full scan made the bargains list)
         local AH, got = C_AuctionHouse, false
         local full, num, ready = AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults,
             AH.IsThrottledMessageSystemReady
@@ -1173,6 +1173,35 @@ local CHECKS = {
         A.Realm().bargains = nil
         assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
         A.Realm().items[-9] = nil
+    end },
+    -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
+    { name = "auction gear search kept", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local AH, CI = C_AuctionHouse, C_Item
+        local saved = { AH.HasFullItemSearchResults, AH.GetNumItemSearchResults, AH.GetItemSearchResultInfo,
+            AH.IsThrottledMessageSystemReady, CI.GetItemInfo, CI.IsEquippableItem }
+        local key = { itemID = -9, itemLevel = 0, itemSuffix = 0 }
+        AH.IsThrottledMessageSystemReady = function() return true end
+        AH.HasFullItemSearchResults = function() return true end
+        AH.GetNumItemSearchResults = function() return 2 end
+        AH.GetItemSearchResultInfo = function(_, i)
+            return { buyoutAmount = i == 1 and 50 or 80, quantity = 1, auctionID = 100 + i, itemKey = key }
+        end
+        CI.GetItemInfo = function() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 100 end
+        CI.IsEquippableItem = function() return true end
+        A.Realm().belowVendor = {}
+        A.MarkBought(101)
+        local got
+        A.Search(-9, false, nil, function(l) got = l end, key)
+        fire("ITEM_SEARCH_RESULTS_UPDATED", key)
+        local b = A.Realm().belowVendor[-9]
+        AH.HasFullItemSearchResults, AH.GetNumItemSearchResults, AH.GetItemSearchResultInfo,
+            AH.IsThrottledMessageSystemReady, CI.GetItemInfo, CI.IsEquippableItem = unpack(saved)
+        fire("AUCTION_HOUSE_CLOSED")
+        A.Realm().belowVendor, A.Realm().items[-9] = nil, nil
+        assert(type(got) == "table" and #got == 1 and got[1].unit == 80, "a bought auction offered again")
+        assert(b and b.lowest == 80, "the gear search's prices not kept, or a bought one in them")
     end },
     -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
     { name = "destroy press unbound", fn = function()
