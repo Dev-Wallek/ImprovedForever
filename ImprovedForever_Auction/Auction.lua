@@ -243,6 +243,7 @@ end
 -- The game's name for the realm can come back empty: then the one it last
 -- gave (or the one scanned last) holds the prices, and the chat says so once
 local realmName, adopted, warned
+local swept = {}
 local function Realm()
     local store = DB()
     store.realms = store.realms or {}
@@ -262,8 +263,12 @@ local function Realm()
     store.realms[name] = store.realms[name] or { houses = {} }
     local realm = store.realms[name]
     Migrate(realm)
-    -- (Bargains and Below vendor price are made from the image: saved lists go)
-    for _, prices in pairs(realm.houses or {}) do prices.bargains, prices.belowVendor = nil, nil end
+    -- (Bargains and Below vendor price are made from the image: saved lists
+    -- go, once a session)
+    if not swept[realm] then
+        swept[realm] = true
+        for _, prices in pairs(realm.houses or {}) do prices.bargains, prices.belowVendor = nil, nil end
+    end
     return realm
 end
 
@@ -460,7 +465,7 @@ end
 -- The item in each house with prices, the house open (or open last) first:
 -- { { house, usual, now, lowest, few, age (days since its latest day), cut } }
 local HOUSES = { "A", "H", "N" }
-function A.AcrossHouses(itemID)
+local function AcrossHouses(itemID)
     local list, here = {}, A.House()
     for _, house in ipairs(HOUSES) do
         local day, lowest, now, _, few = A.Latest(itemID, house)
@@ -1258,25 +1263,6 @@ local function Cancelled(auctionID)
     prices.mine[auctionID] = nil
 end
 
-local own = CreateFrame("Frame")
-for _, event in ipairs({ "AUCTION_HOUSE_SHOW", "OWNED_AUCTIONS_UPDATED", "AUCTION_CANCELED" }) do
-    pcall(own.RegisterEvent, own, event)
-end
-own:SetScript("OnEvent", function(_, event, arg)
-    if event == "AUCTION_HOUSE_SHOW" then
-        -- (after the scan's request, the server takes one at a time)
-        C_Timer.After(2, function()
-            if A.IsOpen() and AH.QueryOwnedAuctions then
-                AH.QueryOwnedAuctions({ { sortOrder = Enum.AuctionHouseSortOrder.Name, reverseSort = false } })
-            end
-        end)
-    elseif event == "OWNED_AUCTIONS_UPDATED" then
-        OwnedUpdated()
-    elseif event == "AUCTION_CANCELED" then
-        Cancelled(arg)
-    end
-end)
-
 ---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
@@ -1292,14 +1278,14 @@ local MARKS = { A = { "AllianceSymbol", "|cff4a8ff0A|r" }, H = { "HordeSymbol", 
 local OLD_DAYS = 3   -- a house's price this many days old or more: dimmed
 
 -- The house's mark: its faction's symbol, else its letter
-function A.HouseMark(house)
+local function HouseMark(house)
     local atlas, letter = MARKS[house][1], MARKS[house][2]
     if atlas and IF.HasAtlas and IF.HasAtlas(atlas) then return "|A:" .. atlas .. ":14:14|a" end
     return letter
 end
 
 -- Money short for a line of several: no copper beside gold
-function A.ShortMoney(copper)
+local function ShortMoney(copper)
     return A.Money(copper >= 10000 and math.floor(copper / 100 + 0.5) * 100 or copper)
 end
 
@@ -1307,10 +1293,10 @@ end
 -- "now") times count, its age in days after it, dimmed when old
 function A.HousesText(itemID, count)
     local parts = {}
-    for _, h in ipairs(A.AcrossHouses(itemID)) do
-        local text = A.ShortMoney((h.usual or h.now) * (count or 1)) .. (h.age > 0 and (" " .. h.age .. "d") or "")
+    for _, h in ipairs(AcrossHouses(itemID)) do
+        local text = ShortMoney((h.usual or h.now) * (count or 1)) .. (h.age > 0 and (" " .. h.age .. "d") or "")
         if h.age >= OLD_DAYS then text = "|cff9d917a" .. text .. "|r" end
-        parts[#parts + 1] = A.HouseMark(h.house) .. " " .. text
+        parts[#parts + 1] = HouseMark(h.house) .. " " .. text
     end
     return #parts > 0 and table.concat(parts, "   ") or nil
 end
@@ -1321,14 +1307,14 @@ end
 -- there green. nil: no other house has it.
 local DEAL_PCT = 5
 function A.ElsewhereText(itemID, selling)
-    local list = A.AcrossHouses(itemID)
+    local list = AcrossHouses(itemID)
     local here = list[1] and list[1].house == A.House() and list[1] or nil
     local function Value(h) return (h.usual or h.now) * (selling and (1 - h.cut) or 1) end
     local parts = {}
     for _, h in ipairs(list) do
         if h ~= here then
             local value = Value(h)
-            local text = A.HouseMark(h.house) .. " " .. A.ShortMoney(value) .. (h.age > 0 and (" " .. h.age .. "d") or "")
+            local text = HouseMark(h.house) .. " " .. ShortMoney(value) .. (h.age > 0 and (" " .. h.age .. "d") or "")
             if here then
                 local pct = math.floor((value / Value(here) - 1) * 100 + 0.5)
                 local good = selling and pct >= DEAL_PCT or not selling and pct <= -DEAL_PCT
@@ -1373,13 +1359,13 @@ local function TooltipPrices(tooltip, data)
     if none then tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48) end
     if not A.Settings().tooltipDetails then return end
     -- Details: each house's now and lowest, how fast it sells there; the player's own sales here
-    for _, h in ipairs(A.AcrossHouses(itemID)) do
+    for _, h in ipairs(AcrossHouses(itemID)) do
         local when = h.age == 0 and "" or h.age == 1 and " (yesterday)" or (" (" .. h.age .. " days ago)")
         local parts = {}
         if h.now and not h.few and h.now ~= h.lowest then parts[#parts + 1] = "now " .. Price(h.now) end
         parts[#parts + 1] = "lowest " .. Price(h.lowest) .. (h.few and " (few)" or "")
         parts[#parts + 1] = A.SaleText(itemID, h.house)
-        tooltip:AddDoubleLine("  " .. A.HouseMark(h.house) .. " " .. A.HOUSE_NAMES[h.house] .. of .. when,
+        tooltip:AddDoubleLine("  " .. HouseMark(h.house) .. " " .. A.HOUSE_NAMES[h.house] .. of .. when,
             table.concat(parts, " · "), r, g, b, 1, 1, 1)
     end
     local posted, sold, expired, cancelled = A.Own(itemID)
@@ -1418,7 +1404,8 @@ probe:SetScript("OnEvent", function(_, event) ProbeRealm(event) end)
 local events = CreateFrame("Frame")
 for _, event in ipairs({ "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED", "REPLICATE_ITEM_LIST_UPDATE",
     "COMMODITY_SEARCH_RESULTS_UPDATED", "ITEM_SEARCH_RESULTS_UPDATED", "COMMODITY_SEARCH_RESULTS_ADDED",
-    "ITEM_SEARCH_RESULTS_ADDED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" }) do
+    "ITEM_SEARCH_RESULTS_ADDED", "AUCTION_HOUSE_THROTTLED_SYSTEM_READY", "OWNED_AUCTIONS_UPDATED",
+    "AUCTION_CANCELED" }) do
     pcall(events.RegisterEvent, events, event)
 end
 events:SetScript("OnEvent", function(_, event, arg)
@@ -1436,6 +1423,13 @@ events:SetScript("OnEvent", function(_, event, arg)
             -- (once the frame has settled)
             C_Timer.After(1, function() A.Scan(true) end)
         end
+        -- (the player's own auctions, for their sales: after the scan's
+        -- request, the server takes one at a time)
+        C_Timer.After(2, function()
+            if A.IsOpen() and AH.QueryOwnedAuctions then
+                AH.QueryOwnedAuctions({ { sortOrder = Enum.AuctionHouseSortOrder.Name, reverseSort = false } })
+            end
+        end)
         Changed()
     elseif event == "AUCTION_HOUSE_CLOSED" then
         A.open = false
@@ -1458,5 +1452,9 @@ events:SetScript("OnEvent", function(_, event, arg)
         ItemResults(arg)
     elseif event == "AUCTION_HOUSE_THROTTLED_SYSTEM_READY" then
         Send()
+    elseif event == "OWNED_AUCTIONS_UPDATED" then
+        OwnedUpdated()
+    elseif event == "AUCTION_CANCELED" then
+        Cancelled(arg)
     end
 end)
