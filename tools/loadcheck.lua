@@ -1319,6 +1319,42 @@ local CHECKS = {
         if not ok then error(err, 0) end
         if not ok2 then error(err2, 0) end
     end },
+    -- (the player's own auctions: posted, sold (Sold, fewer left, gone early), expired, cancelled)
+    { name = "auction own sales", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local AH, clock = C_AuctionHouse, time
+        local saved, owned = AH.GetOwnedAuctions, {}
+        AH.GetOwnedAuctions = function() return owned end
+        local T = clock()
+        local function List(at, list)
+            time = function() return at end
+            owned = list
+            fire("OWNED_AUCTIONS_UPDATED")
+        end
+        local function Auction(id, qty, left, status)
+            return { auctionID = id, itemKey = { itemID = -2 }, quantity = qty, timeLeftSeconds = left, status = status }
+        end
+        local ok, err = pcall(function()
+            fire("AUCTION_HOUSE_SHOW")
+            List(T, { Auction(1, 5, 7200), Auction(2, 1, 7200), Auction(3, 1, 600), Auction(4, 1, 7200),
+                Auction(5, 1, 7200) })
+            assert(A.Own(-2) == 9, "posted: " .. tostring(A.Own(-2)))
+            fire("AUCTION_CANCELED", 4)
+            -- (1: 2 of 5 bought; 2: Sold; 3: gone after its end; 5: gone early)
+            List(T + 1200, { Auction(1, 3, 6000), Auction(2, 1, nil, Enum.AuctionStatus.Sold) })
+            local posted, sold, expired, cancelled = A.Own(-2)
+            assert(posted == 9 and sold == 4 and expired == 1 and cancelled == 1,
+                "own: " .. table.concat({ tostring(posted), tostring(sold), tostring(expired), tostring(cancelled) }, " "))
+            List(T + 2400, { Auction(1, 3, 4800) })
+            assert(select(2, A.Own(-2)) == 4, "a Sold one gone counted twice")
+        end)
+        time, AH.GetOwnedAuctions = clock, saved
+        fire("AUCTION_HOUSE_CLOSED")
+        local prices = A.Store()
+        prices.own, prices.mine = nil, nil
+        if not ok then error(err, 0) end
+    end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction

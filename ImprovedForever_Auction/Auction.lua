@@ -1103,6 +1103,93 @@ function A.Suggest(itemID, listings, vendor)
 end
 
 ---------------------------------------------------------------------------
+-- The player's own sales per house, from their auctions as the house
+-- lists them (asked as it opens): one seen is posted; Sold, or gone before
+-- its end, sold; gone after it, expired; cancelled here, cancelled.
+-- Kept: mine[auctionID] = "itemID:quantity:endsAt:sold" (1: counted sold),
+-- own[itemID] = "posted:sold:expired:cancelled"
+---------------------------------------------------------------------------
+local SOLD = Enum.AuctionStatus and Enum.AuctionStatus.Sold or 1
+local POSTED, BOUGHT, EXPIRED, CANCELLED = 1, 2, 3, 4
+
+local function Count(prices, itemID, what, n)
+    prices.own = prices.own or {}
+    local c = { strsplit(":", prices.own[itemID] or "0:0:0:0") }
+    c[what] = tonumber(c[what]) + n
+    prices.own[itemID] = table.concat(c, ":")
+end
+
+-- Its auctions here: posted, sold, expired, cancelled (nil: none seen)
+function A.Own(itemID)
+    local own = Store().own
+    local s = own and own[itemID]
+    if not s then return nil end
+    local posted, sold, expired, cancelled = strsplit(":", s)
+    return tonumber(posted), tonumber(sold), tonumber(expired), tonumber(cancelled)
+end
+
+local function OwnedUpdated()
+    if not (A.IsOpen() and AH.GetOwnedAuctions) then return end
+    local prices, now = Store(), time()
+    prices.mine = prices.mine or {}
+    local mine, seen = prices.mine, {}
+    for _, a in ipairs(AH.GetOwnedAuctions() or {}) do
+        local id, itemID, qty = a.auctionID, a.itemKey and a.itemKey.itemID, a.quantity or 1
+        if id and itemID then
+            seen[id] = true
+            local ends = now + (a.timeLeftSeconds or AT_LEAST[a.timeLeft] or 0)
+            local kept = mine[id]
+            local _, had, endsAt, counted = strsplit(":", kept or "")
+            had, endsAt, counted = tonumber(had), tonumber(endsAt), counted == "1"
+            if not kept then Count(prices, itemID, POSTED, qty) end
+            -- (fewer left: those bought)
+            if had and qty < had and not counted then Count(prices, itemID, BOUGHT, had - qty) end
+            if a.status == SOLD and not counted then
+                Count(prices, itemID, BOUGHT, qty)
+                counted = true
+            end
+            mine[id] = itemID .. ":" .. qty .. ":" .. math.max(endsAt or 0, ends) .. ":" .. (counted and 1 or 0)
+        end
+    end
+    for id, kept in pairs(mine) do
+        if not seen[id] then
+            local itemID, qty, endsAt, counted = strsplit(":", kept)
+            itemID, qty = tonumber(itemID), tonumber(qty)
+            if counted ~= "1" then Count(prices, itemID, now < tonumber(endsAt) and BOUGHT or EXPIRED, qty) end
+            mine[id] = nil
+        end
+    end
+end
+
+local function Cancelled(auctionID)
+    local prices = Store()
+    local kept = prices.mine and prices.mine[auctionID]
+    if not kept then return end
+    local itemID, qty = strsplit(":", kept)
+    Count(prices, tonumber(itemID), CANCELLED, tonumber(qty))
+    prices.mine[auctionID] = nil
+end
+
+local own = CreateFrame("Frame")
+for _, event in ipairs({ "AUCTION_HOUSE_SHOW", "OWNED_AUCTIONS_UPDATED", "AUCTION_CANCELED" }) do
+    pcall(own.RegisterEvent, own, event)
+end
+own:SetScript("OnEvent", function(_, event, arg)
+    if event == "AUCTION_HOUSE_SHOW" then
+        -- (after the scan's request, the server takes one at a time)
+        C_Timer.After(2, function()
+            if A.IsOpen() and AH.QueryOwnedAuctions then
+                AH.QueryOwnedAuctions({ { sortOrder = Enum.AuctionHouseSortOrder.Name, reverseSort = false } })
+            end
+        end)
+    elseif event == "OWNED_AUCTIONS_UPDATED" then
+        OwnedUpdated()
+    elseif event == "AUCTION_CANCELED" then
+        Cancelled(arg)
+    end
+end)
+
+---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
 IF.OnLogin(A.Prune)
