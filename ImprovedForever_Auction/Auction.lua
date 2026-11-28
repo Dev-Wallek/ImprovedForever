@@ -140,8 +140,7 @@ local function DB()
 end
 
 -- A house's prices into another's, a day both have taken from the one
--- scanned last. Its Bargains and Below vendor price go; the next scan
--- makes them anew.
+-- scanned last.
 local function Merge(from, to)
     to.items = to.items or {}
     local newer = (from.scannedAt or 0) > (to.scannedAt or 0)
@@ -160,6 +159,27 @@ local function Merge(from, to)
         if newer or not to.myPrices[itemID] then to.myPrices[itemID] = price end
     end
     to.scannedAt = math.max(to.scannedAt or 0, from.scannedAt or 0)
+    -- (sales and the player's own counts add up; the newer image stays)
+    for itemID, days in pairs(from.sold or {}) do
+        to.sold = to.sold or {}
+        to.sold[itemID] = to.sold[itemID] or {}
+        for day, n in pairs(days) do to.sold[itemID][day] = (to.sold[itemID][day] or 0) + n end
+    end
+    for day, s in pairs(from.watched or {}) do
+        to.watched = to.watched or {}
+        to.watched[day] = (to.watched[day] or 0) + s
+    end
+    for itemID, counts in pairs(from.own or {}) do
+        to.own = to.own or {}
+        local a, b = { strsplit(":", counts) }, { strsplit(":", to.own[itemID] or "0:0:0:0") }
+        for i = 1, 4 do b[i] = (tonumber(b[i]) or 0) + (tonumber(a[i]) or 0) end
+        to.own[itemID] = table.concat(b, ":")
+    end
+    for id, kept in pairs(from.mine or {}) do
+        to.mine = to.mine or {}
+        to.mine[id] = to.mine[id] or kept
+    end
+    if from.image and (not to.image or from.image.at > to.image.at) then to.image = from.image end
 end
 
 -- A realm kept before the houses were told apart (its prices beside
@@ -635,11 +655,12 @@ end
 
 -- What of listings { { unit, count } } is under a vendor's pay: { units,
 -- lowest, each (an item's gain at the lowest), count (the cheapest
--- listing's) }; nil: none, or its vendor price not known yet (ponytail:
--- skipped till the next scan)
+-- listing's) }; nil: none. Second: whether that is known (false: its
+-- vendor price not known yet, asked again next time)
 local function BelowVendor(itemID, list)
     local sell = select(11, ((C_Item and C_Item.GetItemInfo) or GetItemInfo)(itemID))
-    if not sell or sell <= 0 then return nil end
+    if not sell then return nil, false end
+    if sell <= 0 then return nil, true end
     local units, cheapest = 0, nil
     for _, l in ipairs(list) do
         if l[1] < sell then
@@ -647,18 +668,31 @@ local function BelowVendor(itemID, list)
             if not cheapest or l[1] < cheapest[1] then cheapest = l end
         end
     end
-    if not cheapest then return nil end
+    if not cheapest then return nil, true end
     local lowest = math.ceil(cheapest[1])
-    return { units = units, lowest = lowest, each = sell - lowest, count = cheapest[2] }
+    return { units = units, lowest = lowest, each = sell - lowest, count = cheapest[2] }, true
 end
+
+-- Each item's BelowVendor, made once per image and search ([image][itemID]
+-- = it or false; weak: a replaced image's go)
+local belowMade = setmetatable({}, { __mode = "k" })
 
 -- The Buy tab's "Below vendor price": the last full scan's (an item's
 -- search updates its own), as browse results, those gaining the setting's
 -- copper or more an item, the most an item first
 function A.BelowVendor()
     local list, least = {}, A.Settings().belowMin
+    local image = Store().image
+    if not image then return list end
+    belowMade[image] = belowMade[image] or {}
+    local made = belowMade[image]
     for itemID in pairs(ImageItems()) do
-        local b = BelowVendor(itemID, Listings(itemID))
+        local b = made[itemID]
+        if b == nil then
+            local known
+            b, known = BelowVendor(itemID, Listings(itemID))
+            if known then made[itemID] = b or false end
+        end
         if b and b.each > 0 and b.each >= least then
             list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
                 each = b.each, count = b.count }
@@ -767,11 +801,13 @@ end
 -- Units of the item bought between the images, elapsed seconds apart
 local function SoldBetween(old, new, itemID, elapsed)
     -- (still up: by seller and the rest; whoever's, by the rest alone)
-    local up, any = {}, {}
+    local up, any, keys = {}, {}, {}
     local now = Auctions(new, itemID)
     for _, a in ipairs(now) do
         local k, loose = Key(a, a[1]), Key(a, false)
         up[k], any[loose] = (up[k] or 0) + 1, (any[loose] or 0) + 1
+        keys[loose] = keys[loose] or {}
+        table.insert(keys[loose], k)
     end
     local gone = {}
     for _, a in ipairs(Auctions(old, itemID)) do
@@ -784,6 +820,12 @@ local function SoldBetween(old, new, itemID, elapsed)
         elseif not a[1] and (any[loose] or 0) > 0 then
             -- (its seller not given last time: anyone's like it)
             any[loose] = any[loose] - 1
+            for _, other in ipairs(keys[loose]) do
+                if up[other] > 0 then
+                    up[other] = up[other] - 1
+                    break
+                end
+            end
         else
             gone[#gone + 1] = a
         end
@@ -996,6 +1038,7 @@ local function Answer(all, shown)
     searched[A.House()][s.itemID] = plain
     local image = Store().image
     if image and bargained[image] then bargained[image][s.itemID] = nil end
+    if image and belowMade[image] then belowMade[image][s.itemID] = nil end
     if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
     Changed()
     table.sort(shown, function(a, b) return a.unit < b.unit end)
@@ -1163,6 +1206,13 @@ function A.Own(itemID)
     return tonumber(posted), tonumber(sold), tonumber(expired), tonumber(cancelled)
 end
 
+-- Auctions asked to be cancelled this session, by any window: gone, they
+-- count as cancelled whichever of the server's answers comes first
+local cancelling = {}
+if AH and AH.CancelAuction then
+    hooksecurefunc(AH, "CancelAuction", function(auctionID) cancelling[auctionID] = true end)
+end
+
 local function OwnedUpdated()
     if not (A.IsOpen() and AH.GetOwnedAuctions) then return end
     local prices, now = Store(), time()
@@ -1190,7 +1240,10 @@ local function OwnedUpdated()
         if not seen[id] then
             local itemID, qty, endsAt, counted = strsplit(":", kept)
             itemID, qty = tonumber(itemID), tonumber(qty)
-            if counted ~= "1" then Count(prices, itemID, now < tonumber(endsAt) and BOUGHT or EXPIRED, qty) end
+            if counted ~= "1" then
+                local how = cancelling[id] and CANCELLED or now < tonumber(endsAt) and BOUGHT or EXPIRED
+                Count(prices, itemID, how, qty)
+            end
             mine[id] = nil
         end
     end
@@ -1311,10 +1364,12 @@ local function TooltipPrices(tooltip, data)
     local houses = A.HousesText(itemID, count)
     if not houses and not none then return end
     if houses then tooltip:AddDoubleLine("Auction: usually" .. of, houses, r, g, b, 1, 1, 1) end
-    if not day and not none then return end
-    local trend, sells = A.TrendText(itemID), A.SaleText(itemID)
-    local lately = trend and sells and (trend .. " · " .. sells) or trend or sells
-    if lately then tooltip:AddDoubleLine("Auction: lately", lately, r, g, b) end
+    -- (this house's: how it moved and sells)
+    if day then
+        local trend, sells = A.TrendText(itemID), A.SaleText(itemID)
+        local lately = trend and sells and (trend .. " · " .. sells) or trend or sells
+        if lately then tooltip:AddDoubleLine("Auction: lately", lately, r, g, b) end
+    end
     if none then tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48) end
     if not A.Settings().tooltipDetails then return end
     -- Details: each house's now and lowest, how fast it sells there; the player's own sales here

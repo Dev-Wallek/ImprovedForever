@@ -1164,6 +1164,15 @@ local CHECKS = {
             "a day lost or the older scan won")
         assert(H.myPrices[1] == 10 and H.myPrices[3] == 7 and H.scannedAt == 20 and H.bargains == nil, "merge")
         assert(R.houses.N.items[9][1] == "n" and R.lastHouse == "N" and R.items == nil, "another house touched")
+        -- (an unnamed realm's sales and own counts add up, its newer image stays)
+        realms[""] = { houses = { N = { items = {}, sold = { [9] = { [1] = 2 } }, watched = { [1] = 60 },
+            own = { [9] = "1:1:0:0" }, image = { at = 9, owners = {}, items = {} } } } }
+        R.houses.N.sold, R.houses.N.own, R.houses.N.image = { [9] = { [1] = 3 } }, { [9] = "2:0:1:1" },
+            { at = 5, owners = {}, items = {} }
+        assert(A.Adopt(realms, "R"), "adopted")
+        local N = R.houses.N
+        assert(N.sold[9][1] == 5 and N.watched[1] == 60 and N.own[9] == "3:1:1:1" and N.image.at == 9,
+            "sales or own counts lost")
         assert(db.replicateAt == 30, "the scan limit not the account's")
         -- (the realm in use, as kept before the houses)
         local current = A.Store()
@@ -1372,13 +1381,17 @@ local CHECKS = {
         local ok, err = pcall(function()
             fire("AUCTION_HOUSE_SHOW")
             List(T, { Auction(1, 5, 7200), Auction(2, 1, 7200), Auction(3, 1, 600), Auction(4, 1, 7200),
-                Auction(5, 1, 7200) })
-            assert(A.Own(-2) == 9, "posted: " .. tostring(A.Own(-2)))
+                Auction(5, 1, 7200), Auction(6, 1, 7200) })
+            assert(A.Own(-2) == 10, "posted: " .. tostring(A.Own(-2)))
             fire("AUCTION_CANCELED", 4)
+            -- (6: its cancel asked, the list in before the server's word)
+            for _, h in ipairs(tableHooks) do
+                if h.name == "CancelAuction" then h.fn(6) end
+            end
             -- (1: 2 of 5 bought; 2: Sold; 3: gone after its end; 5: gone early)
             List(T + 1200, { Auction(1, 3, 6000), Auction(2, 1, nil, Enum.AuctionStatus.Sold) })
             local posted, sold, expired, cancelled = A.Own(-2)
-            assert(posted == 9 and sold == 4 and expired == 1 and cancelled == 1,
+            assert(posted == 10 and sold == 4 and expired == 1 and cancelled == 2,
                 "own: " .. table.concat({ tostring(posted), tostring(sold), tostring(expired), tostring(cancelled) }, " "))
             List(T + 2400, { Auction(1, 3, 4800) })
             assert(select(2, A.Own(-2)) == 4, "a Sold one gone counted twice")
