@@ -2,7 +2,8 @@
 -- prompt of ours under the window's legend), for that recipe. It opens a panel
 -- beside the window that takes the pad: how many to make (the D-pad left /
 -- right 1, up / down 5), each reagent's had and still to buy, where from
--- (a vendor, the auction house) and an estimate of its cost; Cross adds
+-- (a vendor, the auction house) and an estimate of its cost (the auction's
+-- "now" as last scanned, so away from it too; its usual beside); Cross adds
 -- the task (Tasks.lua), Circle backs out. Its buttons in the game's legend
 -- under it (IF.InputLegend).
 local IF = ImprovedForever
@@ -156,7 +157,7 @@ local function Render()
     -- Each reagent: had and still to buy (what other tasks want counted too)
     local others = {}
     for _, e in ipairs(TK.Needs()) do others[e.itemID] = e.need end
-    local y, cost, unknown = 0, 0, false
+    local y, cost, usualCost, unknown = 0, 0, 0, false
     for i, reagent in ipairs(r.reagents) do
         local need = reagent.per * S.count
         local have = TK.ItemCount(reagent.itemID)
@@ -175,13 +176,21 @@ local function Render()
         row.value:Show()
         y = y - LINE
         if buy > 0 then
-            local unit = not vendor and IF.Auction and IF.Auction.MarketPrice(reagent.itemID)
+            -- (the auction's: now, as last scanned, and usually)
+            local unit, usual
             if vendor then
                 -- (a vendor's price: what it asks, seen; a fair guess: 4x what it pays)
                 local sell = select(11, (C_Item and C_Item.GetItemInfo or GetItemInfo)(reagent.itemID))
                 unit = sell and sell > 0 and sell * 4 or nil
+                usual = unit
+            elseif IF.Auction then
+                unit, usual = IF.Auction.Price(reagent.itemID)
             end
-            if unit then cost = cost + unit * buy else unknown = true end
+            if unit then
+                cost, usualCost = cost + unit * buy, usualCost + (usual or unit) * buy
+            else
+                unknown = true
+            end
         end
     end
     for i = #r.reagents + 1, #rows do
@@ -197,7 +206,9 @@ local function Render()
     totalValue:ClearAllPoints()
     totalValue:SetPoint("TOPRIGHT", 0, y)
     totalLabel:SetText("Estimate cost" .. (unknown and " |cff9d917a(some prices unknown)|r" or ""))
-    totalValue:SetText(IF.Auction and IF.Auction.Money(cost) or tostring(cost))
+    local money = IF.Auction and IF.Auction.Money or tostring
+    totalValue:SetText((usualCost ~= cost and ("|cff9d917ausually " .. money(usualCost) .. " ·|r now ") or "")
+        .. money(cost))
     y = y - LINE
     -- What it would bring: what it makes at its usual auction price, after
     -- the cut, less the estimate cost (what is still to buy)
