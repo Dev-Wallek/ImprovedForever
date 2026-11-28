@@ -85,6 +85,11 @@ local function Head(i)
     return h
 end
 
+-- The Auction module's prices in item tooltips (X: their details)
+local function AuctionTips()
+    return IF.Auction and IF.Auction.Settings().tooltip
+end
+
 local function Tip(b)
     if not b.itemID then return end
     GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
@@ -218,6 +223,9 @@ function view:Render()
         local defs = { { glyph = "DPAD_UD", text = "Choose" }, { { "PADLSHOULDER", "PADRSHOULDER" }, { "LB", "RB" }, "Bags / Bank" },
             { "PAD4", "Y", "Character" } }
         if IF.Wiki and cell and cell.b.itemID then defs[#defs + 1] = { "PADRSTICK", "RS", "Wiki" } end
+        if AuctionTips() and cell and cell.b.itemID then
+            defs[#defs + 1] = { "PAD3", "X", IF.Auction.Settings().tooltipDetails and "Short prices" or "Price details" }
+        end
         local hint = switch and switch:Hint()
         if hint then defs[#defs + 1] = hint end
         defs[#defs + 1] = { "PADBACK", "BACK", "Background" }
@@ -291,7 +299,7 @@ picker:SetScript("OnClick", function() view:Characters() end)
 -- The pad
 ---------------------------------------------------------------------------
 local KEYS = { PADDUP = "UP", PADDDOWN = "DOWN", PADDLEFT = "LEFT", PADDRIGHT = "RIGHT", PAD1 = "A", PAD2 = "B",
-    PAD4 = "Y", PADLSHOULDER = "LB", PADRSHOULDER = "RB", PADLTRIGGER = "LT", PADRTRIGGER = "RT", PADRSTICK = "RS",
+    PAD3 = "X", PAD4 = "Y", PADLSHOULDER = "LB", PADRSHOULDER = "RB", PADLTRIGGER = "LT", PADRTRIGGER = "RT", PADRSTICK = "RS",
     PADBACK = "BACK" }
 
 -- The slot one line up or down: the nearest column there
@@ -326,6 +334,10 @@ local function Press(name, down)
         return view:SetTab((view.tab - 1 + (name == "RB" and 1 or -1)) % #TABS + 1)
     elseif name == "LT" or name == "RT" then return switch:Press(name)
     elseif name == "Y" then return view:Characters()
+    elseif name == "X" and AuctionTips() then
+        -- (the Auction module's tooltip details, its setting)
+        local S = IF.Auction.Settings()
+        S.tooltipDetails = not S.tooltipDetails
     elseif name == "BACK" then return view:Away()
     elseif name == "RS" then
         local cell = view.cells and view.cells[view.sel]

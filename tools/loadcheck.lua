@@ -1171,12 +1171,17 @@ local CHECKS = {
         now, kept, _, few = Now({ 700, 5 }, { 900, 20 })
         assert(now == 700 and few, "few listed: the lowest")
         -- (a first scan: the 1c listings a bargain against now, without a usual price)
-        local realm = A.Store()
-        realm.bargains = { [-8] = { now = 10000, kept = 10000, listings = { { 1, 1 }, { 1, 1 }, { 9000, 2 } } } }
+        local prices = A.Store()
+        prices.image = { at = 1, owners = {}, items = {
+            [-8] = "0,1,1,1,3;0,1,1,1,3;0,2,1,18000,3;0,5,1,50000,3;0,5,1,50000,3" } }
         local b = A.Bargains()
+        prices.image = nil
         assert(#b == 1 and b[1].against == "now" and b[1].minPrice == 1 and b[1].totalQuantity == 2, "a bargain now")
-        assert(A.BargainAgainst(-8, 9000) == nil, "one the cut keeps is no bargain against now")
-        realm.bargains = nil
+        prices.image = { at = 1, owners = {}, items = {
+            [-8] = "0,1,1,1,3;0,1,1,1,3;0,2,1,18000,3;0,5,1,50000,3;0,5,1,50000,3" } }
+        local against = A.BargainAgainst(-8, 9000)
+        prices.image = nil
+        assert(against == nil, "one the cut keeps is no bargain against now")
     end },
     -- (prices kept under no realm name join the named realm's, house by house; a realm kept before
     -- the houses: into the player's faction's; a day is its last whole view)
@@ -1200,6 +1205,15 @@ local CHECKS = {
             "a day lost or the older scan won")
         assert(H.myPrices[1] == 10 and H.myPrices[3] == 7 and H.scannedAt == 20 and H.bargains == nil, "merge")
         assert(R.houses.N.items[9][1] == "n" and R.lastHouse == "N" and R.items == nil, "another house touched")
+        -- (an unnamed realm's sales and own counts add up, its newer image stays)
+        realms[""] = { houses = { N = { items = {}, sold = { [9] = { [1] = 2 } }, watched = { [1] = 60 },
+            own = { [9] = "1:1:0:0" }, image = { at = 9, owners = {}, items = {} } } } }
+        R.houses.N.sold, R.houses.N.own, R.houses.N.image = { [9] = { [1] = 3 } }, { [9] = "2:0:1:1" },
+            { at = 5, owners = {}, items = {} }
+        assert(A.Adopt(realms, "R"), "adopted")
+        local N = R.houses.N
+        assert(N.sold[9][1] == 5 and N.watched[1] == 60 and N.own[9] == "3:1:1:1" and N.image.at == 9,
+            "sales or own counts lost")
         assert(db.replicateAt == 30, "the scan limit not the account's")
         -- (the realm in use, as kept before the houses)
         local current = A.Store()
@@ -1218,19 +1232,19 @@ local CHECKS = {
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
         A.Store().items[-9] = nil
-        -- (an answer with no listings, after a full scan made the bargains list)
+        -- (an answer with no listings, after a full scan made the image)
         local AH, got = C_AuctionHouse, false
         local full, num, ready = AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults,
             AH.IsThrottledMessageSystemReady
         AH.IsThrottledMessageSystemReady = function() return true end
         AH.HasFullCommoditySearchResults = function() return true end
         AH.GetNumCommoditySearchResults = function() return 0 end
-        A.Store().bargains = {}
+        A.Store().image = { at = 1, owners = {}, items = {} }
         A.Search(-9, true, nil, function(l) got = l end)
         fire("COMMODITY_SEARCH_RESULTS_UPDATED", -9)
         AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults = full, num
         AH.IsThrottledMessageSystemReady = ready
-        A.Store().bargains = nil
+        A.Store().image = nil
         assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
         A.Store().items[-9] = nil
     end },
@@ -1277,6 +1291,158 @@ local CHECKS = {
         Forget()
         if not ok then error(err, 0) end
     end },
+    -- (a full scan keeps its image: every auction, no buyout too, sellers once each)
+    { name = "auction scan image", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local AH, S = C_AuctionHouse, A.Settings()
+        local rows = {
+            { 1, 100, 120, "Bob", -5, 2 }, { 5, 400, 500, "Ann", -5, 3 }, { 1, 50, 0, "Bob", -5, 0 },
+            { 2, 10, 30, nil, -4, 1 },
+        }
+        local saved = { AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
+            ImprovedForeverAuctionDB.replicateAt }
+        AH.GetNumReplicateItems = function() return #rows end
+        AH.GetReplicateItemInfo = function(i)
+            local r = rows[i + 1]
+            return nil, nil, r[1], nil, nil, nil, nil, r[2], nil, r[3], nil, nil, nil, r[4], nil, nil, r[5]
+        end
+        AH.GetReplicateItemTimeLeft = function(i) return rows[i + 1][6] end
+        S.scan, ImprovedForeverAuctionDB.replicateAt = true, 0
+        local reader
+        for _, f in ipairs(frames) do
+            local fn = f.__scripts.OnUpdate
+            for i = 1, 60 do
+                local name = fn and debug.getupvalue(fn, i)
+                if not name then break end
+                if name == "FinishScan" then reader = fn end
+            end
+        end
+        local ok, err = pcall(function()
+            assert(reader, "the scan's reader not found")
+            fire("REPLICATE_ITEM_LIST_UPDATE")
+            reader()
+            local image = A.Store().image
+            assert(image and image.at and #image.owners == 2, "the sellers not kept once each")
+            local bob = image.owners[1] == "Bob" and 1 or 2
+            local ann = 3 - bob
+            assert(image.items[-5] == bob .. ",1,100,120,2;" .. ann .. ",5,400,500,3;" .. bob .. ",1,50,0,0",
+                "item -5: " .. tostring(image.items[-5]))
+            assert(image.items[-4] == "0,2,10,30,1", "no seller given: " .. tostring(image.items[-4]))
+        end)
+        -- (sales from two scans an hour apart, item -3)
+        local clock = time
+        local function Scan(at, list)
+            rows, ImprovedForeverAuctionDB.replicateAt = list, 0
+            time = function() return at end
+            fire("REPLICATE_ITEM_LIST_UPDATE")
+            -- (an empty one is done at once)
+            if #list > 0 then reader() end
+        end
+        local T = clock()
+        local ok2, err2 = pcall(function()
+            Scan(T, {
+                { 1, 120, 120, "Bob", -3, 2 },   -- gone with 2 h at least left: bought
+                { 5, 500, 500, "Ann", -3, 3 },   -- 2 of 5 left at its price: 3 bought
+                { 1, 300, 300, "Cid", -3, 3 },   -- gone as Cid lists it cheaper: cancelled
+                { 1, 100, 100, "Dan", -3, 0 },   -- gone in its last 30 min: may have run out
+                { 1, 50, 0, "Eve", -3, 3 },      -- no buyout: cancelled
+                { 1, 80, 80, "Fay", -3, 3 },     -- still up
+                { 1, 90, 90, nil, -3, 3 },       -- still up, its seller given now
+            })
+            assert(A.Sold(-3) == nil or A.Sold(-3) == 0, "sales from one scan")
+            Scan(T + 3600, {
+                { 2, 200, 200, "Ann", -3, 3 }, { 1, 250, 250, "Cid", -3, 3 }, { 1, 80, 80, "Fay", -3, 3 },
+                { 1, 90, 90, "Gus", -3, 3 },
+            })
+            local units, hours = A.Sold(-3)
+            assert(units == 4 and hours == 1, "sold " .. tostring(units) .. " in " .. tostring(hours) .. " h")
+            assert(A.SaleText(-3) == nil, "a speed from 1 h watched")
+            Scan(T + 3600 + 9 * 3600, { { 1, 80, 80, "Fay", -3, 3 } })
+            assert(A.Sold(-3) == 4, "scans 9 h apart compared")
+            -- (4 sold in 2 h watched, 1 up: fast; 4 a day of 20 up: slowly)
+            Scan(T + 11 * 3600, { { 1, 80, 80, "Fay", -3, 3 } })
+            assert(A.SaleText(-3):find("sells fast", 1, true), "fast: " .. tostring(A.SaleText(-3)))
+            local prices = A.Store()
+            prices.watched = { [A.Today()] = 24 * 3600 }
+            prices.items[-3] = { [A.Today()] = "80:80:20" }
+            assert(A.SaleText(-3):find("sells slowly", 1, true), "slowly: " .. tostring(A.SaleText(-3)))
+        end)
+        time = clock
+        AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
+            ImprovedForeverAuctionDB.replicateAt = unpack(saved)
+        local prices = A.Store()
+        prices.image, prices.sold, prices.watched = nil, nil, nil
+        prices.items[-5], prices.items[-4], prices.items[-3] = nil, nil, nil
+        if not ok then error(err, 0) end
+        if not ok2 then error(err2, 0) end
+    end },
+    -- (the houses' prices on one line: the open one first, an old one dimmed with its age)
+    { name = "auction houses line", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local today, house = A.Today(), A.house
+        A.Store("N").items[-1] = { [today] = "150:150:5" }
+        A.Store("H").items[-1] = { [today - 4] = "20000:20123:3" }
+        A.house = "H"
+        local text = A.HousesText(-1, 2)
+        local buying, selling = A.ElsewhereText(-1), A.ElsewhereText(-1, true)
+        A.house = "A"
+        local away = A.ElsewhereText(-1)
+        A.house = house
+        assert(buying and buying:find("|cff5fd35f(-99%)", 1, true) and not buying:find("H", 1, true),
+            "buying elsewhere: " .. tostring(buying))
+        assert(selling and selling:find("|cffff7a5c(-99%)", 1, true) and selling:find("27 |TInterface\\MoneyFrame\\UI-CopperIcon", 1, true),
+            "selling elsewhere, after the cut: " .. tostring(selling))
+        assert(away and away:find("H", 1, true) and away:find("N", 1, true) and not away:find("%", 1, true),
+            "no prices here: " .. tostring(away))
+        A.Store("N").items[-1], A.Store("H").items[-1] = nil, nil
+        local h, n = text:find("H", 1, true), text:find("N", 1, true)
+        assert(h and n and h < n, "the open house not first: " .. tostring(text))
+        assert(text:find("|cff9d917a", 1, true) and text:find(" 4d|r", 1, true), "old not dimmed: " .. text)
+        assert(not text:find("CopperIcon", 1, true) and text:find("4 |TInterface\\MoneyFrame\\UI-GoldIcon", 1, true),
+            "copper beside gold, or not times 2: " .. text)
+    end },
+    -- (the player's own auctions: posted, sold (Sold, fewer left, gone early), expired, cancelled)
+    { name = "auction own sales", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local AH, clock = C_AuctionHouse, time
+        local saved, owned = AH.GetOwnedAuctions, {}
+        AH.GetOwnedAuctions = function() return owned end
+        local T = clock()
+        local function List(at, list)
+            time = function() return at end
+            owned = list
+            fire("OWNED_AUCTIONS_UPDATED")
+        end
+        local function Auction(id, qty, left, status)
+            return { auctionID = id, itemKey = { itemID = -2 }, quantity = qty, timeLeftSeconds = left, status = status }
+        end
+        local ok, err = pcall(function()
+            fire("AUCTION_HOUSE_SHOW")
+            List(T, { Auction(1, 5, 7200), Auction(2, 1, 7200), Auction(3, 1, 600), Auction(4, 1, 7200),
+                Auction(5, 1, 7200), Auction(6, 1, 7200) })
+            assert(A.Own(-2) == 10, "posted: " .. tostring(A.Own(-2)))
+            fire("AUCTION_CANCELED", 4)
+            -- (6: its cancel asked, the list in before the server's word)
+            for _, h in ipairs(tableHooks) do
+                if h.name == "CancelAuction" then h.fn(6) end
+            end
+            -- (1: 2 of 5 bought; 2: Sold; 3: gone after its end; 5: gone early)
+            List(T + 1200, { Auction(1, 3, 6000), Auction(2, 1, nil, Enum.AuctionStatus.Sold) })
+            local posted, sold, expired, cancelled = A.Own(-2)
+            assert(posted == 10 and sold == 4 and expired == 1 and cancelled == 2,
+                "own: " .. table.concat({ tostring(posted), tostring(sold), tostring(expired), tostring(cancelled) }, " "))
+            List(T + 2400, { Auction(1, 3, 4800) })
+            assert(select(2, A.Own(-2)) == 4, "a Sold one gone counted twice")
+        end)
+        time, AH.GetOwnedAuctions = clock, saved
+        fire("AUCTION_HOUSE_CLOSED")
+        local prices = A.Store()
+        prices.own, prices.mine = nil, nil
+        if not ok then error(err, 0) end
+    end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
@@ -1293,18 +1459,18 @@ local CHECKS = {
         end
         CI.GetItemInfo = function() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 100 end
         CI.IsEquippableItem = function() return true end
-        A.Store().belowVendor = {}
+        A.Store().image = { at = 1, owners = {}, items = {} }
         A.MarkBought(101)
         local got
         A.Search(-9, false, nil, function(l) got = l end, key)
         fire("ITEM_SEARCH_RESULTS_UPDATED", key)
-        local b = A.Store().belowVendor[-9]
+        local below = A.BelowVendor()
         AH.HasFullItemSearchResults, AH.GetNumItemSearchResults, AH.GetItemSearchResultInfo,
             AH.IsThrottledMessageSystemReady, CI.GetItemInfo, CI.IsEquippableItem = unpack(saved)
         fire("AUCTION_HOUSE_CLOSED")
-        A.Store().belowVendor, A.Store().items[-9] = nil, nil
+        A.Store().image, A.Store().items[-9] = nil, nil
         assert(type(got) == "table" and #got == 1 and got[1].unit == 80, "a bought auction offered again")
-        assert(b and b.lowest == 80, "the gear search's prices not kept, or a bought one in them")
+        assert(#below == 1 and below[1].minPrice == 80, "the gear search's prices not kept, or a bought one in them")
     end },
     -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
     { name = "destroy press unbound", fn = function()

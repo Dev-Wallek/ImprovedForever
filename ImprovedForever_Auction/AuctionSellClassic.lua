@@ -798,7 +798,8 @@ local function RenderLeft()
         parts[#parts + 1] = "None listed now"
     end
     if market then parts[#parts + 1] = "usually " .. A.Money(market) end
-    left.info:SetText(table.concat(parts, "   ·   "))
+    local elsewhere = A.ElsewhereText(e.itemID, true)
+    left.info:SetText(table.concat(parts, "   ·   ") .. (elsewhere and ("|n" .. elsewhere) or ""))
     left.warn:SetText(P.message or P.warn or "")
     -- The group's height: what it shows, so it sits in the middle
     local warnH = left.warn:GetText() ~= "" and (10 + left.warn:GetStringHeight()) or 0
