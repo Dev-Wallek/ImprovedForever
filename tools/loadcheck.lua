@@ -1319,6 +1319,23 @@ local CHECKS = {
         if not ok then error(err, 0) end
         if not ok2 then error(err2, 0) end
     end },
+    -- (the houses' prices on one line: the open one first, an old one dimmed with its age)
+    { name = "auction houses line", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local today, house = A.Today(), A.house
+        A.Store("N").items[-1] = { [today] = "150:150:5" }
+        A.Store("H").items[-1] = { [today - 4] = "20000:20123:3" }
+        A.house = "H"
+        local text = A.HousesText(-1, 2)
+        A.house = house
+        A.Store("N").items[-1], A.Store("H").items[-1] = nil, nil
+        local h, n = text:find("H", 1, true), text:find("N", 1, true)
+        assert(h and n and h < n, "the open house not first: " .. tostring(text))
+        assert(text:find("|cff9d917a", 1, true) and text:find(" 4d|r", 1, true), "old not dimmed: " .. text)
+        assert(not text:find("CopperIcon", 1, true) and text:find("4 |TInterface\\MoneyFrame\\UI-GoldIcon", 1, true),
+            "copper beside gold, or not times 2: " .. text)
+    end },
     -- (the player's own auctions: posted, sold (Sold, fewer left, gone early), expired, cancelled)
     { name = "auction own sales", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction

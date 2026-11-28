@@ -375,9 +375,10 @@ local function Summarize(list)
 end
 
 -- The item's days over the last `days`, oldest first: { { day, lowest, now, qty } }
-function A.History(itemID, days)
+-- (house: default A.House(), as for the functions after it)
+function A.History(itemID, days, house)
     local list = {}
-    local item = Store().items[itemID]
+    local item = Store(house).items[itemID]
     if not item then return list end
     local from = Today() - (days or A.Settings().chartDays)
     for day, packed in pairs(item) do
@@ -391,9 +392,9 @@ function A.History(itemID, days)
 end
 
 -- Its usual price: the median of the days' "now" over the chart's days
-function A.MarketPrice(itemID, days)
+function A.MarketPrice(itemID, days, house)
     local values = {}
-    for _, d in ipairs(A.History(itemID, days)) do values[#values + 1] = d.now end
+    for _, d in ipairs(A.History(itemID, days, house)) do values[#values + 1] = d.now end
     if #values == 0 then return nil end
     table.sort(values)
     local mid = (#values + 1) / 2
@@ -425,14 +426,33 @@ end
 
 -- Its latest day with prices: day, lowest, now, quantity, few
 -- (nil: never seen up)
-function A.Latest(itemID)
-    local item = Store().items[itemID]
+function A.Latest(itemID, house)
+    local item = Store(house).items[itemID]
     local last
     for day, packed in pairs(item or {}) do
         if packed ~= NONE and (not last or day > last) then last = day end
     end
     if not last then return nil end
     return last, Unpack(item[last])
+end
+
+-- The item in each house with prices, the house open (or open last) first:
+-- { { house, usual, now, lowest, age (days since its latest day), cut } }
+local HOUSES = { "A", "H", "N" }
+function A.AcrossHouses(itemID)
+    local list, here = {}, A.House()
+    for _, house in ipairs(HOUSES) do
+        local day, lowest, now = A.Latest(itemID, house)
+        if day then
+            list[#list + 1] = { house = house, usual = A.MarketPrice(itemID, nil, house), now = now, lowest = lowest,
+                age = Today() - day, cut = CUTS[house] }
+        end
+    end
+    table.sort(list, function(a, b)
+        if (a.house == here) ~= (b.house == here) then return a.house == here end
+        return a.house < b.house
+    end)
+    return list
 end
 
 -- For other modules and addons (ImprovedForever.Auction.Price), a unit in
@@ -1195,9 +1215,38 @@ end)
 IF.OnLogin(A.Prune)
 
 ---------------------------------------------------------------------------
--- Item tooltips: its usual price, "now" and the latest lowest; a bag stack's
+-- Item tooltips: its usual price in each house on one line, the house open
+-- (or open last) first; there "now" and the latest lowest; a bag stack's
 -- whole, a unit's in brackets after it
 ---------------------------------------------------------------------------
+local MARKS = { A = { "AllianceSymbol", "|cff4a8ff0A|r" }, H = { "HordeSymbol", "|cffe04a3aH|r" },
+    N = { nil, "|cffd8ccb0N|r" } }
+local OLD_DAYS = 3   -- a house's price this many days old or more: dimmed
+
+-- The house's mark: its faction's symbol, else its letter
+function A.HouseMark(house)
+    local atlas, letter = MARKS[house][1], MARKS[house][2]
+    if atlas and IF.HasAtlas and IF.HasAtlas(atlas) then return "|A:" .. atlas .. ":14:14|a" end
+    return letter
+end
+
+-- Money short for a line of several: no copper beside gold
+function A.ShortMoney(copper)
+    return A.Money(copper >= 10000 and math.floor(copper / 100 + 0.5) * 100 or copper)
+end
+
+-- "[A] 1g 20s   [H] 1g 5s 2d": each house's usual price (else its latest
+-- "now") times count, its age in days after it, dimmed when old
+function A.HousesText(itemID, count)
+    local parts = {}
+    for _, h in ipairs(A.AcrossHouses(itemID)) do
+        local text = A.ShortMoney((h.usual or h.now) * (count or 1)) .. (h.age > 0 and (" " .. h.age .. "d") or "")
+        if h.age >= OLD_DAYS then text = "|cff9d917a" .. text .. "|r" end
+        parts[#parts + 1] = A.HouseMark(h.house) .. " " .. text
+    end
+    return #parts > 0 and table.concat(parts, "   ") or nil
+end
+
 local function TooltipPrices(tooltip, data)
     if not (IF.db and A.Settings().tooltip) then return end
     if tooltip ~= GameTooltip and tooltip ~= _G.ItemRefTooltip then return end
@@ -1205,8 +1254,6 @@ local function TooltipPrices(tooltip, data)
     if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then return end
     local day, lowest, now, _, few = A.Latest(itemID)
     local none = A.NoneListed(itemID)
-    if not day and not none then return end
-    local market = A.MarketPrice(itemID)
     -- A bag stack: what it all brings, a unit's after it
     local owner = tooltip:GetOwner()
     local stack = owner and owner.GetBagID and owner.GetID and C_Container and C_Container.GetContainerItemInfo
@@ -1218,7 +1265,10 @@ local function TooltipPrices(tooltip, data)
     end
     local r, g, b = 0.79, 0.64, 0.35
     local of = count > 1 and (" ×" .. count) or ""
-    if market then tooltip:AddDoubleLine("Auction: usually" .. of, Price(market), r, g, b, 1, 1, 1) end
+    local houses = A.HousesText(itemID, count)
+    if not houses and not none then return end
+    if houses then tooltip:AddDoubleLine("Auction: usually" .. of, houses, r, g, b, 1, 1, 1) end
+    if not day and not none then return end
     local trend = A.TrendText(itemID)
     if trend then tooltip:AddDoubleLine("Auction: lately", trend, r, g, b) end
     if none then
