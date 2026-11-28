@@ -1315,9 +1315,18 @@ function BY.TipsOff()
     return get and get("GamepadDisableTooltips") or false
 end
 
+-- R3's round: no tooltip, short, details (the Auction tab's Tooltip details)
 function BY.ToggleTips()
-    local set = C_CVar and C_CVar.SetCVar or SetCVar
-    if set then set("GamepadDisableTooltips", BY.TipsOff() and "0" or "1") end
+    local set, S = C_CVar and C_CVar.SetCVar or SetCVar, A.Settings()
+    if BY.TipsOff() then
+        if set then set("GamepadDisableTooltips", "0") end
+        S.tooltipDetails = false
+    elseif not S.tooltipDetails then
+        S.tooltipDetails = true
+    else
+        S.tooltipDetails = false
+        if set then set("GamepadDisableTooltips", "1") end
+    end
 end
 
 -- What is worn in its place, beside the tooltip (gear: the game's own
@@ -2131,8 +2140,18 @@ local function SetHints(text, mouseList)
     local mouse = Mouse()
     legend:SetShown(not mouse)
     mouseBar:SetShown(mouse)
-    if mouse then return SetMouseBar(mouseList or {}) end
-    legend:SetText(text .. "   " .. Glyph("RS") .. " Tabs (tilt) / " .. (BY.TipsOff() and "Tooltip (click)" or "No tooltip (click)")
+    local details = A.Settings().tooltipDetails
+    if mouse then
+        -- (the mouse's tooltips are always on: short or details)
+        local list = { unpack(mouseList or {}) }
+        list[#list + 1] = { details and "Short tooltip" or "Tooltip details", function()
+            A.Settings().tooltipDetails = not details
+            BY.Render()
+        end }
+        return SetMouseBar(list)
+    end
+    local nextTip = BY.TipsOff() and "Tooltip" or details and "No tooltip" or "Details"
+    legend:SetText(text .. "   " .. Glyph("RS") .. " Tabs (tilt) / " .. nextTip .. " (click)"
         .. ((IF.Wiki and IF.Wiki.Settings().enabled) and " / Hold to Open Wiki" or ""))
 end
 

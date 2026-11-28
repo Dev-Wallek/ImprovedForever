@@ -27,7 +27,8 @@ local DEFAULTS = {
     pricing = "undercut",  -- the price it starts at: undercut, match, market
     duration = 2,          -- 1 / 2 / 3: the game's three (A.Durations)
     vendorFloor = true,    -- never under what a vendor pays (after the cut)
-    tooltip = true,        -- item tooltips show the usual price, now and the lowest
+    tooltip = true,        -- item tooltips show the usual price in each house, lately
+    tooltipDetails = false, -- and each house's now, lowest and speed, the player's own sales (R3 in our window)
     buy = true,            -- our auction window (AuctionBuyClassic.lua); off: the game's
     buyUsable = false,     -- its filters: usable only, qualities (none ticked: any), up to my level, sort
     buyMyLevel = false,
@@ -437,15 +438,15 @@ function A.Latest(itemID, house)
 end
 
 -- The item in each house with prices, the house open (or open last) first:
--- { { house, usual, now, lowest, age (days since its latest day), cut } }
+-- { { house, usual, now, lowest, few, age (days since its latest day), cut } }
 local HOUSES = { "A", "H", "N" }
 function A.AcrossHouses(itemID)
     local list, here = {}, A.House()
     for _, house in ipairs(HOUSES) do
-        local day, lowest, now = A.Latest(itemID, house)
+        local day, lowest, now, _, few = A.Latest(itemID, house)
         if day then
             list[#list + 1] = { house = house, usual = A.MarketPrice(itemID, nil, house), now = now, lowest = lowest,
-                age = Today() - day, cut = CUTS[house] }
+                few = few, age = Today() - day, cut = CUTS[house] }
         end
     end
     table.sort(list, function(a, b)
@@ -834,9 +835,9 @@ local function RecordSales(prices, new)
 end
 
 -- Units sold over the last `days` (default the chart's) and the hours the
--- scans watched in them (nil: never watched)
-function A.Sold(itemID, days)
-    local prices = Store()
+-- scans watched in them (nil: never watched); house: default A.House()
+function A.Sold(itemID, days, house)
+    local prices = Store(house)
     local from = Today() - (days or A.Settings().chartDays)
     local units, watched = 0, 0
     for day, s in pairs(prices.watched or {}) do
@@ -853,10 +854,10 @@ end
 -- (a day sells what is up), "sells steadily" (a quarter of it), "sells
 -- slowly", in its colour; nil: scans watched it under WATCH_MIN hours
 local WATCH_MIN, FAST, STEADY = 2, 1, 0.25
-function A.SaleText(itemID)
-    local units, hours = A.Sold(itemID)
+function A.SaleText(itemID, house)
+    local units, hours = A.Sold(itemID, nil, house)
     if not units or hours < WATCH_MIN then return nil end
-    local _, _, _, up = A.Latest(itemID)
+    local _, _, _, up = A.Latest(itemID, house)
     local share = units * 24 / hours / math.max(1, up or 0)
     if share >= FAST then return "|cff5fd35fsells fast|r" end
     if share >= STEADY then return "|cffd8ccb0sells steadily|r" end
@@ -1266,7 +1267,7 @@ local function TooltipPrices(tooltip, data)
     if tooltip ~= GameTooltip and tooltip ~= _G.ItemRefTooltip then return end
     local itemID = data and data.id
     if not itemID or (issecretvalue and issecretvalue(itemID)) or type(itemID) ~= "number" then return end
-    local day, lowest, now, _, few = A.Latest(itemID)
+    local day = A.Latest(itemID)
     local none = A.NoneListed(itemID)
     -- A bag stack: what it all brings, a unit's after it
     local owner = tooltip:GetOwner()
@@ -1286,16 +1287,24 @@ local function TooltipPrices(tooltip, data)
     local trend, sells = A.TrendText(itemID), A.SaleText(itemID)
     local lately = trend and sells and (trend .. " · " .. sells) or trend or sells
     if lately then tooltip:AddDoubleLine("Auction: lately", lately, r, g, b) end
-    if none then
-        tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48)
-        return
+    if none then tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48) end
+    if not A.Settings().tooltipDetails then return end
+    -- Details: each house's now and lowest, how fast it sells there; the player's own sales here
+    for _, h in ipairs(A.AcrossHouses(itemID)) do
+        local when = h.age == 0 and "" or h.age == 1 and " (yesterday)" or (" (" .. h.age .. " days ago)")
+        local parts = {}
+        if h.now and not h.few and h.now ~= h.lowest then parts[#parts + 1] = "now " .. Price(h.now) end
+        parts[#parts + 1] = "lowest " .. Price(h.lowest) .. (h.few and " (few)" or "")
+        parts[#parts + 1] = A.SaleText(itemID, h.house)
+        tooltip:AddDoubleLine("  " .. A.HouseMark(h.house) .. " " .. A.HOUSE_NAMES[h.house] .. of .. when,
+            table.concat(parts, " · "), r, g, b, 1, 1, 1)
     end
-    local ago = A.Today() - day
-    local when = ago == 0 and "" or ago == 1 and " (yesterday)" or (" (" .. ago .. " days ago)")
-    if now and not few and now ~= lowest then
-        tooltip:AddDoubleLine("Auction: now" .. of .. when, Price(now), r, g, b, 1, 1, 1)
+    local posted, sold, expired, cancelled = A.Own(itemID)
+    if posted then
+        tooltip:AddDoubleLine("Auction: yours here", sold .. " of " .. posted .. " sold"
+            .. (expired > 0 and (", " .. expired .. " expired") or "")
+            .. (cancelled > 0 and (", " .. cancelled .. " cancelled") or ""), r, g, b, 1, 1, 1)
     end
-    tooltip:AddDoubleLine("Auction: lowest" .. of .. when .. (few and " (few listed)" or ""), Price(lowest), r, g, b, 1, 1, 1)
 end
 
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum.TooltipDataType then
