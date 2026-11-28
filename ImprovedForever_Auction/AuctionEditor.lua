@@ -143,15 +143,15 @@ ITEMS[#ITEMS + 1] = Item({
         .. " Usually: its \"now\" over the chart's days, the middle one, in each auction house (Alliance, Horde,"
         .. " Neutral), the one open or open last first; days old after it. Lately: how its price moved and how fast"
         .. " it sells there (from two full scans at most 8 hours apart: an auction gone before it could run out"
-        .. " counts as bought, so cancels count too). Now: what the cheapest ask on average at the last look, the"
-        .. " odd few far under all the rest left out. Lowest: the cheapest one listed then. Few listed: too few to"
-        .. " tell, only the lowest. None listed: no one offered it at the last look.",
+        .. " counts as bought, so cancels count too). None listed: no one offered it at the last look.",
 }, OnOff(function() return S().tooltip end, function(on) S().tooltip = on end, "Tooltips"))
 ITEMS[#ITEMS + 1] = Item({
     key = "tooltipDetails", group = "use", label = "Tooltip details",
     tip = "Also each house's now and lowest price and how fast it sells there, and your own auctions of the item"
-        .. " in the house: how many sold, expired, cancelled. In the auction window R3 switches: no tooltip,"
-        .. " short, details.",
+        .. " in the house: how many sold, expired, cancelled. Now: what the cheapest ask on average at the last"
+        .. " look, the odd few far under all the rest left out. Lowest: the cheapest one listed then. Few: too few"
+        .. " to tell, only the lowest. In the auction window R3 switches: no tooltip, short, details (with the"
+        .. " mouse: the button at the bottom); in the bag window X.",
 }, OnOff(function() return S().tooltipDetails end, function(on) S().tooltipDetails = on end, "Tooltip details"))
 ITEMS[#ITEMS + 1] = Item({
     key = "destroy", group = "use", label = "Junk",
