@@ -1891,7 +1891,7 @@ local function RenderResults()
     if s.buyUpgrades == "only" then active[#active + 1] = "upgrades only" end
     if BY.search and BY.search ~= "" then path = path .. "   ·   |cffd8ccb0\"" .. BY.search .. "\"|r" end
     statusBase = path .. "   ·   " .. (BY.searching and "searching..." or (n .. " found"))
-        .. (ours and ("   ·   scanned " .. A.Ago(A.Realm().scannedAt)) or "")
+        .. (ours and ("   ·   scanned " .. A.Ago(A.Store().scannedAt)) or "")
         .. (#active > 0 and ("   ·   |cffc9a25a" .. table.concat(active, ", ") .. "|r") or "")
     ShowStatus()
 end

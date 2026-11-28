@@ -1,4 +1,4 @@
--- The auction house's prices, kept over time, per realm, in
+-- The auction house's prices, kept over time, per realm and house, in
 -- ImprovedForeverAuctionDB: a full scan of every auction
 -- (C_AuctionHouse.ReplicateItems, as the auction house opens, at most once
 -- in 15 minutes: the server's limit) and a search of one item (the
@@ -111,66 +111,106 @@ function A.Round(copper)
 end
 
 local FACTION_HOUSE = { Alliance = "A", Horde = "H" }
+A.HOUSE_NAMES = { A = "Alliance", H = "Horde", N = "Neutral" }
 
--- The house open now, else the last one open this session, else the
--- player's faction's: "A", "H" or "N"
-function A.House()
-    return A.house or FACTION_HOUSE[UnitFactionGroup("player")] or "N"
-end
-
--- The house's cut of a sale
-function A.Cut()
-    return CUTS[A.House()]
+-- The player's faction's house (nil until the game knows the faction)
+local function PlayerHouse()
+    return FACTION_HOUSE[UnitFactionGroup("player")]
 end
 
 ---------------------------------------------------------------------------
--- The store: realms[realm].items[itemID][day] = "lowest:now:quantity" (":f":
--- few listed), the day's last whole view of it
+-- The store: realms[realm].houses[house] holds a house's prices:
+-- items[itemID][day] = "lowest:now:quantity" (":f": few listed), the
+-- day's last whole view of it; scannedAt, myPrices, bargains, belowVendor.
+-- realms[realm].lastHouse: the house open last. The server's limit on full
+-- scans is the account's: replicateAt at the top.
 ---------------------------------------------------------------------------
 local function Today()
     return math.floor(time() / DAY)
 end
 A.Today = Today
 
--- Buckets kept under no name (the game named none): they join the realm's
--- once it has one, a day both have taken from the one scanned last. Their
--- Bargains and Below vendor price go; the next scan makes them anew.
+local function DB()
+    ImprovedForeverAuctionDB = ImprovedForeverAuctionDB or {}
+    return ImprovedForeverAuctionDB
+end
+
+-- A house's prices into another's, a day both have taken from the one
+-- scanned last. Its Bargains and Below vendor price go; the next scan
+-- makes them anew.
+local function Merge(from, to)
+    to.items = to.items or {}
+    local newer = (from.scannedAt or 0) > (to.scannedAt or 0)
+    for itemID, days in pairs(from.items or {}) do
+        local into = to.items[itemID]
+        if not into then
+            to.items[itemID] = days
+        else
+            for day, packed in pairs(days) do
+                if newer or not into[day] then into[day] = packed end
+            end
+        end
+    end
+    for itemID, price in pairs(from.myPrices or {}) do
+        to.myPrices = to.myPrices or {}
+        if newer or not to.myPrices[itemID] then to.myPrices[itemID] = price end
+    end
+    to.scannedAt = math.max(to.scannedAt or 0, from.scannedAt or 0)
+end
+
+-- A realm kept before the houses were told apart (its prices beside
+-- `houses`): into the player's faction's house, the scan limit to the top.
+-- false: the faction not known yet
+local function Migrate(realm)
+    if realm.items == nil then return true end
+    local house = PlayerHouse()
+    if not house then return false end
+    realm.houses = realm.houses or {}
+    realm.houses[house] = realm.houses[house] or { items = {} }
+    Merge(realm, realm.houses[house])
+    local db = DB()
+    db.replicateAt = math.max(db.replicateAt or 0, realm.replicateAt or 0)
+    realm.items, realm.scannedAt, realm.myPrices, realm.bargains, realm.belowVendor, realm.replicateAt =
+        nil, nil, nil, nil, nil, nil
+    return true
+end
+
+-- Realms kept under no name (the game named none): they join the realm's
+-- once it has one, house by house. false: the faction not known yet
 local UNNAMED = { "", "?" }
 local function Adopt(realms, name)
     for _, old in ipairs(UNNAMED) do
         local from = realms[old]
         if from and old ~= name then
-            local to = realms[name] or { items = {} }
+            local to = realms[name] or { houses = {} }
+            if not (Migrate(from) and Migrate(to)) then return false end
             realms[name] = to
-            local newer = (from.scannedAt or 0) > (to.scannedAt or 0)
-            for itemID, days in pairs(from.items or {}) do
-                local into = to.items[itemID]
-                if not into then
-                    to.items[itemID] = days
-                else
-                    for day, packed in pairs(days) do
-                        if newer or not into[day] then into[day] = packed end
-                    end
-                end
+            to.houses = to.houses or {}
+            for house, prices in pairs(from.houses or {}) do
+                to.houses[house] = to.houses[house] or { items = {} }
+                Merge(prices, to.houses[house])
             end
-            for itemID, price in pairs(from.myPrices or {}) do
-                to.myPrices = to.myPrices or {}
-                if newer or not to.myPrices[itemID] then to.myPrices[itemID] = price end
-            end
-            to.scannedAt = math.max(to.scannedAt or 0, from.scannedAt or 0)
-            to.replicateAt = math.max(to.replicateAt or 0, from.replicateAt or 0)
+            to.lastHouse = to.lastHouse or from.lastHouse
             realms[old] = nil
         end
     end
+    return true
 end
 A.Adopt = Adopt
+
+-- When a realm was scanned last (any of its houses)
+local function ScannedAt(realm)
+    local at = realm.scannedAt or 0
+    for _, prices in pairs(realm.houses or {}) do at = math.max(at, prices.scannedAt or 0) end
+    return at
+end
 
 -- The realm scanned last, of those named
 local function Newest(realms)
     local best, at
     for name, realm in pairs(realms) do
-        if name ~= "" and name ~= "?" and (realm.scannedAt or 0) >= (at or -1) then
-            best, at = name, realm.scannedAt or 0
+        if name ~= "" and name ~= "?" and ScannedAt(realm) >= (at or -1) then
+            best, at = name, ScannedAt(realm)
         end
     end
     return best
@@ -178,18 +218,15 @@ end
 
 -- The game's name for the realm can come back empty: then the one it last
 -- gave (or the one scanned last) holds the prices, and the chat says so once
-local realmName, warned
+local realmName, adopted, warned
 local function Realm()
-    ImprovedForeverAuctionDB = ImprovedForeverAuctionDB or {}
-    local store = ImprovedForeverAuctionDB
+    local store = DB()
     store.realms = store.realms or {}
     if not realmName then
         local name = GetNormalizedRealmName and GetNormalizedRealmName() or ""
-        if name ~= "" then
-            realmName, store.lastRealm = name, name
-            Adopt(store.realms, name)
-        end
+        if name ~= "" then realmName, store.lastRealm = name, name end
     end
+    if realmName and not adopted then adopted = Adopt(store.realms, realmName) end
     local name = realmName
     if not name then
         name = store.lastRealm or Newest(store.realms) or "?"
@@ -198,10 +235,32 @@ local function Realm()
             IF.Print("auction: the game gives no realm name; prices are kept under " .. name .. ".")
         end
     end
-    store.realms[name] = store.realms[name] or { items = {} }
-    return store.realms[name]
+    store.realms[name] = store.realms[name] or { houses = {} }
+    local realm = store.realms[name]
+    Migrate(realm)
+    return realm
 end
-A.Realm = Realm
+
+-- The house open now, else the one open last, else the player's
+-- faction's: "A", "H" or "N"
+function A.House()
+    return A.house or Realm().lastHouse or PlayerHouse() or "N"
+end
+
+-- The house's cut of a sale
+function A.Cut()
+    return CUTS[A.House()]
+end
+
+-- The prices of a house (default: A.House()'s)
+local function Store(house)
+    local realm = Realm()
+    house = house or A.House()
+    realm.houses = realm.houses or {}
+    realm.houses[house] = realm.houses[house] or { items = {} }
+    return realm.houses[house]
+end
+A.Store = Store
 
 -- A day the item was searched for and none were up
 local NONE = "-"
@@ -216,7 +275,7 @@ end
 
 -- Its numbers as last seen today (nil: none listed)
 function A.Record(itemID, lowest, now, qty, few)
-    local items = Realm().items
+    local items = Store().items
     local days = items[itemID] or {}
     items[itemID] = days
     days[Today()] = lowest and (lowest .. ":" .. now .. ":" .. qty .. (few and ":f" or "")) or NONE
@@ -224,7 +283,7 @@ end
 
 -- Searched for today and none up
 function A.NoneListed(itemID)
-    local days = Realm().items[itemID]
+    local days = Store().items[itemID]
     return days ~= nil and days[Today()] == NONE
 end
 
@@ -310,7 +369,7 @@ end
 -- The item's days over the last `days`, oldest first: { { day, lowest, now, qty } }
 function A.History(itemID, days)
     local list = {}
-    local item = Realm().items[itemID]
+    local item = Store().items[itemID]
     if not item then return list end
     local from = Today() - (days or A.Settings().chartDays)
     for day, packed in pairs(item) do
@@ -359,7 +418,7 @@ end
 -- Its latest day with prices: day, lowest, now, quantity, few
 -- (nil: never seen up)
 function A.Latest(itemID)
-    local item = Realm().items[itemID]
+    local item = Store().items[itemID]
     local last
     for day, packed in pairs(item or {}) do
         if packed ~= NONE and (not last or day > last) then last = day end
@@ -381,23 +440,25 @@ end
 -- Days older than kept go, and items left with none
 function A.Prune()
     local from = Today() - A.Settings().keepDays
-    local store = ImprovedForeverAuctionDB
-    for _, realm in pairs(store and store.realms or {}) do
-        for itemID, days in pairs(realm.items or {}) do
-            for day in pairs(days) do
-                if day <= from then days[day] = nil end
+    for _, realm in pairs(DB().realms or {}) do
+        -- (a realm not migrated yet: its prices beside the houses)
+        for _, prices in pairs(realm.houses or { realm }) do
+            for itemID, days in pairs(prices.items or {}) do
+                for day in pairs(days) do
+                    if day <= from then days[day] = nil end
+                end
+                if next(days) == nil then prices.items[itemID] = nil end
             end
-            if next(days) == nil then realm.items[itemID] = nil end
         end
     end
 end
 
--- How many items this realm has prices for, and when it was last scanned
+-- How many items the house has prices for, and when it was last scanned
 function A.Stats()
-    local realm = Realm()
+    local prices = Store()
     local n = 0
-    for _ in pairs(realm.items) do n = n + 1 end
-    return n, realm.scannedAt
+    for _ in pairs(prices.items) do n = n + 1 end
+    return n, prices.scannedAt
 end
 
 -- A time() as "5 min ago" ("never": nil)
@@ -410,8 +471,8 @@ function A.Ago(at)
 end
 
 function A.Clear()
-    local realm = Realm()
-    realm.items, realm.scannedAt, realm.belowVendor, realm.bargains = {}, nil, nil, nil
+    local prices = Store()
+    prices.items, prices.scannedAt, prices.belowVendor, prices.bargains = {}, nil, nil, nil
 end
 
 ---------------------------------------------------------------------------
@@ -443,9 +504,9 @@ end
 ---------------------------------------------------------------------------
 local scan = { state = "idle" }   -- idle, waiting (for the server), reading
 
--- When the server lets this realm scan again (seconds from now; 0: now)
+-- When the server lets this account scan again (seconds from now; 0: now)
 function A.ScanWait()
-    local at = Realm().replicateAt or 0
+    local at = DB().replicateAt or 0
     -- (a clock gone back: never a wait longer than the limit)
     return math.max(0, math.min(REPLICATE_EVERY, at + REPLICATE_EVERY - time()))
 end
@@ -470,7 +531,7 @@ function A.Scan(quiet)
         return false
     end
     scan.state, scan.started, scan.read, scan.total = "waiting", GetTime(), 0, nil
-    Realm().replicateAt = time()
+    DB().replicateAt = time()
     AH.ReplicateItems()
     if not quiet then IF.Print("scanning the auction house...") end
     Changed()
@@ -525,7 +586,7 @@ end
 -- copper or more an item, the most an item first
 function A.BelowVendor()
     local list, least = {}, A.Settings().belowMin
-    for itemID, b in pairs(Realm().belowVendor or {}) do
+    for itemID, b in pairs(Store().belowVendor or {}) do
         if b.each > 0 and b.each >= least then
             list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
                 each = b.each, count = b.count }
@@ -567,7 +628,7 @@ end
 -- price): ref, "now" / "usual"; nil: no bargain at the setting's share
 function A.BargainAgainst(itemID, price)
     local share = A.Settings().bargainShare / 100
-    local b = Realm().bargains and Realm().bargains[itemID]
+    local b = Store().bargains and Store().bargains[itemID]
     if b then return Against(b, price, share) end
     local usual, days = A.MarketPrice(itemID)
     if usual and days >= BARGAIN_DAYS then return Against({ usual = usual }, price, share) end
@@ -578,7 +639,7 @@ end
 function A.Bargains()
     local share = A.Settings().bargainShare / 100
     local list = {}
-    for itemID, b in pairs(Realm().bargains or {}) do
+    for itemID, b in pairs(Store().bargains or {}) do
         local units, saving, lowest, ref, against = 0, 0, nil, nil, nil
         for _, l in ipairs(b.listings) do
             local r, what = Against(b, l[1], share)
@@ -606,8 +667,8 @@ local function FinishScan()
         A.Record(itemID, Summarize(list))
         items = items + 1
     end
-    local realm = Realm()
-    realm.scannedAt, realm.belowVendor, realm.bargains = time(), below, bargains
+    local prices = Store()
+    prices.scannedAt, prices.belowVendor, prices.bargains = time(), below, bargains
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
     scan.state, scan.byItem = "idle", nil
     Changed()
@@ -698,9 +759,9 @@ local function Answer(all, shown)
     shown = shown or all
     local plain = {}
     for i, l in ipairs(all) do plain[i] = { l.unit, l.count } end
-    local realm = Realm()
-    if realm.belowVendor then realm.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
-    if realm.bargains then realm.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
+    local prices = Store()
+    if prices.belowVendor then prices.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
+    if prices.bargains then prices.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
     if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
     Changed()
     table.sort(shown, function(a, b) return a.unit < b.unit end)
@@ -753,17 +814,17 @@ local function ItemResults(itemKey)
     Answer(all, #sameLevel > 0 and sameLevel or nil)
 end
 
--- The price last set by hand for an item (a unit), per realm: where its
+-- The price last set by hand for an item (a unit), per house: where its
 -- next sale starts
 function A.MyPrice(itemID)
-    local mine = Realm().myPrices
+    local mine = Store().myPrices
     return mine and mine[itemID]
 end
 
 function A.SetMyPrice(itemID, price)
-    local realm = Realm()
-    realm.myPrices = realm.myPrices or {}
-    realm.myPrices[itemID] = price
+    local prices = Store()
+    prices.myPrices = prices.myPrices or {}
+    prices.myPrices[itemID] = price
 end
 
 ---------------------------------------------------------------------------
@@ -922,8 +983,12 @@ events:SetScript("OnEvent", function(_, event, arg)
         A.open = true
         -- (the auctioneer's faction: English tokens; a goblin's has none.
         -- No auctioneer to ask: the player's faction's)
-        A.house = nil
-        if UnitExists("npc") then A.house = FACTION_HOUSE[UnitFactionGroup("npc")] or "N" end
+        if UnitExists("npc") then
+            A.house = FACTION_HOUSE[UnitFactionGroup("npc")] or "N"
+        else
+            A.house = PlayerHouse() or "N"
+        end
+        Realm().lastHouse = A.house
         if A.Available() and A.Settings().scan and A.ScanWait() == 0 then
             -- (once the frame has settled)
             C_Timer.After(1, function() A.Scan(true) end)
@@ -941,7 +1006,7 @@ events:SetScript("OnEvent", function(_, event, arg)
             StartReading()
         elseif scan.state == "idle" and A.ScanWait() == 0 and A.Settings().scan then
             -- (another addon's full scan: the server's 15 minutes count from it)
-            Realm().replicateAt = time()
+            DB().replicateAt = time()
             StartReading()
         end
     elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED" then
