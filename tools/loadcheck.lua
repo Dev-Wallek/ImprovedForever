@@ -1174,6 +1174,34 @@ local CHECKS = {
         assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
         A.Realm().items[-9] = nil
     end },
+    -- (the house from its auctioneer's faction, none: the player's; the neutral one's cut 15%)
+    { name = "auction house and cut", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local exists, faction, price = UnitExists, UnitFactionGroup, A.MarketPrice
+        local npc
+        UnitExists = function(unit) return unit ~= "npc" or npc ~= false end
+        UnitFactionGroup = function(unit) if unit == "npc" then return npc or nil end return "Horde" end
+        A.MarketPrice = function() return 100 end
+        local function Open(who)
+            npc = who
+            fire("AUCTION_HOUSE_SHOW")
+            local house, cut, net = A.House(), A.Cut(), A.UnitNet(1)
+            fire("AUCTION_HOUSE_CLOSED")
+            return house, cut, net
+        end
+        local ok, err = pcall(function()
+            assert(A.House() == "H" and A.Cut() == 0.05, "before any visit: the player's faction's")
+            local house, cut, net = Open("Alliance")
+            assert(house == "A" and cut == 0.05 and net == 95, "an Alliance auctioneer")
+            house, cut, net = Open(nil)
+            assert(house == "N" and cut == 0.15 and net == 85, "a goblin auctioneer")
+            assert(A.House() == "N" and A.Floor(85) == 100, "closed: the last house kept")
+            assert(Open(false) == "H", "no auctioneer: the player's faction's")
+        end)
+        UnitExists, UnitFactionGroup, A.MarketPrice, A.house = exists, faction, price, nil
+        assert(ok, err)
+    end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
