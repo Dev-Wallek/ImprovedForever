@@ -542,11 +542,13 @@ local function Step(price)
     return step
 end
 
-local function Search()
+local function Search(retried)
     local e = P.entry
     P.searching, P.pending = true, nil
     A.Search(e.itemID, e.commodity, e.itemLevel, function(listings)
         if not P or P.entry ~= e then return end
+        -- (no answer in time: asked once more before giving up on live prices)
+        if not listings and not retried then return Search(true) end
         P.searching, P.searched = false, true
         if listings then listingsCache[e.key] = listings end
         P.listings = listings or P.listings
