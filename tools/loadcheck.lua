@@ -1171,34 +1171,53 @@ local CHECKS = {
         now, kept, _, few = Now({ 700, 5 }, { 900, 20 })
         assert(now == 700 and few, "few listed: the lowest")
         -- (a first scan: the 1c listings a bargain against now, without a usual price)
-        local realm = A.Realm()
+        local realm = A.Store()
         realm.bargains = { [-8] = { now = 10000, kept = 10000, listings = { { 1, 1 }, { 1, 1 }, { 9000, 2 } } } }
         local b = A.Bargains()
         assert(#b == 1 and b[1].against == "now" and b[1].minPrice == 1 and b[1].totalQuantity == 2, "a bargain now")
         assert(A.BargainAgainst(-8, 9000) == nil, "one the cut keeps is no bargain against now")
         realm.bargains = nil
     end },
-    -- (prices kept under no realm name join the named realm's; a day is its last whole view)
+    -- (prices kept under no realm name join the named realm's, house by house; a realm kept before
+    -- the houses: into the player's faction's; a day is its last whole view)
     { name = "auction realm and day", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
         if not A then return end
+        A.Store()
+        local db = ImprovedForeverAuctionDB
+        local replicateAt = db.replicateAt
+        db.replicateAt = 5
         local realms = {
             [""] = { scannedAt = 20, items = { [1] = { [5] = "a", [6] = "b" }, [2] = { [6] = "c" } },
-                myPrices = { [1] = 10 }, bargains = {} },
-            R = { scannedAt = 10, items = { [1] = { [4] = "x", [5] = "y" } }, myPrices = { [1] = 5, [3] = 7 } },
+                myPrices = { [1] = 10 }, bargains = {}, replicateAt = 30 },
+            R = { houses = { A = { scannedAt = 10, items = { [1] = { [4] = "x", [5] = "y" } },
+                myPrices = { [1] = 5, [3] = 7 } }, N = { items = { [9] = { [1] = "n" } } } }, lastHouse = "N" },
         }
-        A.Adopt(realms, "R")
-        local R = realms.R
+        assert(A.Adopt(realms, "R"), "the player's faction known")
+        local R, H = realms.R, realms.R.houses.A
         assert(realms[""] == nil, "the unnamed bucket kept")
-        assert(R.items[1][4] == "x" and R.items[1][5] == "a" and R.items[1][6] == "b" and R.items[2][6] == "c",
+        assert(H.items[1][4] == "x" and H.items[1][5] == "a" and H.items[1][6] == "b" and H.items[2][6] == "c",
             "a day lost or the older scan won")
-        assert(R.myPrices[1] == 10 and R.myPrices[3] == 7 and R.scannedAt == 20 and R.bargains == nil, "merge")
+        assert(H.myPrices[1] == 10 and H.myPrices[3] == 7 and H.scannedAt == 20 and H.bargains == nil, "merge")
+        assert(R.houses.N.items[9][1] == "n" and R.lastHouse == "N" and R.items == nil, "another house touched")
+        assert(db.replicateAt == 30, "the scan limit not the account's")
+        -- (the realm in use, as kept before the houses)
+        local current = A.Store()
+        local name, kept
+        for n, realm in pairs(db.realms) do
+            for _, prices in pairs(realm.houses or {}) do if prices == current then name = n end end
+        end
+        kept, db.realms[name] = db.realms[name], { items = { [-6] = { [1] = "1:1:1" } }, scannedAt = 3,
+            myPrices = { [-6] = 2 }, replicateAt = 40 }
+        assert(A.Store("A").items[-6][1] == "1:1:1" and A.Store("A").myPrices[-6] == 2, "not migrated")
+        assert(db.realms[name].items == nil and db.replicateAt == 40, "the old fields kept")
+        db.realms[name], db.replicateAt = kept, replicateAt
         A.Record(-9, 50, 60, 3)
         A.Record(-9, 80, 90, 2)
         assert(select(2, A.Latest(-9)) == 80, "the day's lowest kept over its last view")
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
-        A.Realm().items[-9] = nil
+        A.Store().items[-9] = nil
         -- (an answer with no listings, after a full scan made the bargains list)
         local AH, got = C_AuctionHouse, false
         local full, num, ready = AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults,
@@ -1206,14 +1225,14 @@ local CHECKS = {
         AH.IsThrottledMessageSystemReady = function() return true end
         AH.HasFullCommoditySearchResults = function() return true end
         AH.GetNumCommoditySearchResults = function() return 0 end
-        A.Realm().bargains = {}
+        A.Store().bargains = {}
         A.Search(-9, true, nil, function(l) got = l end)
         fire("COMMODITY_SEARCH_RESULTS_UPDATED", -9)
         AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults = full, num
         AH.IsThrottledMessageSystemReady = ready
-        A.Realm().bargains = nil
+        A.Store().bargains = nil
         assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
-        A.Realm().items[-9] = nil
+        A.Store().items[-9] = nil
     end },
     -- (the house from its auctioneer's faction, none: the player's; the neutral one's cut 15%)
     { name = "auction house and cut", fn = function()
@@ -1224,24 +1243,39 @@ local CHECKS = {
         UnitExists = function(unit) return unit ~= "npc" or npc ~= false end
         UnitFactionGroup = function(unit) if unit == "npc" then return npc or nil end return "Horde" end
         A.MarketPrice = function() return 100 end
-        local function Open(who)
+        local function Open(who, record)
             npc = who
             fire("AUCTION_HOUSE_SHOW")
-            local house, cut, net = A.House(), A.Cut(), A.UnitNet(1)
+            if record then A.Record(-7, 40, 40, 1) end
+            local house, cut, net, seen = A.House(), A.Cut(), A.UnitNet(1), A.Latest(-7)
             fire("AUCTION_HOUSE_CLOSED")
-            return house, cut, net
+            return house, cut, net, seen
         end
+        A.Store()
+        local realms = ImprovedForeverAuctionDB.realms
+        local function Forget()
+            A.house = nil
+            for _, realm in pairs(realms) do
+                realm.lastHouse = nil
+                for _, prices in pairs(realm.houses or {}) do prices.items[-7] = nil end
+            end
+        end
+        Forget()
         local ok, err = pcall(function()
             assert(A.House() == "H" and A.Cut() == 0.05, "before any visit: the player's faction's")
-            local house, cut, net = Open("Alliance")
-            assert(house == "A" and cut == 0.05 and net == 95, "an Alliance auctioneer")
-            house, cut, net = Open(nil)
+            local house, cut, net, seen = Open("Alliance", true)
+            assert(house == "A" and cut == 0.05 and net == 95 and seen, "an Alliance auctioneer")
+            house, cut, net, seen = Open(nil)
             assert(house == "N" and cut == 0.15 and net == 85, "a goblin auctioneer")
+            assert(seen == nil, "the Alliance house's prices at the neutral one")
             assert(A.House() == "N" and A.Floor(85) == 100, "closed: the last house kept")
+            A.house = nil
+            assert(A.House() == "N", "the last house not kept over a reload")
             assert(Open(false) == "H", "no auctioneer: the player's faction's")
         end)
-        UnitExists, UnitFactionGroup, A.MarketPrice, A.house = exists, faction, price, nil
-        assert(ok, err)
+        UnitExists, UnitFactionGroup, A.MarketPrice = exists, faction, price
+        Forget()
+        if not ok then error(err, 0) end
     end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
@@ -1259,16 +1293,16 @@ local CHECKS = {
         end
         CI.GetItemInfo = function() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 100 end
         CI.IsEquippableItem = function() return true end
-        A.Realm().belowVendor = {}
+        A.Store().belowVendor = {}
         A.MarkBought(101)
         local got
         A.Search(-9, false, nil, function(l) got = l end, key)
         fire("ITEM_SEARCH_RESULTS_UPDATED", key)
-        local b = A.Realm().belowVendor[-9]
+        local b = A.Store().belowVendor[-9]
         AH.HasFullItemSearchResults, AH.GetNumItemSearchResults, AH.GetItemSearchResultInfo,
             AH.IsThrottledMessageSystemReady, CI.GetItemInfo, CI.IsEquippableItem = unpack(saved)
         fire("AUCTION_HOUSE_CLOSED")
-        A.Realm().belowVendor, A.Realm().items[-9] = nil, nil
+        A.Store().belowVendor, A.Store().items[-9] = nil, nil
         assert(type(got) == "table" and #got == 1 and got[1].unit == 80, "a bought auction offered again")
         assert(b and b.lowest == 80, "the gear search's prices not kept, or a bought one in them")
     end },

@@ -62,12 +62,13 @@ local ITEMS = {
     }, OnOff(function() return S().scan end, function(on) S().scan = on end, "Scan on open")),
     Item({
         key = "data", group = "scan", label = "Price data",
-        tip = "Prices kept for this realm. Scan now needs the auction house open (also /if scan).",
+        tip = "Prices kept for this auction house (Alliance, Horde and Neutral each have their own),"
+            .. " the one open or open last. Scan now needs the auction house open (also /if scan).",
         text = function()
             if not A.Available() then return "|cffff7a5cNo auction house on this client|r" end
             local n, at = A.Stats()
             local scanning, read, total = A.Scanning()
-            return n .. " items priced|nLast scan: " .. A.Ago(at)
+            return n .. " items priced (" .. A.HOUSE_NAMES[A.House()] .. ")|nLast scan: " .. A.Ago(at)
                 .. (scanning and ("|n|cff9fd8e2Scanning" .. (total and (" " .. read .. " / " .. total) or "...") .. "|r") or "")
         end,
         value = function() end,
@@ -75,7 +76,7 @@ local ITEMS = {
             return {
                 { action = "scan", name = "Scan now" },
                 { action = "clear", name = menu.IsArmed("auction:clear") and "|cffff7a5cAgain to clear|r"
-                    or "Clear this realm's prices" },
+                    or "Clear this house's prices" },
             }
         end,
         choose = function(action)
@@ -89,7 +90,7 @@ local ITEMS = {
                 menu.Toast("Prices cleared", true)
             else
                 menu.Arm("auction:clear")
-                menu.Toast("Choose it again to clear this realm's prices", true, 4)
+                menu.Toast("Choose it again to clear this house's prices", true, 4)
             end
         end,
     }),
