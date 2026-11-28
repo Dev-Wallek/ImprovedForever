@@ -1966,7 +1966,8 @@ local function RenderDetail()
     -- (what a vendor sells one for, where one does: RecipeData.lua's buy, with the Professions data)
     local buy = IF.RecipeData.buy and IF.RecipeData.buy[D.itemID]
     if buy and IF.GameData.SoldByVendor(D.itemID) then parts[#parts + 1] = "a vendor sells it for " .. A.Money(buy) end
-    dInfo:SetText(table.concat(parts, "   ·   "))
+    local elsewhere = A.ElsewhereText(D.itemID)
+    dInfo:SetText(table.concat(parts, "   ·   ") .. (elsewhere and ("|n" .. elsewhere) or ""))
 
     local fr, fg, fb = FocusColor()
     if D.commodity then

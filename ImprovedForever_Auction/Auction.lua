@@ -1262,6 +1262,34 @@ function A.HousesText(itemID, count)
     return #parts > 0 and table.concat(parts, "   ") or nil
 end
 
+-- The auction window's line on the other houses: "Elsewhere: [H] 1g 5s 2d (-12%)",
+-- their usual price (else their latest "now") against this house's; selling:
+-- what it brings after each house's cut, more there green; buying: less
+-- there green. nil: no other house has it.
+local DEAL_PCT = 5
+function A.ElsewhereText(itemID, selling)
+    local list = A.AcrossHouses(itemID)
+    local here = list[1] and list[1].house == A.House() and list[1] or nil
+    local function Value(h) return (h.usual or h.now) * (selling and (1 - h.cut) or 1) end
+    local parts = {}
+    for _, h in ipairs(list) do
+        if h ~= here then
+            local value = Value(h)
+            local text = A.HouseMark(h.house) .. " " .. A.ShortMoney(value) .. (h.age > 0 and (" " .. h.age .. "d") or "")
+            if here then
+                local pct = math.floor((value / Value(here) - 1) * 100 + 0.5)
+                local good = selling and pct >= DEAL_PCT or not selling and pct <= -DEAL_PCT
+                local bad = selling and pct <= -DEAL_PCT or not selling and pct >= DEAL_PCT
+                text = text .. " " .. (good and "|cff5fd35f" or bad and "|cffff7a5c" or "|cff9d917a")
+                    .. "(" .. (pct > 0 and "+" or "") .. pct .. "%)|r"
+            end
+            parts[#parts + 1] = text
+        end
+    end
+    if #parts == 0 then return nil end
+    return "Elsewhere" .. (selling and " after the cut" or "") .. ": " .. table.concat(parts, "   ")
+end
+
 local function TooltipPrices(tooltip, data)
     if not (IF.db and A.Settings().tooltip) then return end
     if tooltip ~= GameTooltip and tooltip ~= _G.ItemRefTooltip then return end

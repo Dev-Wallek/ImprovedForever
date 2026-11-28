@@ -1336,7 +1336,16 @@ local CHECKS = {
         A.Store("H").items[-1] = { [today - 4] = "20000:20123:3" }
         A.house = "H"
         local text = A.HousesText(-1, 2)
+        local buying, selling = A.ElsewhereText(-1), A.ElsewhereText(-1, true)
+        A.house = "A"
+        local away = A.ElsewhereText(-1)
         A.house = house
+        assert(buying and buying:find("|cff5fd35f(-99%)", 1, true) and not buying:find("H", 1, true),
+            "buying elsewhere: " .. tostring(buying))
+        assert(selling and selling:find("|cffff7a5c(-99%)", 1, true) and selling:find("27 |TInterface\\MoneyFrame\\UI-CopperIcon", 1, true),
+            "selling elsewhere, after the cut: " .. tostring(selling))
+        assert(away and away:find("H", 1, true) and away:find("N", 1, true) and not away:find("%", 1, true),
+            "no prices here: " .. tostring(away))
         A.Store("N").items[-1], A.Store("H").items[-1] = nil, nil
         local h, n = text:find("H", 1, true), text:find("N", 1, true)
         assert(h and n and h < n, "the open house not first: " .. tostring(text))
