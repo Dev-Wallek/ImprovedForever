@@ -121,7 +121,10 @@ end
 ---------------------------------------------------------------------------
 -- The store: realms[realm].houses[house] holds a house's prices:
 -- items[itemID][day] = "lowest:now:quantity" (":f": few listed), the
--- day's last whole view of it; scannedAt, myPrices, bargains, belowVendor.
+-- day's last whole view of it; scannedAt, myPrices, bargains, belowVendor;
+-- image: the last full scan, { at, owners = { name }, items = { [itemID] =
+-- "owner,count,minBid,buyout,band;..." } } (owner: its index in owners, 0
+-- none given; band: GetReplicateItemTimeLeft's, "" none).
 -- realms[realm].lastHouse: the house open last. The server's limit on full
 -- scans is the account's: replicateAt at the top.
 ---------------------------------------------------------------------------
@@ -667,28 +670,50 @@ local function FinishScan()
         A.Record(itemID, Summarize(list))
         items = items + 1
     end
+    local image = {}
+    for itemID, list in pairs(scan.image) do image[itemID] = table.concat(list, ";") end
     local prices = Store()
     prices.scannedAt, prices.belowVendor, prices.bargains = time(), below, bargains
+    prices.image = { at = scan.at, owners = scan.owners, items = image }
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
-    scan.state, scan.byItem = "idle", nil
+    scan.state, scan.byItem, scan.image, scan.owners, scan.ownerOf = "idle", nil, nil, nil, nil
     Changed()
 end
 
 reader:SetScript("OnUpdate", function()
     local last = math.min(scan.total - 1, scan.read + CHUNK - 1)
-    local byItem = scan.byItem
+    local byItem, image, owners, ownerOf = scan.byItem, scan.image, scan.owners, scan.ownerOf
     for i = scan.read, last do
         -- name, texture, count, quality, usable, level, levelType, minBid,
         -- minIncrement, buyout, bid, highBidder, bidderFull, owner,
         -- ownerFull, saleStatus, itemID
-        local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID = AH.GetReplicateItemInfo(i)
-        if itemID and count and count > 0 and buyout and buyout > 0 then
-            local list = byItem[itemID]
+        local _, _, count, _, _, _, _, minBid, _, buyout, _, _, _, owner, _, _, itemID = AH.GetReplicateItemInfo(i)
+        if itemID and count and count > 0 then
+            if buyout and buyout > 0 then
+                local list = byItem[itemID]
+                if not list then
+                    list = {}
+                    byItem[itemID] = list
+                end
+                list[#list + 1] = { buyout / count, count }
+            end
+            -- (the image: every auction, its seller a number, 0: none given)
+            local o = 0
+            if owner and owner ~= "" then
+                o = ownerOf[owner]
+                if not o then
+                    owners[#owners + 1] = owner
+                    o = #owners
+                    ownerOf[owner] = o
+                end
+            end
+            local list = image[itemID]
             if not list then
                 list = {}
-                byItem[itemID] = list
+                image[itemID] = list
             end
-            list[#list + 1] = { buyout / count, count }
+            list[#list + 1] = o .. "," .. count .. "," .. (minBid or 0) .. "," .. (buyout or 0) .. ","
+                .. (AH.GetReplicateItemTimeLeft(i) or "")
         end
     end
     scan.read = last + 1
@@ -696,7 +721,8 @@ reader:SetScript("OnUpdate", function()
 end)
 
 local function StartReading()
-    scan.state, scan.read, scan.byItem = "reading", 0, {}
+    scan.state, scan.read, scan.byItem, scan.at = "reading", 0, {}, time()
+    scan.image, scan.owners, scan.ownerOf = {}, {}, {}
     scan.total = AH.GetNumReplicateItems() or 0
     if scan.total == 0 then return FinishScan() end
     reader:Show()

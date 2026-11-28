@@ -1236,6 +1236,51 @@ local CHECKS = {
         Forget()
         if not ok then error(err, 0) end
     end },
+    -- (a full scan keeps its image: every auction, no buyout too, sellers once each)
+    { name = "auction scan image", fn = function()
+        local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
+        if not A then return end
+        local AH, S = C_AuctionHouse, A.Settings()
+        local rows = {
+            { 1, 100, 120, "Bob", -5, 2 }, { 5, 400, 500, "Ann", -5, 3 }, { 1, 50, 0, "Bob", -5, 0 },
+            { 2, 10, 30, nil, -4, 1 },
+        }
+        local saved = { AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
+            ImprovedForeverAuctionDB.replicateAt }
+        AH.GetNumReplicateItems = function() return #rows end
+        AH.GetReplicateItemInfo = function(i)
+            local r = rows[i + 1]
+            return nil, nil, r[1], nil, nil, nil, nil, r[2], nil, r[3], nil, nil, nil, r[4], nil, nil, r[5]
+        end
+        AH.GetReplicateItemTimeLeft = function(i) return rows[i + 1][6] end
+        S.scan, ImprovedForeverAuctionDB.replicateAt = true, 0
+        local reader
+        for _, f in ipairs(frames) do
+            local fn = f.__scripts.OnUpdate
+            for i = 1, 60 do
+                local name = fn and debug.getupvalue(fn, i)
+                if not name then break end
+                if name == "FinishScan" then reader = fn end
+            end
+        end
+        local ok, err = pcall(function()
+            assert(reader, "the scan's reader not found")
+            fire("REPLICATE_ITEM_LIST_UPDATE")
+            reader()
+            local image = A.Store().image
+            assert(image and image.at and #image.owners == 2, "the sellers not kept once each")
+            local bob = image.owners[1] == "Bob" and 1 or 2
+            local ann = 3 - bob
+            assert(image.items[-5] == bob .. ",1,100,120,2;" .. ann .. ",5,400,500,3;" .. bob .. ",1,50,0,0",
+                "item -5: " .. tostring(image.items[-5]))
+            assert(image.items[-4] == "0,2,10,30,1", "no seller given: " .. tostring(image.items[-4]))
+        end)
+        AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
+            ImprovedForeverAuctionDB.replicateAt = unpack(saved)
+        local prices = A.Store()
+        prices.image, prices.items[-5], prices.items[-4], prices.bargains, prices.belowVendor = nil, nil, nil, nil, nil
+        if not ok then error(err, 0) end
+    end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
         local A = rawget(_G, "ImprovedForever") and ImprovedForever.Auction
