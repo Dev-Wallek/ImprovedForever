@@ -446,11 +446,16 @@ function A.Prune()
     for _, realm in pairs(DB().realms or {}) do
         -- (a realm not migrated yet: its prices beside the houses)
         for _, prices in pairs(realm.houses or { realm }) do
-            for itemID, days in pairs(prices.items or {}) do
-                for day in pairs(days) do
-                    if day <= from then days[day] = nil end
+            for _, byItem in ipairs({ prices.items or {}, prices.sold or {} }) do
+                for itemID, days in pairs(byItem) do
+                    for day in pairs(days) do
+                        if day <= from then days[day] = nil end
+                    end
+                    if next(days) == nil then byItem[itemID] = nil end
                 end
-                if next(days) == nil then prices.items[itemID] = nil end
+            end
+            for day in pairs(prices.watched or {}) do
+                if day <= from then prices.watched[day] = nil end
             end
         end
     end
@@ -660,6 +665,121 @@ function A.Bargains()
     return list
 end
 
+---------------------------------------------------------------------------
+-- Sales, from two full scans' images (as Auctioneer's Stat-Purchased): an
+-- auction gone before its time could have run out was bought. Its time
+-- left band says how long it had at least: the end of the band below
+-- (auctions of 2, 8 and 24 hours; bands to 30 min, 2 h, 8 h, 24 h).
+-- A seller's auction gone as the same seller lists the item cheaper is a
+-- cancel; one come back with fewer at its price was partly bought. Other
+-- cancels count as sales: an upper bound, good for fast against slow.
+-- Kept per house: sold[itemID][day] = units, watched[day] = seconds the
+-- scans compared covered.
+---------------------------------------------------------------------------
+local AT_LEAST = { [0] = 0, [1] = 1800, [2] = 7200, [3] = 28800 }
+local WATCH_MAX = AT_LEAST[3]
+
+-- An image's auctions of an item: { seller (false: none given), count, minBid, buyout, band }
+local function Auctions(image, itemID)
+    local list = {}
+    for entry in (image.items[itemID] or ""):gmatch("[^;]+") do
+        local o, count, minBid, buyout, band = strsplit(",", entry)
+        list[#list + 1] = { o ~= "0" and image.owners[tonumber(o)] or false, tonumber(count), tonumber(minBid),
+            tonumber(buyout), tonumber(band) }
+    end
+    return list
+end
+
+local function Key(a, seller)
+    return tostring(seller) .. "," .. a[2] .. "," .. a[3] .. "," .. a[4]
+end
+
+-- Units of the item bought between the images, elapsed seconds apart
+local function SoldBetween(old, new, itemID, elapsed)
+    -- (still up: by seller and the rest; whoever's, by the rest alone)
+    local up, any = {}, {}
+    local now = Auctions(new, itemID)
+    for _, a in ipairs(now) do
+        local k, loose = Key(a, a[1]), Key(a, false)
+        up[k], any[loose] = (up[k] or 0) + 1, (any[loose] or 0) + 1
+    end
+    local gone = {}
+    for _, a in ipairs(Auctions(old, itemID)) do
+        local k, loose = Key(a, a[1]), Key(a, false)
+        if (up[k] or 0) > 0 then
+            up[k], any[loose] = up[k] - 1, any[loose] - 1
+        elseif a[1] and (up[loose] or 0) > 0 then
+            -- (still up, its seller not given this time)
+            up[loose], any[loose] = up[loose] - 1, any[loose] - 1
+        elseif not a[1] and (any[loose] or 0) > 0 then
+            -- (its seller not given last time: anyone's like it)
+            any[loose] = any[loose] - 1
+        else
+            gone[#gone + 1] = a
+        end
+    end
+    -- (listed since: by seller, to tell cancels and part buys)
+    local fresh = {}
+    for _, a in ipairs(now) do
+        local k = Key(a, a[1])
+        if a[1] and (up[k] or 0) > 0 then
+            up[k] = up[k] - 1
+            fresh[a[1]] = fresh[a[1]] or {}
+            table.insert(fresh[a[1]], a)
+        end
+    end
+    local sold = 0
+    for _, a in ipairs(gone) do
+        -- (one without a buyout gone early: cancelled, a bid wins only at its end)
+        local least = a[5] and AT_LEAST[a[5]]
+        if a[4] > 0 and least and elapsed < least then
+            local units, unit = a[2], a[4] / a[2]
+            for _, f in ipairs(a[1] and fresh[a[1]] or {}) do
+                local each = f[4] / f[2]
+                if each < unit then units = 0 break end
+                if each == unit and f[2] < a[2] then units = math.min(units, a[2] - f[2]) end
+            end
+            sold = sold + units
+        end
+    end
+    return sold
+end
+
+-- Sales between the house's last image and this scan's, into its days
+local function RecordSales(prices, new)
+    local old = prices.image
+    local elapsed = old and old.at and new.at - old.at
+    if not elapsed or elapsed <= 0 or elapsed > WATCH_MAX then return end
+    local day = Today()
+    prices.watched = prices.watched or {}
+    prices.watched[day] = (prices.watched[day] or 0) + elapsed
+    for itemID in pairs(old.items) do
+        local n = SoldBetween(old, new, itemID, elapsed)
+        if n > 0 then
+            prices.sold = prices.sold or {}
+            local days = prices.sold[itemID] or {}
+            prices.sold[itemID] = days
+            days[day] = (days[day] or 0) + n
+        end
+    end
+end
+
+-- Units sold over the last `days` (default the chart's) and the hours the
+-- scans watched in them (nil: never watched)
+function A.Sold(itemID, days)
+    local prices = Store()
+    local from = Today() - (days or A.Settings().chartDays)
+    local units, watched = 0, 0
+    for day, s in pairs(prices.watched or {}) do
+        if day > from then watched = watched + s end
+    end
+    if watched == 0 then return nil end
+    for day, n in pairs(prices.sold and prices.sold[itemID] or {}) do
+        if day > from then units = units + n end
+    end
+    return units, watched / 3600
+end
+
 local function FinishScan()
     reader:Hide()
     local items, below, bargains = 0, {}, {}
@@ -674,7 +794,13 @@ local function FinishScan()
     for itemID, list in pairs(scan.image) do image[itemID] = table.concat(list, ";") end
     local prices = Store()
     prices.scannedAt, prices.belowVendor, prices.bargains = time(), below, bargains
-    prices.image = { at = scan.at, owners = scan.owners, items = image }
+    -- (an empty scan is the server's failure, not an empty house)
+    if scan.read > 0 then
+        local new = { at = scan.at, owners = scan.owners, items = image }
+        -- ponytail: every item compared in this one frame, in chunks like the reading if it stutters
+        RecordSales(prices, new)
+        prices.image = new
+    end
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
     scan.state, scan.byItem, scan.image, scan.owners, scan.ownerOf = "idle", nil, nil, nil, nil
     Changed()

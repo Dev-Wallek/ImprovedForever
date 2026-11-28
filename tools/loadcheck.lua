@@ -1275,11 +1275,44 @@ local CHECKS = {
                 "item -5: " .. tostring(image.items[-5]))
             assert(image.items[-4] == "0,2,10,30,1", "no seller given: " .. tostring(image.items[-4]))
         end)
+        -- (sales from two scans an hour apart, item -3)
+        local clock = time
+        local function Scan(at, list)
+            rows, ImprovedForeverAuctionDB.replicateAt = list, 0
+            time = function() return at end
+            fire("REPLICATE_ITEM_LIST_UPDATE")
+            -- (an empty one is done at once)
+            if #list > 0 then reader() end
+        end
+        local T = clock()
+        local ok2, err2 = pcall(function()
+            Scan(T, {
+                { 1, 120, 120, "Bob", -3, 2 },   -- gone with 2 h at least left: bought
+                { 5, 500, 500, "Ann", -3, 3 },   -- 2 of 5 left at its price: 3 bought
+                { 1, 300, 300, "Cid", -3, 3 },   -- gone as Cid lists it cheaper: cancelled
+                { 1, 100, 100, "Dan", -3, 0 },   -- gone in its last 30 min: may have run out
+                { 1, 50, 0, "Eve", -3, 3 },      -- no buyout: cancelled
+                { 1, 80, 80, "Fay", -3, 3 },     -- still up
+                { 1, 90, 90, nil, -3, 3 },       -- still up, its seller given now
+            })
+            assert(A.Sold(-3) == nil or A.Sold(-3) == 0, "sales from one scan")
+            Scan(T + 3600, {
+                { 2, 200, 200, "Ann", -3, 3 }, { 1, 250, 250, "Cid", -3, 3 }, { 1, 80, 80, "Fay", -3, 3 },
+                { 1, 90, 90, "Gus", -3, 3 },
+            })
+            local units, hours = A.Sold(-3)
+            assert(units == 4 and hours == 1, "sold " .. tostring(units) .. " in " .. tostring(hours) .. " h")
+            Scan(T + 3600 + 9 * 3600, { { 1, 80, 80, "Fay", -3, 3 } })
+            assert(A.Sold(-3) == 4, "scans 9 h apart compared")
+        end)
+        time = clock
         AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
             ImprovedForeverAuctionDB.replicateAt = unpack(saved)
         local prices = A.Store()
-        prices.image, prices.items[-5], prices.items[-4], prices.bargains, prices.belowVendor = nil, nil, nil, nil, nil
+        prices.image, prices.bargains, prices.belowVendor, prices.sold, prices.watched = nil, nil, nil, nil, nil
+        prices.items[-5], prices.items[-4], prices.items[-3] = nil, nil, nil
         if not ok then error(err, 0) end
+        if not ok2 then error(err2, 0) end
     end },
     -- (a search by a gear's browse key keeps its prices, without an auction bought this visit)
     { name = "auction gear search kept", fn = function()
