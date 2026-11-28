@@ -1130,12 +1130,17 @@ local CHECKS = {
         now, kept, _, few = Now({ 700, 5 }, { 900, 20 })
         assert(now == 700 and few, "few listed: the lowest")
         -- (a first scan: the 1c listings a bargain against now, without a usual price)
-        local realm = A.Store()
-        realm.bargains = { [-8] = { now = 10000, kept = 10000, listings = { { 1, 1 }, { 1, 1 }, { 9000, 2 } } } }
+        local prices = A.Store()
+        prices.image = { at = 1, owners = {}, items = {
+            [-8] = "0,1,1,1,3;0,1,1,1,3;0,2,1,18000,3;0,5,1,50000,3;0,5,1,50000,3" } }
         local b = A.Bargains()
+        prices.image = nil
         assert(#b == 1 and b[1].against == "now" and b[1].minPrice == 1 and b[1].totalQuantity == 2, "a bargain now")
-        assert(A.BargainAgainst(-8, 9000) == nil, "one the cut keeps is no bargain against now")
-        realm.bargains = nil
+        prices.image = { at = 1, owners = {}, items = {
+            [-8] = "0,1,1,1,3;0,1,1,1,3;0,2,1,18000,3;0,5,1,50000,3;0,5,1,50000,3" } }
+        local against = A.BargainAgainst(-8, 9000)
+        prices.image = nil
+        assert(against == nil, "one the cut keeps is no bargain against now")
     end },
     -- (prices kept under no realm name join the named realm's, house by house; a realm kept before
     -- the houses: into the player's faction's; a day is its last whole view)
@@ -1177,19 +1182,19 @@ local CHECKS = {
         A.Record(-9)
         assert(A.NoneListed(-9) and A.Latest(-9) == nil, "none listed")
         A.Store().items[-9] = nil
-        -- (an answer with no listings, after a full scan made the bargains list)
+        -- (an answer with no listings, after a full scan made the image)
         local AH, got = C_AuctionHouse, false
         local full, num, ready = AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults,
             AH.IsThrottledMessageSystemReady
         AH.IsThrottledMessageSystemReady = function() return true end
         AH.HasFullCommoditySearchResults = function() return true end
         AH.GetNumCommoditySearchResults = function() return 0 end
-        A.Store().bargains = {}
+        A.Store().image = { at = 1, owners = {}, items = {} }
         A.Search(-9, true, nil, function(l) got = l end)
         fire("COMMODITY_SEARCH_RESULTS_UPDATED", -9)
         AH.HasFullCommoditySearchResults, AH.GetNumCommoditySearchResults = full, num
         AH.IsThrottledMessageSystemReady = ready
-        A.Store().bargains = nil
+        A.Store().image = nil
         assert(type(got) == "table" and #got == 0 and A.NoneListed(-9), "an empty answer not taken as none listed")
         A.Store().items[-9] = nil
     end },
@@ -1309,7 +1314,7 @@ local CHECKS = {
         AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
             ImprovedForeverAuctionDB.replicateAt = unpack(saved)
         local prices = A.Store()
-        prices.image, prices.bargains, prices.belowVendor, prices.sold, prices.watched = nil, nil, nil, nil, nil
+        prices.image, prices.sold, prices.watched = nil, nil, nil
         prices.items[-5], prices.items[-4], prices.items[-3] = nil, nil, nil
         if not ok then error(err, 0) end
         if not ok2 then error(err2, 0) end
@@ -1330,18 +1335,18 @@ local CHECKS = {
         end
         CI.GetItemInfo = function() return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, 100 end
         CI.IsEquippableItem = function() return true end
-        A.Store().belowVendor = {}
+        A.Store().image = { at = 1, owners = {}, items = {} }
         A.MarkBought(101)
         local got
         A.Search(-9, false, nil, function(l) got = l end, key)
         fire("ITEM_SEARCH_RESULTS_UPDATED", key)
-        local b = A.Store().belowVendor[-9]
+        local below = A.BelowVendor()
         AH.HasFullItemSearchResults, AH.GetNumItemSearchResults, AH.GetItemSearchResultInfo,
             AH.IsThrottledMessageSystemReady, CI.GetItemInfo, CI.IsEquippableItem = unpack(saved)
         fire("AUCTION_HOUSE_CLOSED")
-        A.Store().belowVendor, A.Store().items[-9] = nil, nil
+        A.Store().image, A.Store().items[-9] = nil, nil
         assert(type(got) == "table" and #got == 1 and got[1].unit == 80, "a bought auction offered again")
-        assert(b and b.lowest == 80, "the gear search's prices not kept, or a bought one in them")
+        assert(#below == 1 and below[1].minPrice == 80, "the gear search's prices not kept, or a bought one in them")
     end },
     -- (the Destroy panel's press unbound: only the press goes, the panel stays on)
     { name = "destroy press unbound", fn = function()

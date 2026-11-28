@@ -121,7 +121,7 @@ end
 ---------------------------------------------------------------------------
 -- The store: realms[realm].houses[house] holds a house's prices:
 -- items[itemID][day] = "lowest:now:quantity" (":f": few listed), the
--- day's last whole view of it; scannedAt, myPrices, bargains, belowVendor;
+-- day's last whole view of it; scannedAt, myPrices, sold, watched (Sales);
 -- image: the last full scan, { at, owners = { name }, items = { [itemID] =
 -- "owner,count,minBid,buyout,band;..." } } (owner: its index in owners, 0
 -- none given; band: GetReplicateItemTimeLeft's, "" none).
@@ -241,6 +241,8 @@ local function Realm()
     store.realms[name] = store.realms[name] or { houses = {} }
     local realm = store.realms[name]
     Migrate(realm)
+    -- (Bargains and Below vendor price are made from the image: saved lists go)
+    for _, prices in pairs(realm.houses or {}) do prices.bargains, prices.belowVendor = nil, nil end
     return realm
 end
 
@@ -264,6 +266,9 @@ local function Store(house)
     return realm.houses[house]
 end
 A.Store = Store
+
+-- What a search found this session, newer than the image: [house][itemID] = { { unit, count } }
+local searched = { A = {}, H = {}, N = {} }
 
 -- A day the item was searched for and none were up
 local NONE = "-"
@@ -480,7 +485,8 @@ end
 
 function A.Clear()
     local prices = Store()
-    prices.items, prices.scannedAt, prices.belowVendor, prices.bargains = {}, nil, nil, nil
+    prices.items, prices.scannedAt, prices.image, prices.sold, prices.watched = {}, nil, nil, nil, nil
+    wipe(searched[A.House()])
 end
 
 ---------------------------------------------------------------------------
@@ -570,6 +576,42 @@ function A.ScanText()
         .. " (" .. math.floor(scan.read * 100 / scan.total) .. "%)"
 end
 
+-- An image's auctions of an item: { seller (false: none given), count, minBid, buyout, band }
+local function Auctions(image, itemID)
+    local list = {}
+    for entry in (image.items[itemID] or ""):gmatch("[^;]+") do
+        local o, count, minBid, buyout, band = strsplit(",", entry)
+        list[#list + 1] = { o ~= "0" and image.owners[tonumber(o)] or false, tonumber(count), tonumber(minBid),
+            tonumber(buyout), tonumber(band) }
+    end
+    return list
+end
+
+-- The item's listings with a buyout, { { unit, count } }: its search's,
+-- else the house's image's (nil: neither has it)
+local function Listings(itemID)
+    local found = searched[A.House()][itemID]
+    if found then return found end
+    local image = Store().image
+    if not (image and image.items[itemID]) then return nil end
+    local list = {}
+    for _, a in ipairs(Auctions(image, itemID)) do
+        if a[4] > 0 then list[#list + 1] = { a[4] / a[2], a[2] } end
+    end
+    return list
+end
+
+-- The items of the house's image and its searches (none without an image:
+-- the categories need a full scan)
+local function ImageItems()
+    local image = Store().image
+    if not image then return {} end
+    local ids = {}
+    for itemID in pairs(image.items) do ids[itemID] = true end
+    for itemID in pairs(searched[A.House()]) do ids[itemID] = true end
+    return ids
+end
+
 -- What of listings { { unit, count } } is under a vendor's pay: { units,
 -- lowest, each (an item's gain at the lowest), count (the cheapest
 -- listing's) }; nil: none, or its vendor price not known yet (ponytail:
@@ -594,8 +636,9 @@ end
 -- copper or more an item, the most an item first
 function A.BelowVendor()
     local list, least = {}, A.Settings().belowMin
-    for itemID, b in pairs(Store().belowVendor or {}) do
-        if b.each > 0 and b.each >= least then
+    for itemID in pairs(ImageItems()) do
+        local b = BelowVendor(itemID, Listings(itemID))
+        if b and b.each > 0 and b.each >= least then
             list[#list + 1] = { itemKey = AH.MakeItemKey(itemID), totalQuantity = b.units, minPrice = b.lowest,
                 each = b.each, count = b.count }
         end
@@ -607,9 +650,10 @@ end
 -- Bargains: listings well under what the item sells for. Against "now":
 -- the odd few A.Market leaves out, far under the rest (a first scan
 -- shows them); against its usual price: any, once that is known for
--- BARGAIN_DAYS days. Kept: { usual, now, kept (the price the cut keeps
--- from), listings BARGAIN_KEEP or more under either }, so A.Bargains can
--- take any of the setting's shares without a new scan. nil: none.
+-- BARGAIN_DAYS days. Made from the image and searches, kept this session
+-- (Bargained): { usual, now, kept (the price the cut keeps from), listings
+-- BARGAIN_KEEP or more under either }, so A.Bargains can take any of the
+-- setting's shares. nil: none.
 -- (BARGAIN_KEEP: the smallest share Bargains at offers, AuctionEditor.lua)
 local BARGAIN_DAYS, BARGAIN_KEEP = 3, 0.2
 A.BARGAIN_DAYS = BARGAIN_DAYS
@@ -632,11 +676,26 @@ local function Bargain(itemID, list)
     return #b.listings > 0 and b or nil
 end
 
+-- The item's Bargain, made once per image and search ([image][itemID] =
+-- bargain or false; weak: a replaced image's go)
+local bargained = setmetatable({}, { __mode = "k" })
+local function Bargained(itemID)
+    local image = Store().image
+    if not image then return nil end
+    bargained[image] = bargained[image] or {}
+    local made = bargained[image]
+    if made[itemID] == nil then
+        local list = Listings(itemID)
+        made[itemID] = list and #list > 0 and Bargain(itemID, list) or false
+    end
+    return made[itemID] or nil
+end
+
 -- A price of the item against the last scan's bargains (else its usual
 -- price): ref, "now" / "usual"; nil: no bargain at the setting's share
 function A.BargainAgainst(itemID, price)
     local share = A.Settings().bargainShare / 100
-    local b = Store().bargains and Store().bargains[itemID]
+    local b = Bargained(itemID)
     if b then return Against(b, price, share) end
     local usual, days = A.MarketPrice(itemID)
     if usual and days >= BARGAIN_DAYS then return Against({ usual = usual }, price, share) end
@@ -647,9 +706,10 @@ end
 function A.Bargains()
     local share = A.Settings().bargainShare / 100
     local list = {}
-    for itemID, b in pairs(Store().bargains or {}) do
+    for itemID in pairs(ImageItems()) do
+        local b = Bargained(itemID)
         local units, saving, lowest, ref, against = 0, 0, nil, nil, nil
-        for _, l in ipairs(b.listings) do
+        for _, l in ipairs(b and b.listings or {}) do
             local r, what = Against(b, l[1], share)
             if r then
                 units, saving = units + l[2], saving + (r - l[1]) * l[2]
@@ -678,17 +738,6 @@ end
 ---------------------------------------------------------------------------
 local AT_LEAST = { [0] = 0, [1] = 1800, [2] = 7200, [3] = 28800 }
 local WATCH_MAX = AT_LEAST[3]
-
--- An image's auctions of an item: { seller (false: none given), count, minBid, buyout, band }
-local function Auctions(image, itemID)
-    local list = {}
-    for entry in (image.items[itemID] or ""):gmatch("[^;]+") do
-        local o, count, minBid, buyout, band = strsplit(",", entry)
-        list[#list + 1] = { o ~= "0" and image.owners[tonumber(o)] or false, tonumber(count), tonumber(minBid),
-            tonumber(buyout), tonumber(band) }
-    end
-    return list
-end
 
 local function Key(a, seller)
     return tostring(seller) .. "," .. a[2] .. "," .. a[3] .. "," .. a[4]
@@ -782,24 +831,22 @@ end
 
 local function FinishScan()
     reader:Hide()
-    local items, below, bargains = 0, {}, {}
+    local items = 0
     for itemID, list in pairs(scan.byItem or {}) do
-        below[itemID] = BelowVendor(itemID, list)
-        -- (against the days before today's numbers join them)
-        bargains[itemID] = Bargain(itemID, list)
         A.Record(itemID, Summarize(list))
         items = items + 1
     end
     local image = {}
     for itemID, list in pairs(scan.image) do image[itemID] = table.concat(list, ";") end
     local prices = Store()
-    prices.scannedAt, prices.belowVendor, prices.bargains = time(), below, bargains
+    prices.scannedAt = time()
     -- (an empty scan is the server's failure, not an empty house)
     if scan.read > 0 then
         local new = { at = scan.at, owners = scan.owners, items = image }
         -- ponytail: every item compared in this one frame, in chunks like the reading if it stutters
         RecordSales(prices, new)
         prices.image = new
+        wipe(searched[A.House()])
     end
     IF.Print("auction scan done: " .. (scan.read or 0) .. " auctions, " .. items .. " items priced.")
     scan.state, scan.byItem, scan.image, scan.owners, scan.ownerOf = "idle", nil, nil, nil, nil
@@ -911,9 +958,9 @@ local function Answer(all, shown)
     shown = shown or all
     local plain = {}
     for i, l in ipairs(all) do plain[i] = { l.unit, l.count } end
-    local prices = Store()
-    if prices.belowVendor then prices.belowVendor[s.itemID] = BelowVendor(s.itemID, plain) end
-    if prices.bargains then prices.bargains[s.itemID] = #plain > 0 and Bargain(s.itemID, plain) or nil end
+    searched[A.House()][s.itemID] = plain
+    local image = Store().image
+    if image and bargained[image] then bargained[image][s.itemID] = nil end
     if #plain > 0 then A.Record(s.itemID, Summarize(plain)) else A.Record(s.itemID) end
     Changed()
     table.sort(shown, function(a, b) return a.unit < b.unit end)
