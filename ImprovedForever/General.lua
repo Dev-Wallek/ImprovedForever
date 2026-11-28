@@ -34,6 +34,14 @@ local ITEMS = {
         IF.Override.Apply()
     end, "Square shoots the wand")),
     Item({
+        key = "wandCombat", group = "gamepad", label = "Square shoots the wand only in combat",
+        tip = "With \"Square shoots the wand\" on, Square shoots only while you are in combat. Out of combat it "
+            .. "stays the game's own press, so looting after a fight with a mob targeted never pulls it. Off by default.",
+    }, OnOff(function() return IF.db.wandCombat == true end, function(on)
+        IF.db.wandCombat = on or nil
+        IF.Override.Apply()
+    end, "Square shoots the wand only in combat")),
+    Item({
         key = "squareAttack", group = "gamepad", label = "Square always attacks",
         tip = "Square on a living enemy starts the melee attack and never switches it off: pressing it again "
             .. "keeps attacking. With a wand and \"Square shoots the wand\" on, the wand wins. L2 / R2 + Square "

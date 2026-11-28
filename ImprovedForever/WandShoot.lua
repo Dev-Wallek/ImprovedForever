@@ -98,13 +98,22 @@ driver:SetAttribute("_onstate-wand", [[ self:RunAttribute("ic-eval") ]])
 -- follows it, the button we click stays on the caster page (Maul on the bear
 -- bar's RT + Square never ran). So in a form Square is the game's own press.
 local _, class = UnitClass("player")
-local condition = class == "DRUID" and "[@target,harm,nodead,noform] shoot; none"
-    or "[@target,harm,nodead] shoot; none"
-RegisterStateDriver(driver, "wand", condition)
+-- (IF.db.wandCombat: only while in combat, so looting after a fight never pulls a mob)
+local registered
+local function Register()
+    local db = IF.db or {}
+    local combat = db.wandShoot == true and db.wandCombat == true and "combat," or ""
+    local condition = "[" .. combat .. "@target,harm,nodead" .. (class == "DRUID" and ",noform" or "") .. "] shoot; none"
+    if registered == condition then return end
+    registered = condition
+    RegisterStateDriver(driver, "wand", condition)
+end
+Register()
 
 -- Square's key and the secure button it runs while shooting; nil: off.
 -- Out of combat only (Override.Apply)
 function W.Bind(key, button)
+    Register()
     driver:SetAttribute("ic-key", key)
     driver:SetAttribute("ic-button", button)
     driver:SetAttribute("ic-on", key and true or nil)

@@ -420,10 +420,10 @@
   "status": "resolved"
  },
  "8725498": {
-  "date": "2026-11-17",
-  "note": "asked: popup text, addon name, other bag addon; /if report after release",
+  "date": "2026-11-25",
+  "note": "asked for more info 2026-11-25 (/if report, screenshot, which part)",
   "project": "improved-forever",
-  "seen": 8734849,
+  "seen": 100005531,
   "status": "noted"
  },
  "8726360": {
@@ -496,18 +496,53 @@
   "seen": 8734950,
   "status": "resolved"
  },
- "8736914": {
-  "date": "2026-11-21",
-  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+ "8736558": {
+  "date": "2026-11-25",
+  "note": "asked for more info 2026-11-25 (/if report, screenshot, which part)",
   "project": "improved-forever",
-  "seen": 8752015,
-  "status": "fixed"
+  "seen": 100005533,
+  "status": "noted"
+ },
+ "8736914": {
+  "date": "2026-11-25",
+  "note": "Core 0.20.1 released 2026-11-25, told the player",
+  "project": "improved-forever",
+  "seen": 100005427,
+  "status": "resolved"
+ },
+ "8741135": {
+  "date": "2026-11-25",
+  "note": "asked for more info 2026-11-25 (/if report, screenshot, which part)",
+  "project": "improved-forever",
+  "seen": 100005534,
+  "status": "noted"
  },
  "8760351": {
-  "date": "2026-11-21",
-  "note": "touchpad corners: fixed in ebfe374, unreleased (Core after 0.20.0)",
+  "date": "2026-11-25",
+  "note": "Core 0.20.1 released 2026-11-25, told the player",
   "project": "improved-forever",
-  "seen": 8760351,
-  "status": "fixed"
+  "seen": 100005426,
+  "status": "resolved"
+ },
+ "8763585": {
+  "date": "2026-11-25",
+  "note": "asked for more info 2026-11-25 (/if report, screenshot, which part)",
+  "project": "improved-forever",
+  "seen": 100005535,
+  "status": "noted"
+ },
+ "8779713": {
+  "date": "2026-11-25",
+  "note": "Core 0.20.1 released 2026-11-25, told the player",
+  "project": "improved-forever",
+  "seen": 8779758,
+  "status": "resolved"
+ },
+ "8779893": {
+  "date": "2026-11-25",
+  "note": "Core 0.20.1 released 2026-11-25, told the player",
+  "project": "improved-forever",
+  "seen": 100005428,
+  "status": "resolved"
  }
 }

@@ -951,7 +951,14 @@ end
 -- Its swipe (not the global cooldown's)
 local function ShowCooldown(cooldown, entry)
     local start, duration = EntryCooldown(entry or {})
-    if entry and start and duration and start > 0 and duration > 1.5 then
+    -- (in combat the times are secret: comparing them throws, which stopped
+    -- RefreshVisuals half way and left the previous wheel's icons up. The
+    -- cooldown frame takes them as they are and draws or not by itself)
+    if entry and start and duration and type(issecretvalue) == "function"
+        and (issecretvalue(start) or issecretvalue(duration)) then
+        cooldown:SetCooldown(start, duration)
+        cooldown:Show()
+    elseif entry and start and duration and start > 0 and duration > 1.5 then
         cooldown:SetCooldown(start, duration)
         cooldown:Show()
     else

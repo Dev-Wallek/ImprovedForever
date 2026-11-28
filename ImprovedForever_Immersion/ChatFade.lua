@@ -143,17 +143,6 @@ local function Lines(hide)
     end
 end
 
--- Each change of state, logged (the last LOG_LINES) in the saved
--- variables: ImprovedForeverDB.chatLog
-local LOG_LINES = 40
-local function Log(wanted, why)
-    local log = IF.db.chatLog or {}
-    IF.db.chatLog = log
-    log[#log + 1] = string.format("%s %.1f -> %s (%s) pad=%s", date("%H:%M:%S"), GetTime() % 1000,
-        tostring(wanted or "off"), tostring(why or "-"), tostring(IF.Input.Pad()))
-    while #log > LOG_LINES do table.remove(log, 1) end
-end
-
 local function Watch()
     if not IF.db then return end
     local now = GetTime()
@@ -178,7 +167,6 @@ local function Watch()
     IN.ChatView.Update(wanted)
     Lines(HIDE[wanted or "native"].lines or false)
     if wanted == state then return end
-    if wanted ~= state and state ~= false then Log(wanted, why) end
     state = wanted
     local hide = HIDE[wanted or "native"]
     for _, part in ipairs(parts) do
