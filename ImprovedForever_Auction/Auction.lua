@@ -16,7 +16,9 @@ local AH = C_AuctionHouse
 local DAY = 86400
 local REPLICATE_EVERY = 15 * 60   -- the server's own limit on full scans
 local CHUNK = 2000                -- auctions read a frame (a scan can be many thousands)
-local AH_CUT = 0.05               -- the auction house's cut of a sale
+-- The houses: Alliance, Horde, neutral (Booty Bay, Gadgetzan, Everlook),
+-- each its own market; their cut of a sale
+local CUTS = { A = 0.05, H = 0.05, N = 0.15 }
 local SEARCH_TIMEOUT = 8
 
 local DEFAULTS = {
@@ -108,8 +110,17 @@ function A.Round(copper)
     return copper
 end
 
+local FACTION_HOUSE = { Alliance = "A", Horde = "H" }
+
+-- The house open now, else the last one open this session, else the
+-- player's faction's: "A", "H" or "N"
+function A.House()
+    return A.house or FACTION_HOUSE[UnitFactionGroup("player")] or "N"
+end
+
+-- The house's cut of a sale
 function A.Cut()
-    return AH_CUT
+    return CUTS[A.House()]
 end
 
 ---------------------------------------------------------------------------
@@ -342,7 +353,7 @@ end
 -- What it brings a unit here after the cut, at its usual price (nil: unknown)
 function A.UnitNet(itemID)
     local market = A.MarketPrice(itemID)
-    return market and market * (1 - AH_CUT) or nil
+    return market and market * (1 - A.Cut()) or nil
 end
 
 -- Its latest day with prices: day, lowest, now, quantity, few
@@ -776,7 +787,7 @@ end
 
 function A.Floor(vendor)
     if not A.Settings().vendorFloor or not vendor or vendor <= 0 then return 0 end
-    return math.ceil(vendor / (1 - AH_CUT))
+    return math.ceil(vendor / (1 - A.Cut()))
 end
 
 function A.Suggest(itemID, listings, vendor)
@@ -909,6 +920,10 @@ end
 events:SetScript("OnEvent", function(_, event, arg)
     if event == "AUCTION_HOUSE_SHOW" then
         A.open = true
+        -- (the auctioneer's faction: English tokens; a goblin's has none.
+        -- No auctioneer to ask: the player's faction's)
+        A.house = nil
+        if UnitExists("npc") then A.house = FACTION_HOUSE[UnitFactionGroup("npc")] or "N" end
         if A.Available() and A.Settings().scan and A.ScanWait() == 0 then
             -- (once the frame has settled)
             C_Timer.After(1, function() A.Scan(true) end)
