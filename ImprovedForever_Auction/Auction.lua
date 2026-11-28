@@ -849,6 +849,20 @@ function A.Sold(itemID, days)
     return units, watched / 3600
 end
 
+-- How fast it sells here, sold a day against how many are up: "sells fast"
+-- (a day sells what is up), "sells steadily" (a quarter of it), "sells
+-- slowly", in its colour; nil: scans watched it under WATCH_MIN hours
+local WATCH_MIN, FAST, STEADY = 2, 1, 0.25
+function A.SaleText(itemID)
+    local units, hours = A.Sold(itemID)
+    if not units or hours < WATCH_MIN then return nil end
+    local _, _, _, up = A.Latest(itemID)
+    local share = units * 24 / hours / math.max(1, up or 0)
+    if share >= FAST then return "|cff5fd35fsells fast|r" end
+    if share >= STEADY then return "|cffd8ccb0sells steadily|r" end
+    return "|cff9d917asells slowly|r"
+end
+
 local function FinishScan()
     reader:Hide()
     local items = 0
@@ -1269,8 +1283,9 @@ local function TooltipPrices(tooltip, data)
     if not houses and not none then return end
     if houses then tooltip:AddDoubleLine("Auction: usually" .. of, houses, r, g, b, 1, 1, 1) end
     if not day and not none then return end
-    local trend = A.TrendText(itemID)
-    if trend then tooltip:AddDoubleLine("Auction: lately", trend, r, g, b) end
+    local trend, sells = A.TrendText(itemID), A.SaleText(itemID)
+    local lately = trend and sells and (trend .. " · " .. sells) or trend or sells
+    if lately then tooltip:AddDoubleLine("Auction: lately", lately, r, g, b) end
     if none then
         tooltip:AddDoubleLine("Auction: lowest", "none listed", r, g, b, 0.62, 0.57, 0.48)
         return

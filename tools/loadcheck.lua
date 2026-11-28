@@ -1307,8 +1307,16 @@ local CHECKS = {
             })
             local units, hours = A.Sold(-3)
             assert(units == 4 and hours == 1, "sold " .. tostring(units) .. " in " .. tostring(hours) .. " h")
+            assert(A.SaleText(-3) == nil, "a speed from 1 h watched")
             Scan(T + 3600 + 9 * 3600, { { 1, 80, 80, "Fay", -3, 3 } })
             assert(A.Sold(-3) == 4, "scans 9 h apart compared")
+            -- (4 sold in 2 h watched, 1 up: fast; 4 a day of 20 up: slowly)
+            Scan(T + 11 * 3600, { { 1, 80, 80, "Fay", -3, 3 } })
+            assert(A.SaleText(-3):find("sells fast", 1, true), "fast: " .. tostring(A.SaleText(-3)))
+            local prices = A.Store()
+            prices.watched = { [A.Today()] = 24 * 3600 }
+            prices.items[-3] = { [A.Today()] = "80:80:20" }
+            assert(A.SaleText(-3):find("sells slowly", 1, true), "slowly: " .. tostring(A.SaleText(-3)))
         end)
         time = clock
         AH.GetNumReplicateItems, AH.GetReplicateItemInfo, AH.GetReplicateItemTimeLeft, S.scan,
